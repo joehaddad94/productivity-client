@@ -1,14 +1,7 @@
 import { Clock, Tag } from "lucide-react";
+import type { Note } from "@/lib/types";
 import { Badge } from "./ui/badge";
 import { cn } from "./ui/utils";
-
-export interface Note {
-  id: string;
-  title: string;
-  preview: string;
-  tags?: string[];
-  lastEdited: string;
-}
 
 interface NoteCardProps {
   note: Note;

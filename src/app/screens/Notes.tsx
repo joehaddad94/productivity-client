@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, Search, Bold, Italic, List, ListOrdered, Tag, MoreVertical } from "lucide-react";
-import { NoteCard, Note } from "@/app/components/NoteCard";
+import type { Note } from "@/lib/types";
+import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";

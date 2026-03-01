@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CheckCircle2, TrendingUp, Flame, Plus, FileText, CalendarDays, Check, MoreHorizontal } from "lucide-react";
-import { TaskCard, Task } from "@/app/components/TaskCard";
+import type { Task } from "@/lib/types";
+import { TaskCard } from "@/app/components/TaskCard";
 import { ProductivityWidget } from "@/app/components/ProductivityWidget";
 import { ActivityHeatmap } from "@/app/components/ActivityHeatmap";
 import { Button } from "@/app/components/ui/button";

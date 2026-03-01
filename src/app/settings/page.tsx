@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings } from "@/app/pages/Settings";
+import { Settings } from "@/app/screens/Settings";
 
 export default function SettingsPage() {
   return <Settings />;

@@ -1,6 +1,6 @@
 "use client";
 
-import { Dashboard } from "@/app/pages/Dashboard";
+import { Dashboard } from "@/app/screens/Dashboard";
 
 export default function HomePage() {
   return <Dashboard />;

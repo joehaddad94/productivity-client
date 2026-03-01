@@ -1,19 +1,8 @@
 import { Calendar, Flag, Tag } from "lucide-react";
+import type { Task } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
 import { Badge } from "./ui/badge";
 import { cn } from "./ui/utils";
-
-export interface Task {
-  id: string;
-  title: string;
-  completed: boolean;
-  dueDate?: string;
-  priority?: "low" | "medium" | "high";
-  tags?: string[];
-  status?: string;
-  overdue?: boolean;
-  project?: string;
-}
 
 interface TaskCardProps {
   task: Task;

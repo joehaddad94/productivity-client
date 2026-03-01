@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, Search, X } from "lucide-react";
-import { TaskCard, Task } from "@/app/components/TaskCard";
+import type { Task } from "@/lib/types";
+import { TaskCard } from "@/app/components/TaskCard";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";

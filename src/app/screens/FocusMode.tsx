@@ -1,16 +1,11 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { X, Play, Pause, RotateCcw, CheckCircle2 } from "lucide-react";
+import type { Subtask } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Progress } from "@/app/components/ui/progress";
 import { toast } from "sonner";
-
-interface Subtask {
-  id: string;
-  title: string;
-  completed: boolean;
-}
 
 const mockTask = {
   id: "1",
