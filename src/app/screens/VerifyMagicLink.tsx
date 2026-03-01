@@ -23,7 +23,7 @@ export function VerifyMagicLink() {
         await verifyMagicLink(token);
         setStatus("success");
         setTimeout(() => {
-          router.push("/");
+          router.push("/dashboard");
         }, 2000);
       } catch (error) {
         setStatus("error");

@@ -1,7 +1,19 @@
 "use client";
 
-import { Dashboard } from "@/app/screens/Dashboard";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Login } from "@/app/screens/Login";
+import { useAuth } from "@/app/context/AuthContext";
 
 export default function HomePage() {
-  return <Dashboard />;
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace("/dashboard");
+    }
+  }, [isAuthenticated, router]);
+
+  return <Login />;
 }

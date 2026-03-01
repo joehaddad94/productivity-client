@@ -1,51 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, CheckSquare, FileText, CalendarDays, BarChart3, Settings, Menu, X, Bell, Moon, Sun, LogOut } from "lucide-react";
-import { useState } from "react";
-import { useTheme } from "next-themes";
-import { useAuth } from "@/app/context/AuthContext";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
-import { toast } from "sonner";
-
-const navItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/tasks", label: "Tasks", icon: CheckSquare },
-  { path: "/notes", label: "Notes", icon: FileText },
-  { path: "/calendar", label: "Calendar", icon: CalendarDays },
-  { path: "/analytics", label: "Analytics", icon: BarChart3 },
-  { path: "/settings", label: "Settings", icon: Settings },
-];
-
-const authPaths = ["/login", "/signup", "/verify"];
-const focusPathPrefix = "/focus/";
-
-function isAuthOrFocusRoute(pathname: string) {
-  if (authPaths.some((p) => pathname === p)) return true;
-  if (pathname.startsWith(focusPathPrefix)) return true;
-  return false;
-}
+import { Menu, X, Bell, Moon, Sun, LogOut } from "lucide-react";
+import { useLayout } from "./useLayout";
+import { NAV_ITEMS } from "./types";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const pathname = usePathname();
-  const router = useRouter();
-  const { theme, setTheme } = useTheme();
-  const { logout } = useAuth();
-
-  const showSidebar = !isAuthOrFocusRoute(pathname ?? "");
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      router.push("/login");
-      toast.success("Logged out successfully!");
-    } catch (error) {
-      toast.error("Failed to log out.");
-    }
-  };
+  const {
+    showSidebar,
+    sidebarOpen,
+    toggleSidebar,
+    closeSidebar,
+    pathname,
+    theme,
+    toggleTheme,
+    handleLogout,
+  } = useLayout();
 
   if (!showSidebar) {
     return <>{children}</>;
@@ -56,7 +28,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-[var(--header-bg)] border-b border-gray-200 dark:border-gray-800 z-50 flex items-center justify-between px-4">
         <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
+          onClick={toggleSidebar}
           className="p-2 hover:bg-[var(--nav-hover)] rounded-lg"
         >
           {sidebarOpen ? <X className="size-5" /> : <Menu className="size-5" />}
@@ -68,7 +40,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Badge className="absolute -top-1 -right-1 size-4 p-0 flex items-center justify-center text-[10px]" variant="destructive">3</Badge>
           </button>
           <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            onClick={toggleTheme}
             className="p-2 hover:bg-[var(--nav-hover)] rounded-lg"
           >
             {theme === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
@@ -90,14 +62,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="flex-1 py-4 px-3 space-y-1">
-            {navItems.map((item) => {
+            {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
-              const isActive = item.path === "/" ? pathname === "/" : pathname?.startsWith(item.path) ?? false;
+              const isActive = item.path === "/dashboard" ? pathname === "/dashboard" : pathname?.startsWith(item.path) ?? false;
               return (
                 <Link
                   key={item.path}
                   href={item.path}
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={closeSidebar}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                     isActive
                       ? "bg-[var(--nav-active-bg)] text-primary"
@@ -136,7 +108,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {sidebarOpen && (
         <div
           className="lg:hidden fixed inset-0 bg-black/50 z-30"
-          onClick={() => setSidebarOpen(false)}
+          onClick={closeSidebar}
         />
       )}
 
@@ -148,7 +120,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Badge className="absolute -top-1 -right-1 size-4 p-0 flex items-center justify-center text-[10px]" variant="destructive">3</Badge>
             </button>
             <button
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={toggleTheme}
               className="p-2 hover:bg-[var(--nav-hover)] rounded-lg"
             >
               {theme === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
