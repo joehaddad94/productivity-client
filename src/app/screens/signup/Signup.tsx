@@ -1,53 +1,27 @@
-import { useState } from "react";
+"use client";
+
 import Link from "next/link";
 import { CheckCircle2, Mail, User, Loader2, Send, Inbox } from "lucide-react";
+import { useSignup } from "./useSignup";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Checkbox } from "@/app/components/ui/checkbox";
-import { useAuth } from "@/app/context/AuthContext";
-import { toast } from "sonner";
 
 export function Signup() {
-  const { signup } = useAuth();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [agreeToTerms, setAgreeToTerms] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!name || !email) {
-      toast.error("Please fill in all fields");
-      return;
-    }
-
-    if (!agreeToTerms) {
-      toast.error("Please agree to the terms and conditions");
-      return;
-    }
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await signup(name, email);
-      setEmailSent(true);
-      toast.success("Magic link sent! Check your email.");
-    } catch (error) {
-      toast.error("Failed to create account");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const {
+    name,
+    setName,
+    email,
+    setEmail,
+    agreeToTerms,
+    setAgreeToTerms,
+    isLoading,
+    emailSent,
+    handleSubmit,
+    useDifferentEmail,
+  } = useSignup();
 
   if (emailSent) {
     return (
@@ -73,11 +47,11 @@ export function Signup() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => setEmailSent(false)}
+                onClick={useDifferentEmail}
               >
                 Use a different email
               </Button>
-              
+
               <Button
                 variant="ghost"
                 className="w-full"
@@ -121,7 +95,7 @@ export function Signup() {
             </div>
             <h1 className="text-3xl font-bold">Productivity</h1>
           </div>
-          
+
           <div className="space-y-4">
             <h2 className="text-4xl font-bold leading-tight">
               Start your<br />
