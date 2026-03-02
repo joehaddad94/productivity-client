@@ -140,72 +140,77 @@ export function Signup() {
 
         {/* Right Side - Signup Form */}
         <Card className="w-full max-w-md mx-auto">
-          <CardHeader className="space-y-1">
+          <CardHeader className="space-y-1 pb-2">
             <CardTitle className="text-2xl">Create an account</CardTitle>
             <CardDescription>
               Enter your details to get started
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <CardContent className="pt-0">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="name" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Full Name
+                </Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
                   <Input
                     id="name"
                     type="text"
                     placeholder="John Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-11 bg-white dark:bg-gray-800/80 border-gray-200 dark:border-gray-600 shadow-sm focus-visible:ring-2"
                     disabled={isLoading}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Email address
+                </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="john@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-11 bg-white dark:bg-gray-800/80 border-gray-200 dark:border-gray-600 shadow-sm focus-visible:ring-2"
                     disabled={isLoading}
                   />
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400 pt-0.5">
                   We'll send you a magic link to sign in
                 </p>
               </div>
 
-              <div className="flex items-start space-x-2">
+              <div className="flex items-start gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 p-4">
                 <Checkbox
                   id="terms"
                   checked={agreeToTerms}
                   onCheckedChange={(checked) => setAgreeToTerms(checked as boolean)}
                   disabled={isLoading}
+                  className="mt-0.5"
                 />
                 <label
                   htmlFor="terms"
-                  className="text-sm text-gray-600 dark:text-gray-400 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  className="text-sm text-gray-600 dark:text-gray-400 leading-snug cursor-pointer"
                 >
                   I agree to the{" "}
-                  <Link href="/terms" className="text-primary hover:underline">
+                  <Link href="/terms" className="text-primary hover:underline font-medium">
                     Terms of Service
                   </Link>{" "}
                   and{" "}
-                  <Link href="/privacy" className="text-primary hover:underline">
+                  <Link href="/privacy" className="text-primary hover:underline font-medium">
                     Privacy Policy
                   </Link>
                 </label>
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full h-11 text-sm font-medium" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="size-4 mr-2 animate-spin" />
@@ -219,7 +224,7 @@ export function Signup() {
                 )}
               </Button>
 
-              <div className="text-center text-sm text-gray-600 dark:text-gray-400 pt-2">
+              <div className="text-center text-sm text-gray-600 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-800">
                 Already have an account?{" "}
                 <Link
                   href="/login"
@@ -230,7 +235,7 @@ export function Signup() {
               </div>
             </form>
 
-            <div className="mt-6 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <div className="mt-6 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
               <div className="flex items-start gap-2">
                 <Mail className="size-4 text-gray-500 mt-0.5 flex-shrink-0" />
                 <div className="text-xs text-gray-600 dark:text-gray-400">
