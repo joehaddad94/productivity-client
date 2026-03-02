@@ -160,7 +160,7 @@ export function Signup() {
                     placeholder="John Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="pl-10 h-11 bg-white dark:bg-gray-800/80 border-gray-200 dark:border-gray-600 shadow-sm focus-visible:ring-2"
+                    className="pl-10 h-11 bg-white dark:bg-gray-800/80 border-gray-200 dark:border-gray-600 shadow-sm focus-visible:ring-2 focus-visible:ring-emerald-100 focus-visible:border-emerald-200 dark:focus-visible:ring-emerald-900/40 dark:focus-visible:border-emerald-700"
                     disabled={isLoading}
                   />
                 </div>
@@ -178,7 +178,7 @@ export function Signup() {
                     placeholder="john@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-11 bg-white dark:bg-gray-800/80 border-gray-200 dark:border-gray-600 shadow-sm focus-visible:ring-2"
+                    className="pl-10 h-11 bg-white dark:bg-gray-800/80 border-gray-200 dark:border-gray-600 shadow-sm focus-visible:ring-2 focus-visible:ring-emerald-100 focus-visible:border-emerald-200 dark:focus-visible:ring-emerald-900/40 dark:focus-visible:border-emerald-700"
                     disabled={isLoading}
                   />
                 </div>
