@@ -26,7 +26,7 @@ export function Login() {
           email={email}
           message="Click the link in the email to sign in to your account. The link will expire in 15 minutes."
           onUseDifferentEmail={useDifferentEmail}
-          onResend={() => handleSubmit({ preventDefault: () => {} } as React.FormEvent)}
+          onResend={() => handleSubmit({ preventDefault: () => {} })}
           isLoading={isLoading}
           alternateLink={{ href: "/signup", prompt: "Don't have an account?", label: "Sign up" }}
         />
