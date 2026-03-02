@@ -9,7 +9,6 @@ export function useSignup() {
   const { signup } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
@@ -18,11 +17,6 @@ export function useSignup() {
 
     if (!name || !email) {
       toast.error("Please fill in all fields");
-      return;
-    }
-
-    if (!agreeToTerms) {
-      toast.error("Please agree to the terms and conditions");
       return;
     }
 
@@ -50,8 +44,6 @@ export function useSignup() {
     setName,
     email,
     setEmail,
-    agreeToTerms,
-    setAgreeToTerms,
     isLoading,
     emailSent,
     handleSubmit,

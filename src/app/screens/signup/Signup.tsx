@@ -1,13 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { CheckCircle2, Mail, User, Loader2, Send, ListTodo, Flag, Zap, Shield } from "lucide-react";
 import { useSignup } from "./useSignup";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
-import { Checkbox } from "@/app/components/ui/checkbox";
 import {
   AuthScreenWrap,
   CheckEmailCard,
@@ -58,8 +56,6 @@ export function Signup() {
     setName,
     email,
     setEmail,
-    agreeToTerms,
-    setAgreeToTerms,
     isLoading,
     emailSent,
     handleSubmit,
@@ -100,7 +96,7 @@ export function Signup() {
               productivity journey
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-400">
-              Organize tasks, track progress, and get things done. Sign up with just your email—no
+              Organize tasks, track progress, and get things done. Sign up with just your email - no
               password required.
             </p>
           </div>
@@ -172,28 +168,10 @@ export function Signup() {
                 </p>
               </div>
 
-              <div className="flex items-start gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 p-4">
-                <Checkbox
-                  id="terms"
-                  checked={agreeToTerms}
-                  onCheckedChange={(checked) => setAgreeToTerms(checked as boolean)}
-                  disabled={isLoading}
-                  className="mt-0.5"
-                />
-                <label
-                  htmlFor="terms"
-                  className="text-sm text-gray-600 dark:text-gray-400 leading-snug cursor-pointer"
-                >
-                  I agree to the{" "}
-                  <Link href="/terms" className="text-primary hover:underline font-medium">
-                    Terms of Service
-                  </Link>{" "}
-                  and{" "}
-                  <Link href="/privacy" className="text-primary hover:underline font-medium">
-                    Privacy Policy
-                  </Link>
-                </label>
-              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                By signing up you'll receive a sign-in link at this email. We only use it for
+                account access—no marketing.
+              </p>
 
               <Button type="submit" className="w-full h-11 text-sm font-medium" disabled={isLoading}>
                 {isLoading ? (
