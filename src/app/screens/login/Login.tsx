@@ -1,49 +1,26 @@
-import { useState } from "react";
+"use client";
+
 import Link from "next/link";
 import { CheckCircle2, Mail, Loader2, Send, Inbox } from "lucide-react";
+import { useLogin } from "./useLogin";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
-import { useAuth } from "@/app/context/AuthContext";
-import { toast } from "sonner";
 
 export function Login() {
-  const { sendMagicLink } = useAuth();
-  const [email, setEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email) {
-      toast.error("Please enter your email address");
-      return;
-    }
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await sendMagicLink(email);
-      setEmailSent(true);
-      toast.success("Magic link sent! Check your email.");
-    } catch (error) {
-      toast.error("Failed to send magic link");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const {
+    email,
+    setEmail,
+    isLoading,
+    emailSent,
+    handleSubmit,
+    useDifferentEmail,
+  } = useLogin();
 
   if (emailSent) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50/50 via-white to-emerald-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-100/80 via-emerald-50 to-teal-100/70 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
         <Card className="w-full max-w-md mx-auto">
           <CardHeader className="text-center space-y-4">
             <div className="size-16 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center mx-auto">
@@ -65,11 +42,11 @@ export function Login() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => setEmailSent(false)}
+                onClick={useDifferentEmail}
               >
                 Use a different email
               </Button>
-              
+
               <Button
                 variant="ghost"
                 className="w-full"
@@ -103,7 +80,7 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50/50 via-white to-emerald-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-100/80 via-emerald-50 to-teal-100/70 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
         {/* Left Side - Branding */}
         <div className="hidden lg:block space-y-6">
@@ -113,7 +90,7 @@ export function Login() {
             </div>
             <h1 className="text-3xl font-bold">Productivity</h1>
           </div>
-          
+
           <div className="space-y-4">
             <h2 className="text-4xl font-bold leading-tight">
               Stay focused.<br />
@@ -136,7 +113,7 @@ export function Login() {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-3">
               <div className="size-8 rounded-lg bg-purple-100 dark:bg-purple-950 flex items-center justify-center flex-shrink-0">
                 <CheckCircle2 className="size-4 text-purple-600 dark:text-purple-400" />
@@ -148,7 +125,7 @@ export function Login() {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-3">
               <div className="size-8 rounded-lg bg-green-100 dark:bg-green-950 flex items-center justify-center flex-shrink-0">
                 <CheckCircle2 className="size-4 text-green-600 dark:text-green-400" />
@@ -165,35 +142,37 @@ export function Login() {
 
         {/* Right Side - Login Form */}
         <Card className="w-full max-w-md mx-auto">
-          <CardHeader className="space-y-1">
+          <CardHeader className="space-y-1 pb-2">
             <CardTitle className="text-2xl">Welcome back</CardTitle>
             <CardDescription>
               Enter your email to receive a magic link
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <CardContent className="pt-0">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Email address
+                </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="john@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-11 bg-white dark:bg-gray-800/80 border-gray-200 dark:border-gray-600 shadow-sm focus-visible:ring-2"
                     disabled={isLoading}
                     autoFocus
                   />
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400 pt-0.5">
                   We'll email you a magic link for a password-free sign in.
                 </p>
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full h-11 text-sm font-medium" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="size-4 mr-2 animate-spin" />
@@ -207,7 +186,7 @@ export function Login() {
                 )}
               </Button>
 
-              <div className="text-center text-sm text-gray-600 dark:text-gray-400 pt-2">
+              <div className="text-center text-sm text-gray-600 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-800">
                 Don't have an account?{" "}
                 <Link
                   href="/signup"
@@ -218,11 +197,11 @@ export function Login() {
               </div>
             </form>
 
-            <div className="mt-6 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <div className="mt-6 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
               <div className="flex items-start gap-2">
                 <Mail className="size-4 text-gray-500 mt-0.5 flex-shrink-0" />
                 <div className="text-xs text-gray-600 dark:text-gray-400">
-                  <strong className="text-gray-900 dark:text-gray-100">For demo purposes:</strong> Click "Send magic link" and you'll see a confirmation screen. In production, you'd receive an actual email with a secure login link.
+                  <strong className="text-gray-900 dark:text-gray-100">Tip:</strong> Check your spam or promotions folder if you don't see the email. The link expires in 15 minutes - request a new one if needed.
                 </div>
               </div>
             </div>

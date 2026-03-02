@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Login } from "@/app/screens/Login";
+import { Login } from "@/app/screens/login/Login";
 import { useAuth } from "@/app/context/AuthContext";
 
 export default function HomePage() {
