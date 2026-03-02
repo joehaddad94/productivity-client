@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Mail, User, Loader2, Send, Inbox } from "lucide-react";
+import { CheckCircle2, Mail, User, Loader2, Send, Inbox, ListTodo, Flag, Zap, Shield } from "lucide-react";
 import { useSignup } from "./useSignup";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -25,7 +25,7 @@ export function Signup() {
 
   if (emailSent) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50/50 via-white to-emerald-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-100/80 via-emerald-50 to-teal-100/70 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
         <Card className="w-full max-w-md mx-auto">
           <CardHeader className="text-center space-y-4">
             <div className="size-16 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center mx-auto">
@@ -85,7 +85,7 @@ export function Signup() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50/50 via-white to-emerald-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-100/80 via-emerald-50 to-teal-100/70 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
         {/* Left Side - Branding */}
         <div className="hidden lg:block space-y-6">
@@ -102,26 +102,38 @@ export function Signup() {
               productivity journey
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-400">
-              Join thousands of users who achieve more every day. No password required.
+              Organize tasks, track progress, and get things done. Sign up with just your email - no password required.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-8">
-            <div className="p-4 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-              <div className="text-3xl font-bold text-primary mb-1">10k+</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Active Users</div>
+            <div className="group p-4 rounded-xl bg-white/90 dark:bg-gray-900 border border-emerald-200/70 dark:border-gray-700 shadow-sm shadow-emerald-200/30 dark:shadow-none hover:shadow-md hover:shadow-emerald-200/40 dark:hover:border-emerald-800/50 transition-all duration-200">
+              <div className="size-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mb-3 text-emerald-600 dark:text-emerald-400">
+                <ListTodo className="size-4" />
+              </div>
+              <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-0.5">Track tasks</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Lists and due dates</div>
             </div>
-            <div className="p-4 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-              <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">1M+</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Tasks Completed</div>
+            <div className="group p-4 rounded-xl bg-white/90 dark:bg-gray-900 border border-teal-200/70 dark:border-gray-700 shadow-sm shadow-teal-200/30 dark:shadow-none hover:shadow-md hover:shadow-teal-200/40 dark:hover:border-teal-800/50 transition-all duration-200">
+              <div className="size-9 rounded-lg bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center mb-3 text-teal-600 dark:text-teal-400">
+                <Flag className="size-4" />
+              </div>
+              <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-0.5">Set priorities</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Focus on what matters</div>
             </div>
-            <div className="p-4 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-              <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-1">4.9</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Rating</div>
+            <div className="group p-4 rounded-xl bg-white/90 dark:bg-gray-900 border border-amber-200/70 dark:border-gray-700 shadow-sm shadow-amber-200/30 dark:shadow-none hover:shadow-md hover:shadow-amber-200/40 dark:hover:border-amber-800/50 transition-all duration-200">
+              <div className="size-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center mb-3 text-amber-600 dark:text-amber-400">
+                <Zap className="size-4" />
+              </div>
+              <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-0.5">Simple & fast</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Clean, minimal interface</div>
             </div>
-            <div className="p-4 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-              <div className="text-3xl font-bold text-orange-600 dark:text-orange-400 mb-1">24/7</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Support</div>
+            <div className="group p-4 rounded-xl bg-white/90 dark:bg-gray-900 border border-sky-200/70 dark:border-gray-700 shadow-sm shadow-sky-200/30 dark:shadow-none hover:shadow-md hover:shadow-sky-200/40 dark:hover:border-sky-800/50 transition-all duration-200">
+              <div className="size-9 rounded-lg bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center mb-3 text-sky-600 dark:text-sky-400">
+                <Shield className="size-4" />
+              </div>
+              <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-0.5">Your data</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Stay in control</div>
             </div>
           </div>
         </div>
