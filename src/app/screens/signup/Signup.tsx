@@ -1,13 +1,56 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Mail, User, Loader2, Send, Inbox, ListTodo, Flag, Zap, Shield } from "lucide-react";
+import { CheckCircle2, Mail, User, Loader2, Send, ListTodo, Flag, Zap, Shield } from "lucide-react";
 import { useSignup } from "./useSignup";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Checkbox } from "@/app/components/ui/checkbox";
+import {
+  AuthScreenWrap,
+  CheckEmailCard,
+  AuthTipBox,
+  AuthFormLink,
+  AUTH_INPUT_CLASS,
+  AUTH_LABEL_CLASS,
+} from "@/app/components/auth";
+
+const FEATURES = [
+  {
+    icon: ListTodo,
+    iconClass: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400",
+    cardClass:
+      "border-emerald-200/70 dark:border-gray-700 shadow-sm shadow-emerald-200/30 dark:shadow-none hover:shadow-md hover:shadow-emerald-200/40 dark:hover:border-emerald-800/50",
+    title: "Track tasks",
+    desc: "Lists and due dates",
+  },
+  {
+    icon: Flag,
+    iconClass: "bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400",
+    cardClass:
+      "border-teal-200/70 dark:border-gray-700 shadow-sm shadow-teal-200/30 dark:shadow-none hover:shadow-md hover:shadow-teal-200/40 dark:hover:border-teal-800/50",
+    title: "Set priorities",
+    desc: "Focus on what matters",
+  },
+  {
+    icon: Zap,
+    iconClass: "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400",
+    cardClass:
+      "border-amber-200/70 dark:border-gray-700 shadow-sm shadow-amber-200/30 dark:shadow-none hover:shadow-md hover:shadow-amber-200/40 dark:hover:border-amber-800/50",
+    title: "Simple & fast",
+    desc: "Clean, minimal interface",
+  },
+  {
+    icon: Shield,
+    iconClass: "bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400",
+    cardClass:
+      "border-sky-200/70 dark:border-gray-700 shadow-sm shadow-sky-200/30 dark:shadow-none hover:shadow-md hover:shadow-sky-200/40 dark:hover:border-sky-800/50",
+    title: "Your data",
+    desc: "Stay in control",
+  },
+] as const;
 
 export function Signup() {
   const {
@@ -25,69 +68,23 @@ export function Signup() {
 
   if (emailSent) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-100/80 via-emerald-50 to-teal-100/70 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md mx-auto">
-          <CardHeader className="text-center space-y-4">
-            <div className="size-16 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center mx-auto">
-              <Inbox className="size-8 text-primary" />
-            </div>
-            <CardTitle className="text-2xl">Check your email</CardTitle>
-            <CardDescription className="text-base">
-              We've sent a magic link to <strong>{email}</strong>
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-900">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                Click the link in the email to activate your account and sign in. The link will expire in 15 minutes.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={useDifferentEmail}
-              >
-                Use a different email
-              </Button>
-
-              <Button
-                variant="ghost"
-                className="w-full"
-                onClick={handleSubmit}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="size-4 mr-2 animate-spin" />
-                    Resending...
-                  </>
-                ) : (
-                  "Resend magic link"
-                )}
-              </Button>
-            </div>
-
-            <div className="text-center text-sm text-gray-600 dark:text-gray-400 pt-4 border-t">
-              Already have an account?{" "}
-              <Link
-                href="/login"
-                className="text-primary hover:underline font-medium"
-              >
-                Sign in
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthScreenWrap>
+        <CheckEmailCard
+          email={email}
+          message="Click the link in the email to activate your account and sign in. The link will expire in 15 minutes."
+          onUseDifferentEmail={useDifferentEmail}
+          onResend={() => handleSubmit({ preventDefault: () => {} } as React.FormEvent)}
+          isLoading={isLoading}
+          alternateLink={{ href: "/login", prompt: "Already have an account?", label: "Sign in" }}
+        />
+      </AuthScreenWrap>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-100/80 via-emerald-50 to-teal-100/70 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
+    <AuthScreenWrap>
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-        {/* Left Side - Branding */}
+        {/* Left - Branding */}
         <div className="hidden lg:block space-y-6">
           <div className="flex items-center gap-3">
             <div className="size-12 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center">
@@ -98,58 +95,46 @@ export function Signup() {
 
           <div className="space-y-4">
             <h2 className="text-4xl font-bold leading-tight">
-              Start your<br />
+              Start your
+              <br />
               productivity journey
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-400">
-              Organize tasks, track progress, and get things done. Sign up with just your email - no password required.
+              Organize tasks, track progress, and get things done. Sign up with just your email—no
+              password required.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-8">
-            <div className="group p-4 rounded-xl bg-white/90 dark:bg-gray-900 border border-emerald-200/70 dark:border-gray-700 shadow-sm shadow-emerald-200/30 dark:shadow-none hover:shadow-md hover:shadow-emerald-200/40 dark:hover:border-emerald-800/50 transition-all duration-200">
-              <div className="size-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mb-3 text-emerald-600 dark:text-emerald-400">
-                <ListTodo className="size-4" />
+            {FEATURES.map(({ icon: Icon, iconClass, cardClass, title, desc }) => (
+              <div
+                key={title}
+                className={`group p-4 rounded-xl bg-white/90 dark:bg-gray-900 border transition-all duration-200 ${cardClass}`}
+              >
+                <div
+                  className={`size-9 rounded-lg flex items-center justify-center mb-3 ${iconClass}`}
+                >
+                  <Icon className="size-4" />
+                </div>
+                <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-0.5">
+                  {title}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">{desc}</div>
               </div>
-              <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-0.5">Track tasks</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Lists and due dates</div>
-            </div>
-            <div className="group p-4 rounded-xl bg-white/90 dark:bg-gray-900 border border-teal-200/70 dark:border-gray-700 shadow-sm shadow-teal-200/30 dark:shadow-none hover:shadow-md hover:shadow-teal-200/40 dark:hover:border-teal-800/50 transition-all duration-200">
-              <div className="size-9 rounded-lg bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center mb-3 text-teal-600 dark:text-teal-400">
-                <Flag className="size-4" />
-              </div>
-              <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-0.5">Set priorities</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Focus on what matters</div>
-            </div>
-            <div className="group p-4 rounded-xl bg-white/90 dark:bg-gray-900 border border-amber-200/70 dark:border-gray-700 shadow-sm shadow-amber-200/30 dark:shadow-none hover:shadow-md hover:shadow-amber-200/40 dark:hover:border-amber-800/50 transition-all duration-200">
-              <div className="size-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center mb-3 text-amber-600 dark:text-amber-400">
-                <Zap className="size-4" />
-              </div>
-              <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-0.5">Simple & fast</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Clean, minimal interface</div>
-            </div>
-            <div className="group p-4 rounded-xl bg-white/90 dark:bg-gray-900 border border-sky-200/70 dark:border-gray-700 shadow-sm shadow-sky-200/30 dark:shadow-none hover:shadow-md hover:shadow-sky-200/40 dark:hover:border-sky-800/50 transition-all duration-200">
-              <div className="size-9 rounded-lg bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center mb-3 text-sky-600 dark:text-sky-400">
-                <Shield className="size-4" />
-              </div>
-              <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-0.5">Your data</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Stay in control</div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Right Side - Signup Form */}
+        {/* Right - Form */}
         <Card className="w-full max-w-md mx-auto">
           <CardHeader className="space-y-1 pb-2">
             <CardTitle className="text-2xl">Create an account</CardTitle>
-            <CardDescription>
-              Enter your details to get started
-            </CardDescription>
+            <CardDescription>Enter your details to get started</CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <Label htmlFor="name" className={AUTH_LABEL_CLASS}>
                   Full Name
                 </Label>
                 <div className="relative">
@@ -160,14 +145,14 @@ export function Signup() {
                     placeholder="John Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="pl-10 h-11 bg-white dark:bg-gray-800/80 border-gray-200 dark:border-gray-600 shadow-sm focus-visible:ring-2 focus-visible:ring-emerald-100 focus-visible:border-emerald-200 dark:focus-visible:ring-emerald-900/40 dark:focus-visible:border-emerald-700"
+                    className={AUTH_INPUT_CLASS}
                     disabled={isLoading}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <Label htmlFor="email" className={AUTH_LABEL_CLASS}>
                   Email address
                 </Label>
                 <div className="relative">
@@ -178,7 +163,7 @@ export function Signup() {
                     placeholder="john@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-11 bg-white dark:bg-gray-800/80 border-gray-200 dark:border-gray-600 shadow-sm focus-visible:ring-2 focus-visible:ring-emerald-100 focus-visible:border-emerald-200 dark:focus-visible:ring-emerald-900/40 dark:focus-visible:border-emerald-700"
+                    className={AUTH_INPUT_CLASS}
                     disabled={isLoading}
                   />
                 </div>
@@ -224,28 +209,16 @@ export function Signup() {
                 )}
               </Button>
 
-              <div className="text-center text-sm text-gray-600 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-800">
-                Already have an account?{" "}
-                <Link
-                  href="/login"
-                  className="text-primary hover:underline font-medium"
-                >
-                  Sign in
-                </Link>
-              </div>
+              <AuthFormLink prompt="Already have an account?" href="/login" label="Sign in" />
             </form>
 
-            <div className="mt-6 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-              <div className="flex items-start gap-2">
-                <Mail className="size-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-gray-600 dark:text-gray-400">
-                  <strong className="text-gray-900 dark:text-gray-100">Passwordless signup:</strong> We'll send a secure magic link to your email. Click it to activate your account instantly.
-                </div>
-              </div>
-            </div>
+            <AuthTipBox title="Passwordless signup:">
+              We'll send a secure magic link to your email. Click it to activate your account
+              instantly.
+            </AuthTipBox>
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AuthScreenWrap>
   );
 }
