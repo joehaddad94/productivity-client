@@ -52,6 +52,23 @@
   --nav-active-bg: rgba(4, 120, 87, 0.1);
 }
 
+/* Toast: more visible position and clear error styling */
+[data-sonner-toaster] {
+  --offset-top: 1rem;
+}
+[data-sonner-toast][data-type="error"] {
+  background: color-mix(in srgb, var(--destructive) 12%, white) !important;
+  border-color: color-mix(in srgb, var(--destructive) 50%, transparent) !important;
+  color: var(--destructive) !important;
+  font-weight: 500;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--destructive) 25%, transparent);
+}
+html.dark [data-sonner-toast][data-type="error"] {
+  background: color-mix(in srgb, var(--destructive) 22%, var(--background)) !important;
+  border-color: color-mix(in srgb, var(--destructive) 55%, transparent) !important;
+  color: hsl(0 85% 95%) !important;
+}
+
 @theme inline {
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);

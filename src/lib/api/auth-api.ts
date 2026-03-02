@@ -1,6 +1,10 @@
 /**
  * Auth API client. All requests use credentials: 'include' so the HttpOnly session cookie is sent.
  * Set NEXT_PUBLIC_API_URL to your API root (e.g. http://localhost:3000) or leave unset for same-origin.
+ *
+ * Magic link in email: the link must point to the FRONTEND /verify route, e.g. https://yourapp.com/verify?token=...
+ * Configure the backend (e.g. APP_URL) to use the frontend origin so users land on this app; the frontend
+ * then calls GET /auth/verify?token=... and redirects to the dashboard.
  */
 
 const API_BASE =
