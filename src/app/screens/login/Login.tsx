@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Mail, Loader2, Send, Inbox } from "lucide-react";
+import { CheckCircle2, Mail, Loader2, Send, Inbox, KeyRound, Timer, BarChart3 } from "lucide-react";
 import { useLogin } from "./useLogin";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -104,7 +104,7 @@ export function Login() {
           <div className="space-y-4 pt-8">
             <div className="flex items-start gap-3">
               <div className="size-8 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <CheckCircle2 className="size-4 text-primary" />
+                <KeyRound className="size-4 text-primary" />
               </div>
               <div>
                 <h3 className="font-semibold mb-1">Passwordless Login</h3>
@@ -116,7 +116,7 @@ export function Login() {
 
             <div className="flex items-start gap-3">
               <div className="size-8 rounded-lg bg-purple-100 dark:bg-purple-950 flex items-center justify-center flex-shrink-0">
-                <CheckCircle2 className="size-4 text-purple-600 dark:text-purple-400" />
+                <Timer className="size-4 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
                 <h3 className="font-semibold mb-1">Focus Mode</h3>
@@ -128,7 +128,7 @@ export function Login() {
 
             <div className="flex items-start gap-3">
               <div className="size-8 rounded-lg bg-green-100 dark:bg-green-950 flex items-center justify-center flex-shrink-0">
-                <CheckCircle2 className="size-4 text-green-600 dark:text-green-400" />
+                <BarChart3 className="size-4 text-green-600 dark:text-green-400" />
               </div>
               <div>
                 <h3 className="font-semibold mb-1">Analytics & Insights</h3>
