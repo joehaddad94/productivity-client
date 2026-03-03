@@ -86,7 +86,7 @@ export function Signup() {
             <div className="size-12 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center">
               <CheckCircle2 className="size-7 text-white" />
             </div>
-            <h1 className="text-3xl font-bold">Productivity</h1>
+            <h1 className="text-3xl font-bold">Tasky</h1>
           </div>
 
           <div className="space-y-4">

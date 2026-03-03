@@ -95,7 +95,7 @@ export function Dashboard() {
   const stats = [
     { label: "Tasks Completed", value: completedToday, change: "+2 from yesterday", icon: CheckCircle2 },
     { label: "Total Tasks", value: tasks.length, change: "+3 this week", icon: FileText },
-    { label: "Productivity", value: "85%", change: "+5% from last week", icon: TrendingUp },
+    { label: "Score", value: "85%", change: "+5% from last week", icon: TrendingUp },
     { label: "Streak", value: "7 days", change: "Keep it up!", icon: Flame },
   ];
 
@@ -210,7 +210,7 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Productivity Overview */}
+        {/* Overview */}
         <div className="space-y-4">
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 dark:border-l-primary/40 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/20 dark:hover:border-primary/30 p-4">
             <h2 className="font-semibold mb-4">Activity</h2>

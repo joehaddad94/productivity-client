@@ -33,7 +33,7 @@ const initialNotes: Note[] = [
   },
   {
     id: "4",
-    title: "Research Notes - Productivity Tools",
+    title: "Research Notes - Tasky",
     preview: "Comparison of different productivity methodologies: GTD, Time Blocking, Pomodoro Technique. Key insights...",
     tags: ["Research"],
     lastEdited: "1 week ago",

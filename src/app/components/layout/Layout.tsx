@@ -46,7 +46,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         >
           {sidebarOpen ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
-        <h1 className="font-semibold">Productivity</h1>
+        <h1 className="font-semibold">Tasky</h1>
         <div className="flex items-center gap-2">
           <button className="p-2 hover:bg-[var(--nav-hover)] rounded-lg relative">
             <Bell className="size-5" />
@@ -72,7 +72,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       >
         <div className="h-full flex flex-col">
           <div className="h-14 flex items-center px-6 border-b border-gray-200 dark:border-gray-800">
-            <h1 className="font-bold text-lg">Productivity</h1>
+            <h1 className="font-bold text-lg">Tasky</h1>
           </div>
 
           <nav className="flex-1 py-4 px-3 space-y-1">

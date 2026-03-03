@@ -1,5 +1,5 @@
 /**
- * Shared types for the Productivity app.
+ * Shared types for the Tasky app.
  * Use these across components, screens, API, and context.
  */
 
