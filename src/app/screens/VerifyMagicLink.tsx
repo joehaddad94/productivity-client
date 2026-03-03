@@ -42,7 +42,7 @@ export function VerifyMagicLink() {
               </div>
               <CardTitle className="text-2xl">Verifying your link</CardTitle>
               <CardDescription className="text-base">
-                Please wait while we verify your magic link...
+                Please wait while we verify your link...
               </CardDescription>
             </>
           )}
@@ -66,7 +66,7 @@ export function VerifyMagicLink() {
               </div>
               <CardTitle className="text-2xl">Invalid or expired link</CardTitle>
               <CardDescription className="text-base">
-                This magic link is no longer valid. It may have expired or already been used.
+                This link is no longer valid. It may have expired or already been used.
               </CardDescription>
             </>
           )}
@@ -79,7 +79,7 @@ export function VerifyMagicLink() {
                 className="w-full"
                 onClick={() => router.push("/login")}
               >
-                Request a new magic link
+                Request a new sign-in link
               </Button>
               <Button
                 variant="outline"

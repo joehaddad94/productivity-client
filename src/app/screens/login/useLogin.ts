@@ -28,9 +28,9 @@ export function useLogin() {
     try {
       await sendMagicLink(email);
       setEmailSent(true);
-      toast.success("Magic link sent! Check your email.");
+      toast.success("Sign-in link sent! Check your email.");
     } catch (error) {
-      toast.error("Failed to send magic link");
+      toast.error("Failed to send sign-in link");
     } finally {
       setIsLoading(false);
     }

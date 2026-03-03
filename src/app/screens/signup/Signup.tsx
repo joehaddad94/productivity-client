@@ -164,7 +164,7 @@ export function Signup() {
                   />
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 pt-0.5">
-                  We'll send you a magic link to sign in
+                  We'll send you a sign-in link
                 </p>
               </div>
 
@@ -191,7 +191,7 @@ export function Signup() {
             </form>
 
             <AuthTipBox title="Passwordless signup:">
-              We'll send a secure magic link to your email. Click it to activate your account
+              We'll send a secure sign-in link to your email. Click it to activate your account
               instantly.
             </AuthTipBox>
           </CardContent>

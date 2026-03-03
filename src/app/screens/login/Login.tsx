@@ -63,7 +63,7 @@ export function Login() {
                 icon: KeyRound,
                 iconClass: "bg-primary/10 dark:bg-primary/20 text-primary",
                 title: "Passwordless Login",
-                desc: "Secure magic link authentication directly to your inbox",
+                desc: "Secure sign-in link sent directly to your inbox",
               },
               {
                 icon: Timer,
@@ -97,7 +97,7 @@ export function Login() {
         <Card className="w-full max-w-md mx-auto">
           <CardHeader className="space-y-1 pb-2">
             <CardTitle className="text-2xl">Welcome back</CardTitle>
-            <CardDescription>Enter your email to receive a magic link</CardDescription>
+            <CardDescription>Enter your email to receive a sign-in link</CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -119,7 +119,7 @@ export function Login() {
                   />
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 pt-0.5">
-                  We'll email you a magic link for a password-free sign in.
+                  We'll email you a sign-in link for a password-free sign in.
                 </p>
               </div>
 
@@ -127,12 +127,12 @@ export function Login() {
                 {isLoading ? (
                   <>
                     <Loader2 className="size-4 mr-2 animate-spin" />
-                    Sending magic link...
+                    Sending sign-in link...
                   </>
                 ) : (
                   <>
                     <Send className="size-4 mr-2" />
-                    Send magic link
+                    Send sign-in link
                   </>
                 )}
               </Button>

@@ -29,7 +29,7 @@ export function useSignup() {
     try {
       await signup(name, email);
       setEmailSent(true);
-      toast.success("Magic link sent! Check your email.");
+      toast.success("Sign-in link sent! Check your email.");
     } catch (error) {
       toast.error("Failed to create account");
     } finally {

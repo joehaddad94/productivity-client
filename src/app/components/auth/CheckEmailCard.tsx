@@ -30,7 +30,7 @@ export function CheckEmailCard({
         </div>
         <CardTitle className="text-2xl">Check your email</CardTitle>
         <CardDescription className="text-base">
-          We've sent a magic link to <strong>{email}</strong>
+          We've sent a sign-in link to <strong>{email}</strong>
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -49,7 +49,7 @@ export function CheckEmailCard({
                 Resending...
               </>
             ) : (
-              "Resend magic link"
+              "Resend sign-in link"
             )}
           </Button>
         </div>
