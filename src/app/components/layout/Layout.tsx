@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, X, Bell, Moon, Sun, LogOut } from "lucide-react";
+import { Menu, X, Bell, Moon, Sun, LogOut, Loader2 } from "lucide-react";
 import { useLayout } from "./useLayout";
 import { NAV_ITEMS } from "./types";
 import { Button } from "../ui/button";
@@ -18,6 +18,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     toggleTheme,
     handleLogout,
     user,
+    isLoggingOut,
   } = useLayout();
 
   const initials =
@@ -107,11 +108,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <Button
               onClick={handleLogout}
+              disabled={isLoggingOut}
               className="mt-2 w-full"
               variant="destructive"
             >
-              <LogOut className="size-4 mr-2" />
-              Logout
+              {isLoggingOut ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Logging out...
+                </>
+              ) : (
+                <>
+                  <LogOut className="size-4 mr-2" />
+                  Logout
+                </>
+              )}
             </Button>
           </div>
         </div>
