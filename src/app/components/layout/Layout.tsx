@@ -17,7 +17,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
     theme,
     toggleTheme,
     handleLogout,
+    user,
   } = useLayout();
+
+  const initials =
+    user?.name?.trim()
+      ? user.name
+          .trim()
+          .split(/\s+/)
+          .map((w) => w[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase() || user?.email?.slice(0, 2).toUpperCase() || "?"
+      : user?.email?.slice(0, 2).toUpperCase() || "?";
 
   if (!showSidebar) {
     return <>{children}</>;
@@ -86,11 +98,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="p-3 border-t border-gray-200 dark:border-gray-800">
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--nav-hover)] cursor-pointer">
               <div className="size-8 rounded-full bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center text-white text-sm font-medium">
-                JD
+                {initials}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">John Doe</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">john@example.com</div>
+                <div className="text-sm font-medium truncate">{user?.name ?? "User"}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email ?? ""}</div>
               </div>
             </div>
             <Button

@@ -18,7 +18,7 @@ export function useLayout() {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const showSidebar = !isAuthOrFocusRoute(pathname ?? "");
 
@@ -45,5 +45,6 @@ export function useLayout() {
     theme,
     toggleTheme,
     handleLogout,
+    user,
   };
 }
