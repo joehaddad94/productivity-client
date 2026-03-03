@@ -56,7 +56,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             onClick={toggleTheme}
             className="p-2 hover:bg-[var(--nav-hover)] rounded-lg"
           >
-            {theme === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
+            <Sun className="size-5 hidden dark:block" aria-hidden />
+            <Moon className="size-5 block dark:hidden" aria-hidden />
           </button>
         </div>
       </div>
@@ -146,7 +147,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
               onClick={toggleTheme}
               className="p-2 hover:bg-[var(--nav-hover)] rounded-lg"
             >
-              {theme === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
+              <Sun className="size-5 hidden dark:block" aria-hidden />
+              <Moon className="size-5 block dark:hidden" aria-hidden />
             </button>
           </div>
         </div>
