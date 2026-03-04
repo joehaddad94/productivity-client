@@ -50,6 +50,8 @@ const FEATURES = [
   },
 ] as const;
 
+const SIGNUP_ALTERNATE_LINK = { href: "/login", prompt: "Already have an account?", label: "Sign in" } as const;
+
 export function Signup() {
   const {
     name,
@@ -60,6 +62,7 @@ export function Signup() {
     emailSent,
     handleSubmit,
     useDifferentEmail,
+    onResend,
   } = useSignup();
 
   if (emailSent) {
@@ -69,9 +72,9 @@ export function Signup() {
           email={email}
           message="Click the link in the email to activate your account and sign in. The link will expire in 15 minutes."
           onUseDifferentEmail={useDifferentEmail}
-          onResend={() => handleSubmit({ preventDefault: () => {} })}
+          onResend={onResend}
           isLoading={isLoading}
-          alternateLink={{ href: "/login", prompt: "Already have an account?", label: "Sign in" }}
+          alternateLink={SIGNUP_ALTERNATE_LINK}
         />
       </AuthScreenWrap>
     );

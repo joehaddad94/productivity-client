@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useAuth } from "@/app/context/AuthContext";
 import { toast } from "sonner";
 import { EMAIL_REGEX } from "./types";
@@ -12,32 +12,39 @@ export function useSignup() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
-  const handleSubmit = async (e: { preventDefault(): void }) => {
-    e.preventDefault();
+  const handleSubmit = useCallback(
+    async (e: { preventDefault(): void }) => {
+      e.preventDefault();
 
-    if (!name || !email) {
-      toast.error("Please fill in all fields");
-      return;
-    }
+      if (!name || !email) {
+        toast.error("Please fill in all fields");
+        return;
+      }
 
-    if (!EMAIL_REGEX.test(email)) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
+      if (!EMAIL_REGEX.test(email)) {
+        toast.error("Please enter a valid email address");
+        return;
+      }
 
-    setIsLoading(true);
-    try {
-      await signup(name, email);
-      setEmailSent(true);
-      toast.success("Sign-in link sent! Check your email.");
-    } catch (error) {
-      toast.error("Failed to create account");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      setIsLoading(true);
+      try {
+        await signup(name, email);
+        setEmailSent(true);
+        toast.success("Sign-in link sent! Check your email.");
+      } catch (error) {
+        toast.error("Failed to create account");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [name, email, signup]
+  );
 
-  const useDifferentEmail = () => setEmailSent(false);
+  const useDifferentEmail = useCallback(() => setEmailSent(false), []);
+
+  const onResend = useCallback(() => {
+    handleSubmit({ preventDefault: () => {} });
+  }, [handleSubmit]);
 
   return {
     name,
@@ -48,5 +55,6 @@ export function useSignup() {
     emailSent,
     handleSubmit,
     useDifferentEmail,
+    onResend,
   };
 }

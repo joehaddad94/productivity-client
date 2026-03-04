@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 
 type AuthFormLinkProps = {
@@ -8,7 +9,7 @@ type AuthFormLinkProps = {
   label: string;
 };
 
-export function AuthFormLink({ prompt, href, label }: AuthFormLinkProps) {
+function AuthFormLinkComponent({ prompt, href, label }: AuthFormLinkProps) {
   return (
     <div className="text-center text-sm text-gray-600 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-800">
       {prompt}{" "}
@@ -18,3 +19,5 @@ export function AuthFormLink({ prompt, href, label }: AuthFormLinkProps) {
     </div>
   );
 }
+
+export const AuthFormLink = memo(AuthFormLinkComponent);

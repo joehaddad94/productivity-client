@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { CheckCircle2, Mail, Loader2, Send, KeyRound, Timer, BarChart3 } from "lucide-react";
 import { useLogin } from "./useLogin";
 import { Button } from "@/app/components/ui/button";
@@ -16,8 +15,31 @@ import {
   AUTH_LABEL_CLASS,
 } from "@/app/components/auth";
 
+const LOGIN_FEATURES = [
+  {
+    icon: KeyRound,
+    iconClass: "bg-primary/10 dark:bg-primary/20 text-primary",
+    title: "Passwordless Login",
+    desc: "Secure sign-in link sent directly to your inbox",
+  },
+  {
+    icon: Timer,
+    iconClass: "bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400",
+    title: "Focus Mode",
+    desc: "Built-in Pomodoro timer for distraction-free work",
+  },
+  {
+    icon: BarChart3,
+    iconClass: "bg-green-100 dark:bg-green-950 text-green-600 dark:text-green-400",
+    title: "Analytics & Insights",
+    desc: "Track your productivity with detailed analytics",
+  },
+] as const;
+
+const LOGIN_ALTERNATE_LINK = { href: "/signup", prompt: "Don't have an account?", label: "Sign up" } as const;
+
 export function Login() {
-  const { email, setEmail, isLoading, emailSent, handleSubmit, useDifferentEmail } = useLogin();
+  const { email, setEmail, isLoading, emailSent, handleSubmit, useDifferentEmail, onResend } = useLogin();
 
   if (emailSent) {
     return (
@@ -26,9 +48,9 @@ export function Login() {
           email={email}
           message="Click the link in the email to sign in to your account. The link will expire in 15 minutes."
           onUseDifferentEmail={useDifferentEmail}
-          onResend={() => handleSubmit({ preventDefault: () => {} })}
+          onResend={onResend}
           isLoading={isLoading}
-          alternateLink={{ href: "/signup", prompt: "Don't have an account?", label: "Sign up" }}
+          alternateLink={LOGIN_ALTERNATE_LINK}
         />
       </AuthScreenWrap>
     );
@@ -58,26 +80,7 @@ export function Login() {
           </div>
 
           <div className="space-y-4 pt-8">
-            {[
-              {
-                icon: KeyRound,
-                iconClass: "bg-primary/10 dark:bg-primary/20 text-primary",
-                title: "Passwordless Login",
-                desc: "Secure sign-in link sent directly to your inbox",
-              },
-              {
-                icon: Timer,
-                iconClass: "bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400",
-                title: "Focus Mode",
-                desc: "Built-in Pomodoro timer for distraction-free work",
-              },
-              {
-                icon: BarChart3,
-                iconClass: "bg-green-100 dark:bg-green-950 text-green-600 dark:text-green-400",
-                title: "Analytics & Insights",
-                desc: "Track your productivity with detailed analytics",
-              },
-            ].map(({ icon: Icon, iconClass, title, desc }) => (
+            {LOGIN_FEATURES.map(({ icon: Icon, iconClass, title, desc }) => (
               <div key={title} className="flex items-start gap-3">
                 <div
                   className={`size-8 rounded-lg flex items-center justify-center flex-shrink-0 ${iconClass}`}

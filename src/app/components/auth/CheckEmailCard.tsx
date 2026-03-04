@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { Inbox, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
@@ -14,7 +15,7 @@ type CheckEmailCardProps = {
   alternateLink: { href: string; prompt: string; label: string };
 };
 
-export function CheckEmailCard({
+function CheckEmailCardComponent({
   email,
   message,
   onUseDifferentEmail,
@@ -64,3 +65,5 @@ export function CheckEmailCard({
     </Card>
   );
 }
+
+export const CheckEmailCard = memo(CheckEmailCardComponent);

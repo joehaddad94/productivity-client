@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Mail } from "lucide-react";
 
 type AuthTipBoxProps = {
@@ -7,7 +8,7 @@ type AuthTipBoxProps = {
   children: React.ReactNode;
 };
 
-export function AuthTipBox({ title, children }: AuthTipBoxProps) {
+function AuthTipBoxComponent({ title, children }: AuthTipBoxProps) {
   return (
     <div className="mt-6 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
       <div className="flex items-start gap-2">
@@ -19,3 +20,5 @@ export function AuthTipBox({ title, children }: AuthTipBoxProps) {
     </div>
   );
 }
+
+export const AuthTipBox = memo(AuthTipBoxComponent);
