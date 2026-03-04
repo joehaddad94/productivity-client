@@ -13,7 +13,7 @@ export default function HomePage() {
   useEffect(() => {
     if (!isInitialized) return;
     if (isAuthenticated) {
-      router.replace("/dashboard");
+      router.replace("/workspace");
     }
   }, [isAuthenticated, isInitialized, router]);
 

@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/app/context/AuthContext";
+import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { toast } from "sonner";
-import { AUTH_PATHS, FOCUS_PATH_PREFIX } from "./types";
+import { AUTH_PATHS, FOCUS_PATH_PREFIX, WORKSPACE_GATE_PATH } from "./types";
 
 function isAuthOrFocusRoute(pathname: string) {
   if (AUTH_PATHS.some((p) => pathname === p)) return true;
+  if (pathname === WORKSPACE_GATE_PATH) return true;
   if (pathname.startsWith(FOCUS_PATH_PREFIX)) return true;
   return false;
 }
@@ -20,8 +22,15 @@ export function useLayout() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { logout, user } = useAuth();
+  const { needsWorkspace, isFetched } = useWorkspace();
 
   const showSidebar = !isAuthOrFocusRoute(pathname ?? "");
+
+  useEffect(() => {
+    if (showSidebar && isFetched && needsWorkspace) {
+      router.replace(WORKSPACE_GATE_PATH);
+    }
+  }, [showSidebar, isFetched, needsWorkspace, router]);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;

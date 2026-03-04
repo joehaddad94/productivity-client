@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Menu, X, Bell, Moon, Sun, LogOut, Loader2 } from "lucide-react";
 import { useLayout } from "./useLayout";
 import { NAV_ITEMS } from "./types";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 
@@ -73,6 +74,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="h-full flex flex-col">
           <div className="h-14 flex items-center px-6 border-b border-gray-200 dark:border-gray-800">
             <h1 className="font-bold text-lg">Tasky</h1>
+          </div>
+
+          <div className="px-3 py-3 border-b border-gray-200 dark:border-gray-800">
+            <WorkspaceSwitcher />
           </div>
 
           <nav className="flex-1 py-4 px-3 space-y-1">

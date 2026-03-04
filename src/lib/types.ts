@@ -35,3 +35,11 @@ export interface Subtask {
   title: string;
   completed: boolean;
 }
+
+export interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
+  isPersonal: boolean;
+  createdAt: string;
+}

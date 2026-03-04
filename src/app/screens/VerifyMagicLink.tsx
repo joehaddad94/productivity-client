@@ -22,7 +22,7 @@ export function VerifyMagicLink() {
       try {
         await verifyMagicLink(token);
         setStatus("success");
-        router.replace("/dashboard");
+        router.replace("/workspace");
       } catch (error) {
         setStatus("error");
       }
@@ -54,7 +54,7 @@ export function VerifyMagicLink() {
               </div>
               <CardTitle className="text-2xl">Welcome back!</CardTitle>
               <CardDescription className="text-base">
-                You've been successfully signed in. Redirecting to your dashboard...
+                You've been successfully signed in. Redirecting...
               </CardDescription>
             </>
           )}
