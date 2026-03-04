@@ -53,7 +53,11 @@ export function WorkspaceSwitcher() {
             <ChevronDown className="size-4 text-gray-400 flex-shrink-0" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" side="right" className="w-56">
+        <DropdownMenuContent
+          align="start"
+          side="bottom"
+          className="w-56 rounded-xl border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 dark:border-l-primary/40 shadow-sm bg-card text-card-foreground p-1"
+        >
           <DropdownMenuLabel className="text-xs font-normal text-gray-500 dark:text-gray-400">
             Switch workspace
           </DropdownMenuLabel>
