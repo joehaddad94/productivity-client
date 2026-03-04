@@ -141,8 +141,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      <main className="lg:ml-60 min-h-screen pt-14 lg:pt-0">
-        <div className="hidden lg:flex h-14 items-center justify-end px-6 bg-[var(--header-bg)] border-b border-gray-200 dark:border-gray-800">
+      <main className="lg:ml-60 min-h-screen flex flex-col pt-14 lg:pt-0">
+        <div className="hidden lg:flex h-14 flex-shrink-0 items-center justify-end px-6 bg-[var(--header-bg)] border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2">
             <button className="p-2 hover:bg-[var(--nav-hover)] rounded-lg relative">
               <Bell className="size-5" />
@@ -158,8 +158,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <div className="p-6">
-          {children}
+        <div className="flex-1 min-h-0 flex flex-col p-6">
+          <div className="flex-1 min-h-0">
+            {children}
+          </div>
         </div>
       </main>
     </div>

@@ -10,7 +10,6 @@ import { AUTH_PATHS, FOCUS_PATH_PREFIX, WORKSPACE_GATE_PATH } from "./types";
 
 function isAuthOrFocusRoute(pathname: string) {
   if (AUTH_PATHS.some((p) => pathname === p)) return true;
-  if (pathname === WORKSPACE_GATE_PATH) return true;
   if (pathname.startsWith(FOCUS_PATH_PREFIX)) return true;
   return false;
 }
@@ -24,7 +23,9 @@ export function useLayout() {
   const { logout, user } = useAuth();
   const { needsWorkspace, isFetched } = useWorkspace();
 
-  const showSidebar = !isAuthOrFocusRoute(pathname ?? "");
+  const showSidebar =
+    !isAuthOrFocusRoute(pathname ?? "") &&
+    !(pathname === WORKSPACE_GATE_PATH && needsWorkspace);
 
   useEffect(() => {
     if (showSidebar && isFetched && needsWorkspace) {
@@ -37,8 +38,12 @@ export function useLayout() {
     setIsLoggingOut(true);
     try {
       await logout();
-      router.push("/");
-      toast.success("Logged out successfully!");
+      // Defer navigation so React commits setUser(null) before we navigate;
+      // otherwise the home page can see stale isAuthenticated and redirect to /workspace.
+      setTimeout(() => {
+        router.push("/");
+        toast.success("Logged out successfully!");
+      }, 0);
     } catch (error) {
       toast.error("Failed to log out.");
     } finally {
