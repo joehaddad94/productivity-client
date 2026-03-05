@@ -74,10 +74,10 @@ export function Notes() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto h-full flex flex-col min-h-0">
+    <div className="w-full h-full flex flex-col min-h-0">
       <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
-        {/* Notes List */}
-        <div className="lg:w-72 space-y-3 flex flex-col">
+        {/* Notes List - min width on lg, can grow on xl/2xl */}
+        <div className="lg:min-w-72 lg:w-80 xl:w-96 flex-shrink-0 space-y-3 flex flex-col">
           <div className="flex justify-between items-center">
             <h1 className="text-xl font-bold">Notes</h1>
             <Button size="sm" onClick={handleCreateNote}>

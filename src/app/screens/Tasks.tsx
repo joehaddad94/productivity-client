@@ -117,7 +117,7 @@ export function Tasks() {
   const priorityTasks = filteredTasks.filter((t) => t.priority === "high" && !t.completed);
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Main Content */}
         <div className="flex-1 space-y-4">
