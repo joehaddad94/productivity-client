@@ -54,18 +54,18 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
 
   return (
     <Card className="w-full">
-      <CardHeader className="space-y-1 pb-2">
-        <div className="size-12 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center mb-2">
-          <Building2 className="size-6 text-primary" />
+      <CardHeader className="space-y-0.5 pb-1">
+        <div className="size-10 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center mb-1.5">
+          <Building2 className="size-5 text-primary" />
         </div>
-        <CardTitle className="text-2xl">Create your workspace</CardTitle>
-        <CardDescription>
+        <CardTitle className="text-xl">Create your workspace</CardTitle>
+        <CardDescription className="text-sm">
           Your workspace is where your tasks and notes live. You can add more later.
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-1.5">
             <Label htmlFor="ws-name" className={AUTH_LABEL_CLASS}>
               Workspace name
             </Label>
@@ -81,7 +81,7 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
               autoFocus
             />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="ws-slug" className={AUTH_LABEL_CLASS}>
               URL slug <span className="text-gray-400 font-normal">(optional)</span>
             </Label>
@@ -95,11 +95,11 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
               disabled={createMutation.isPending}
               maxLength={SLUG_MAX}
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">
               Lowercase letters, numbers, hyphens only
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <input
               type="checkbox"
               id="ws-personal"
@@ -107,18 +107,18 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
               onChange={(e) => setIsPersonal(e.target.checked)}
               className="rounded border-gray-300 dark:border-gray-600"
             />
-            <Label htmlFor="ws-personal" className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+            <Label htmlFor="ws-personal" className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
               Personal workspace
             </Label>
           </div>
           <Button
             type="submit"
-            className="w-full h-11"
+            className="w-full"
             disabled={createMutation.isPending}
           >
             {createMutation.isPending ? (
               <>
-                <Loader2 className="size-4 mr-2 animate-spin" />
+                <Loader2 className="size-3.5 mr-1.5 animate-spin" />
                 Creating...
               </>
             ) : (

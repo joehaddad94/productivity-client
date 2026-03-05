@@ -40,25 +40,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[var(--page-bg)]">
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-[var(--header-bg)] border-b border-gray-200 dark:border-gray-800 z-50 flex items-center justify-between px-4">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-12 bg-[var(--header-bg)] border-b border-gray-200 dark:border-gray-800 z-50 flex items-center justify-between px-3">
         <button
           onClick={toggleSidebar}
-          className="p-2 hover:bg-[var(--nav-hover)] rounded-lg"
+          className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
         >
-          {sidebarOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          {sidebarOpen ? <X className="size-4" /> : <Menu className="size-4" />}
         </button>
-        <h1 className="font-semibold">Tasky</h1>
-        <div className="flex items-center gap-2">
-          <button className="p-2 hover:bg-[var(--nav-hover)] rounded-lg relative">
-            <Bell className="size-5" />
-            <Badge className="absolute -top-1 -right-1 size-4 p-0 flex items-center justify-center text-[10px]" variant="destructive">3</Badge>
+        <h1 className="font-semibold text-sm">Tasky</h1>
+        <div className="flex items-center gap-1">
+          <button className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md relative">
+            <Bell className="size-4" />
+            <Badge className="absolute -top-0.5 -right-0.5 size-3.5 p-0 flex items-center justify-center text-[9px]" variant="destructive">3</Badge>
           </button>
           <button
             onClick={toggleTheme}
-            className="p-2 hover:bg-[var(--nav-hover)] rounded-lg"
+            className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
           >
-            <Sun className="size-5 hidden dark:block" aria-hidden />
-            <Moon className="size-5 block dark:hidden" aria-hidden />
+            <Sun className="size-4 hidden dark:block" aria-hidden />
+            <Moon className="size-4 block dark:hidden" aria-hidden />
           </button>
         </div>
       </div>
@@ -66,21 +66,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 h-full w-60 bg-[var(--sidebar-bg)] border-r border-gray-200 dark:border-gray-800 z-40
+          fixed top-0 left-0 h-full w-56 bg-[var(--sidebar-bg)] border-r border-gray-200 dark:border-gray-800 z-40
           transition-transform duration-300 lg:translate-x-0
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
         <div className="h-full flex flex-col">
-          <div className="h-14 flex items-center px-6 border-b border-gray-200 dark:border-gray-800">
-            <h1 className="font-bold text-lg">Tasky</h1>
+          <div className="h-12 flex items-center px-4 border-b border-gray-200 dark:border-gray-800">
+            <h1 className="font-bold text-base">Tasky</h1>
           </div>
 
-          <div className="px-3 py-3 border-b border-gray-200 dark:border-gray-800">
+          <div className="px-2.5 py-2 border-b border-gray-200 dark:border-gray-800">
             <WorkspaceSwitcher />
           </div>
 
-          <nav className="flex-1 py-4 px-3 space-y-1">
+          <nav className="flex-1 py-3 px-2 space-y-0.5">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               const isActive = item.path === "/dashboard" ? pathname === "/dashboard" : pathname?.startsWith(item.path) ?? false;
@@ -89,33 +89,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   key={item.path}
                   href={item.path}
                   onClick={closeSidebar}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors ${
                     isActive
                       ? "bg-[var(--nav-active-bg)] text-primary"
                       : "text-gray-700 dark:text-gray-300 hover:bg-[var(--nav-hover)]"
                   }`}
                 >
-                  <Icon className="size-5" />
+                  <Icon className="size-4" />
                   <span>{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="p-3 border-t border-gray-200 dark:border-gray-800">
-            <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--nav-hover)] cursor-pointer">
-              <div className="size-8 rounded-full bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center text-white text-sm font-medium">
+          <div className="p-2.5 border-t border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-[var(--nav-hover)] cursor-pointer">
+              <div className="size-7 rounded-full bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center text-white text-xs font-medium">
                 {initials}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">{user?.name ?? "User"}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email ?? ""}</div>
+                <div className="text-xs font-medium truncate">{user?.name ?? "User"}</div>
+                <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{user?.email ?? ""}</div>
               </div>
             </div>
             <Button
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="mt-2 w-full"
+              size="sm"
+              className="mt-1.5 w-full"
               variant="destructive"
             >
               {isLoggingOut ? (
@@ -141,24 +142,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      <main className="lg:ml-60 min-h-screen flex flex-col pt-14 lg:pt-0">
-        <div className="hidden lg:flex h-14 flex-shrink-0 items-center justify-end px-6 bg-[var(--header-bg)] border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-[var(--nav-hover)] rounded-lg relative">
-              <Bell className="size-5" />
-              <Badge className="absolute -top-1 -right-1 size-4 p-0 flex items-center justify-center text-[10px]" variant="destructive">3</Badge>
+      <main className="lg:ml-56 min-h-screen flex flex-col pt-12 lg:pt-0">
+        <div className="hidden lg:flex h-12 flex-shrink-0 items-center justify-end px-4 bg-[var(--header-bg)] border-b border-gray-200 dark:border-gray-800">
+          <div className="flex items-center gap-1">
+            <button className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md relative">
+              <Bell className="size-4" />
+              <Badge className="absolute -top-0.5 -right-0.5 size-3.5 p-0 flex items-center justify-center text-[9px]" variant="destructive">3</Badge>
             </button>
             <button
               onClick={toggleTheme}
-              className="p-2 hover:bg-[var(--nav-hover)] rounded-lg"
+              className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
             >
-              <Sun className="size-5 hidden dark:block" aria-hidden />
-              <Moon className="size-5 block dark:hidden" aria-hidden />
+              <Sun className="size-4 hidden dark:block" aria-hidden />
+              <Moon className="size-4 block dark:hidden" aria-hidden />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 flex flex-col p-6">
+        <div className="flex-1 min-h-0 flex flex-col p-5">
           <div className="flex-1 min-h-0">
             {children}
           </div>

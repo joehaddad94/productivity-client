@@ -74,29 +74,29 @@ export function Notes() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto h-full flex flex-col min-h-0">
-      <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
+    <div className="max-w-6xl mx-auto h-full flex flex-col min-h-0">
+      <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
         {/* Notes List */}
-        <div className="lg:w-80 space-y-4 flex flex-col">
+        <div className="lg:w-72 space-y-3 flex flex-col">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">Notes</h1>
+            <h1 className="text-xl font-bold">Notes</h1>
             <Button size="sm" onClick={handleCreateNote}>
-              <Plus className="size-4 mr-2" />
+              <Plus className="size-3.5 mr-1.5" />
               New
             </Button>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400" />
             <Input
               placeholder="Search notes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-9"
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1.5">
             {filteredNotes.map((note) => (
               <NoteCard
                 key={note.id}
@@ -113,71 +113,71 @@ export function Notes() {
           {selectedNote ? (
             <>
               {/* Toolbar */}
-              <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
+              <div className="p-3 border-b border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1">
                     <Button variant="ghost" size="sm">
-                      <Bold className="size-4" />
+                      <Bold className="size-3.5" />
                     </Button>
                     <Button variant="ghost" size="sm">
-                      <Italic className="size-4" />
+                      <Italic className="size-3.5" />
                     </Button>
-                    <Separator orientation="vertical" className="h-6" />
+                    <Separator orientation="vertical" className="h-5" />
                     <Button variant="ghost" size="sm">
-                      <List className="size-4" />
+                      <List className="size-3.5" />
                     </Button>
                     <Button variant="ghost" size="sm">
-                      <ListOrdered className="size-4" />
+                      <ListOrdered className="size-3.5" />
                     </Button>
-                    <Separator orientation="vertical" className="h-6" />
+                    <Separator orientation="vertical" className="h-5" />
                     <Button variant="ghost" size="sm">
-                      <Tag className="size-4" />
+                      <Tag className="size-3.5" />
                     </Button>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <Button variant="outline" size="sm">
                       Convert to Task
                     </Button>
                     <Button variant="ghost" size="sm">
-                      <MoreVertical className="size-4" />
+                      <MoreVertical className="size-3.5" />
                     </Button>
                   </div>
                 </div>
 
                 {/* Tags */}
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {selectedNote.tags?.map((tag) => (
-                    <Badge key={tag} variant="secondary">
-                      <Tag className="size-3 mr-1" />
+                    <Badge key={tag} variant="secondary" className="text-[10px]">
+                      <Tag className="size-2.5 mr-1" />
                       {tag}
                     </Badge>
                   ))}
-                  <Button variant="outline" size="sm" className="h-6 text-xs">
-                    <Plus className="size-3 mr-1" />
+                  <Button variant="outline" size="sm" className="h-6 text-[10px]">
+                    <Plus className="size-2.5 mr-1" />
                     Add Tag
                   </Button>
                 </div>
               </div>
 
               {/* Content */}
-              <div className="flex-1 p-6 overflow-y-auto">
+              <div className="flex-1 p-4 overflow-y-auto">
                 <Input
                   value={noteTitle}
                   onChange={(e) => setNoteTitle(e.target.value)}
                   placeholder="Note title..."
-                  className="text-2xl font-bold border-0 p-0 mb-4 focus-visible:ring-0"
+                  className="text-xl font-bold border-0 p-0 mb-3 focus-visible:ring-0"
                 />
                 <Textarea
                   value={noteContent}
                   onChange={(e) => setNoteContent(e.target.value)}
                   placeholder="Start writing..."
-                  className="min-h-[400px] border-0 p-0 resize-none focus-visible:ring-0 text-base"
+                  className="min-h-[320px] border-0 p-0 resize-none focus-visible:ring-0 text-sm"
                 />
               </div>
 
               {/* Footer */}
-              <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-                <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+              <div className="p-3 border-t border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                   <span>Last edited {selectedNote.lastEdited}</span>
                   <span>{noteContent.length} characters</span>
                 </div>
