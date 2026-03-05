@@ -7,10 +7,12 @@ import { NAV_ITEMS } from "./types";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { ScreenLoader } from "@/app/components/ScreenLoader";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const {
     showSidebar,
+    redirectingToWorkspace,
     sidebarOpen,
     toggleSidebar,
     closeSidebar,
@@ -161,7 +163,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="flex-1 min-h-0 flex flex-col p-5">
           <div className="flex-1 min-h-0">
-            {children}
+            {redirectingToWorkspace ? (
+              <ScreenLoader variant="app" message="Loading…" />
+            ) : (
+              children
+            )}
           </div>
         </div>
       </main>

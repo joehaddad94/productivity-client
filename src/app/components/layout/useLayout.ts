@@ -27,11 +27,14 @@ export function useLayout() {
     !isAuthOrFocusRoute(pathname ?? "") &&
     !(pathname === WORKSPACE_GATE_PATH && needsWorkspace);
 
+  const redirectingToWorkspace =
+    showSidebar && isFetched && needsWorkspace;
+
   useEffect(() => {
-    if (showSidebar && isFetched && needsWorkspace) {
+    if (redirectingToWorkspace) {
       router.replace(WORKSPACE_GATE_PATH);
     }
-  }, [showSidebar, isFetched, needsWorkspace, router]);
+  }, [redirectingToWorkspace, router]);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -53,6 +56,7 @@ export function useLayout() {
 
   return {
     showSidebar,
+    redirectingToWorkspace,
     sidebarOpen,
     toggleSidebar,
     closeSidebar,
