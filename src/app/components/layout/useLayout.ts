@@ -28,7 +28,7 @@ export function useLayout() {
     !(pathname === WORKSPACE_GATE_PATH && needsWorkspace);
 
   const redirectingToWorkspace =
-    showSidebar && isFetched && needsWorkspace;
+    showSidebar && !!user && isFetched && needsWorkspace;
 
   useEffect(() => {
     if (redirectingToWorkspace) {

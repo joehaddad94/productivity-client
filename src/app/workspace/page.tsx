@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { CreateFirstWorkspace } from "../screens/workspace/CreateFirstWorkspace";
@@ -11,6 +12,7 @@ import type { Workspace } from "@/lib/types";
 
 export default function WorkspaceGatePage() {
   const router = useRouter();
+  const { isAuthenticated, isInitialized } = useAuth();
   const {
     workspaces,
     isLoading,
@@ -21,9 +23,22 @@ export default function WorkspaceGatePage() {
   } = useWorkspace();
 
   useEffect(() => {
+    if (!isInitialized) return;
+    if (!isAuthenticated) {
+      router.replace("/");
+      return;
+    }
     if (!isFetched || needsWorkspace) return;
     router.replace("/notes");
-  }, [isFetched, needsWorkspace, router]);
+  }, [isInitialized, isAuthenticated, isFetched, needsWorkspace, router]);
+
+  if (!isInitialized || !isAuthenticated) {
+    return (
+      <AuthScreenWrap>
+        <ScreenLoader variant="auth" message="Loading…" />
+      </AuthScreenWrap>
+    );
+  }
 
   if (!isFetched || isLoading) {
     return (
