@@ -142,8 +142,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      <main className="lg:ml-56 min-h-screen flex flex-col pt-12 lg:pt-0">
-        <div className="hidden lg:flex h-12 flex-shrink-0 items-center justify-end px-4 bg-[var(--header-bg)] border-b border-gray-200 dark:border-gray-800">
+      <main className="lg:ml-56 min-h-screen flex flex-col pt-12">
+        <div className="hidden lg:flex fixed top-0 right-0 lg:left-56 h-12 flex-shrink-0 items-center justify-end px-4 bg-[var(--header-bg)] border-b border-gray-200 dark:border-gray-800 z-30">
           <div className="flex items-center gap-1">
             <button className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md relative">
               <Bell className="size-4" />
