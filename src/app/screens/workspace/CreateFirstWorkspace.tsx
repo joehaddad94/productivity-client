@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Building2, Loader2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
+import { Checkbox } from "@/app/components/ui/checkbox";
 import { useCreateWorkspaceMutation } from "@/app/hooks/useWorkspacesApi";
-import { AUTH_INPUT_CLASS, AUTH_LABEL_CLASS } from "@/app/components/auth";
 import { slugFromName, validateSlug, SLUG_MAX, NAME_MAX } from "./slug";
 import type { Workspace } from "@/lib/types";
 import { toast } from "sonner";
+import { cn } from "@/app/components/ui/utils";
 
 interface CreateFirstWorkspaceProps {
   onSuccess: (workspace: Workspace) => void;
@@ -20,11 +21,15 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [isPersonal, setIsPersonal] = useState(true);
+  const slugManuallyEdited = useRef(false);
   const createMutation = useCreateWorkspaceMutation();
 
   const handleNameChange = useCallback((value: string) => {
-    setName(value.slice(0, NAME_MAX));
-    setSlug((prev) => (prev ? prev : slugFromName(value).slice(0, SLUG_MAX)));
+    const nextName = value.slice(0, NAME_MAX);
+    setName(nextName);
+    if (!slugManuallyEdited.current) {
+      setSlug(slugFromName(nextName).slice(0, SLUG_MAX));
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,19 +59,31 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
 
   return (
     <Card className="w-full">
-      <CardHeader className="space-y-0.5 pb-1">
-        <div className="size-10 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center mb-1.5">
-          <Building2 className="size-5 text-primary" />
+      <CardHeader className="pb-3 border-b border-gray-100 dark:border-gray-800/80">
+        <div className="flex items-start gap-3">
+          <div className="size-10 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center flex-shrink-0">
+            <Building2 className="size-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-semibold tracking-tight">
+              Create your workspace
+            </h2>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              Your workspace is where your tasks and notes live. You can add more later.
+            </p>
+          </div>
         </div>
-        <CardTitle className="text-xl">Create your workspace</CardTitle>
-        <CardDescription className="text-sm">
-          Your workspace is where your tasks and notes live. You can add more later.
-        </CardDescription>
       </CardHeader>
-      <CardContent className="pt-0">
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="ws-name" className={AUTH_LABEL_CLASS}>
+      <CardContent className="pt-4">
+        <form
+          onSubmit={handleSubmit}
+          className={cn(
+            "rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-3",
+            "bg-gray-50/50 dark:bg-gray-800/30"
+          )}
+        >
+          <div className="grid gap-1.5">
+            <Label htmlFor="ws-name" className="text-xs font-medium text-gray-700 dark:text-gray-300">
               Workspace name
             </Label>
             <Input
@@ -75,23 +92,26 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
               placeholder="My Workspace"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className={AUTH_INPUT_CLASS}
+              className="rounded-md border-gray-200 dark:border-gray-700"
               disabled={createMutation.isPending}
               maxLength={NAME_MAX}
               autoFocus
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ws-slug" className={AUTH_LABEL_CLASS}>
-              URL slug <span className="text-gray-400 font-normal">(optional)</span>
+          <div className="grid gap-1.5">
+            <Label htmlFor="ws-slug" className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              URL slug <span className="font-normal text-gray-400">(optional)</span>
             </Label>
             <Input
               id="ws-slug"
               type="text"
               placeholder={slugFromName(name || "my-workspace").slice(0, SLUG_MAX)}
               value={slug}
-              onChange={(e) => setSlug(e.target.value.slice(0, SLUG_MAX).toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
-              className={AUTH_INPUT_CLASS}
+              onChange={(e) => {
+                slugManuallyEdited.current = true;
+                setSlug(e.target.value.slice(0, SLUG_MAX).toLowerCase().replace(/[^a-z0-9-]/g, "-"));
+              }}
+              className="rounded-md border-gray-200 dark:border-gray-700"
               disabled={createMutation.isPending}
               maxLength={SLUG_MAX}
             />
@@ -100,19 +120,22 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
             </p>
           </div>
           <div className="flex items-center gap-1.5">
-            <input
-              type="checkbox"
+            <Checkbox
               id="ws-personal"
               checked={isPersonal}
-              onChange={(e) => setIsPersonal(e.target.checked)}
-              className="rounded border-gray-300 dark:border-gray-600"
+              onCheckedChange={(c) => setIsPersonal(c === true)}
+              disabled={createMutation.isPending}
             />
-            <Label htmlFor="ws-personal" className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+            <Label
+              htmlFor="ws-personal"
+              className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer"
+            >
               Personal workspace
             </Label>
           </div>
           <Button
             type="submit"
+            size="sm"
             className="w-full"
             disabled={createMutation.isPending}
           >
