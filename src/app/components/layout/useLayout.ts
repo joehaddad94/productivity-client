@@ -38,12 +38,8 @@ export function useLayout() {
     setIsLoggingOut(true);
     try {
       await logout();
-      // Defer navigation so React commits setUser(null) before we navigate;
-      // otherwise the home page can see stale isAuthenticated and redirect to /workspace.
-      setTimeout(() => {
-        router.push("/");
-        toast.success("Logged out successfully!");
-      }, 0);
+      router.push("/");
+      toast.success("Logged out successfully!");
     } catch (error) {
       toast.error("Failed to log out.");
     } finally {

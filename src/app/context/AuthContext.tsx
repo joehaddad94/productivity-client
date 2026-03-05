@@ -73,9 +73,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    await logoutMutation.mutateAsync();
+    // Clear user and cache immediately so navigation to "/" sees unauthenticated state
+    queryClient.setQueryData(AUTH_QUERY_KEY, null);
     setUser(null);
-  }, [logoutMutation]);
+    try {
+      await logoutMutation.mutateAsync();
+    } finally {
+      // Ensure cache stays clear after API call (e.g. if mutation had its own onSuccess)
+      queryClient.setQueryData(AUTH_QUERY_KEY, null);
+    }
+  }, [logoutMutation, queryClient]);
 
   return (
     <AuthContext.Provider
