@@ -4,12 +4,13 @@ import { cn } from "@/app/components/ui/utils";
 
 const SKELETON_BASE =
   "rounded-md bg-[var(--muted)] dark:bg-[var(--muted)] overflow-hidden";
-const SKELETON_SHINE = {
+const SKELETON_SHINE = (delay = 0) => ({
   background:
     "linear-gradient(90deg, var(--muted) 0%, var(--accent) 50%, var(--muted) 100%)",
   backgroundSize: "200% 100%",
-  animation: "skeleton-shimmer 1.5s ease-in-out infinite",
-};
+  animation: "skeleton-shimmer 1.5s ease-in-out infinite, skeleton-flicker 1.8s ease-in-out infinite",
+  animationDelay: `${delay}ms, ${delay}ms`,
+});
 
 interface ScreenSkeletonProps {
   className?: string;
@@ -26,16 +27,16 @@ export function ScreenSkeleton({ className }: ScreenSkeletonProps) {
       <div className="flex items-center justify-between gap-4">
         <div
           className={cn("h-7 w-48", SKELETON_BASE)}
-          style={SKELETON_SHINE}
+          style={SKELETON_SHINE(0)}
         />
         <div className="flex gap-2">
           <div
             className={cn("h-9 w-24", SKELETON_BASE)}
-            style={SKELETON_SHINE}
+            style={SKELETON_SHINE(120)}
           />
           <div
             className={cn("h-9 w-28", SKELETON_BASE)}
-            style={SKELETON_SHINE}
+            style={SKELETON_SHINE(240)}
           />
         </div>
       </div>
@@ -52,20 +53,20 @@ export function ScreenSkeleton({ className }: ScreenSkeletonProps) {
           >
             <div
               className={cn("h-5 w-3/4 max-w-xs", SKELETON_BASE)}
-              style={SKELETON_SHINE}
+              style={SKELETON_SHINE(60 + i * 100)}
             />
             <div className="space-y-2">
               <div
                 className={cn("h-4 w-full", SKELETON_BASE)}
-                style={SKELETON_SHINE}
+                style={SKELETON_SHINE(80 + i * 100)}
               />
               <div
                 className={cn("h-4 w-5/6", SKELETON_BASE)}
-                style={SKELETON_SHINE}
+                style={SKELETON_SHINE(160 + i * 100)}
               />
               <div
                 className={cn("h-4 w-4/5", SKELETON_BASE)}
-                style={SKELETON_SHINE}
+                style={SKELETON_SHINE(240 + i * 100)}
               />
             </div>
           </div>
@@ -76,11 +77,11 @@ export function ScreenSkeleton({ className }: ScreenSkeletonProps) {
       <div className="flex gap-2 pt-2">
         <div
           className={cn("h-10 w-32", SKELETON_BASE)}
-          style={SKELETON_SHINE}
+          style={SKELETON_SHINE(200)}
         />
         <div
           className={cn("h-10 w-24", SKELETON_BASE)}
-          style={SKELETON_SHINE}
+          style={SKELETON_SHINE(320)}
         />
       </div>
     </div>

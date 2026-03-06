@@ -1,5 +1,5 @@
-import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
+import { RouteAwareLoading } from "@/app/components/RouteAwareLoading";
 
 export default function Loading() {
-  return <ScreenSkeleton />;
+  return <RouteAwareLoading />;
 }

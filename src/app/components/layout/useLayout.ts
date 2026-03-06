@@ -23,12 +23,21 @@ export function useLayout() {
   const { logout, user } = useAuth();
   const { needsWorkspace, isFetched } = useWorkspace();
 
+  // Auth routes (/, /login, /signup, /verify) and focus: no sidebar.
+  // When pathname is unknown (null/empty), treat as auth so we don't show sidebar with wrong loader.
+  // App routes (e.g. /notes, /workspace when authenticated): show sidebar so loaders/skeleton appear with navbars.
+  const path = pathname ?? "";
   const showSidebar =
-    !isAuthOrFocusRoute(pathname ?? "") &&
-    !(pathname === WORKSPACE_GATE_PATH && needsWorkspace);
+    path !== "" &&
+    !isAuthOrFocusRoute(path) &&
+    (path !== WORKSPACE_GATE_PATH || !!user);
 
   const redirectingToWorkspace =
-    showSidebar && !!user && isFetched && needsWorkspace;
+    showSidebar &&
+    !!user &&
+    isFetched &&
+    needsWorkspace &&
+    path !== WORKSPACE_GATE_PATH;
 
   useEffect(() => {
     if (redirectingToWorkspace) {
