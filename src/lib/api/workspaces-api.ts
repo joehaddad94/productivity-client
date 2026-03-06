@@ -21,12 +21,27 @@ function api(path: string, options: RequestInit = {}) {
 }
 
 function getMessage(data: unknown): string {
-  if (data && typeof data === "object" && "message" in data) {
-    const m = (data as { message: unknown }).message;
-    if (Array.isArray(m)) return m[0] ?? "Bad request";
-    return typeof m === "string" ? m : "Bad request";
+  if (data && typeof data === "object") {
+    const o = data as Record<string, unknown>;
+    if (typeof o.message === "string") return o.message;
+    if (Array.isArray(o.message)) return (o.message[0] as string) ?? "Bad request";
+    if (typeof o.error === "string") return o.error;
+    if (Array.isArray(o.errors) && o.errors[0] && typeof o.errors[0] === "object" && o.errors[0] !== null) {
+      const first = (o.errors[0] as Record<string, unknown>).message;
+      if (typeof first === "string") return first;
+    }
   }
   return "Request failed";
+}
+
+async function parseJson(res: Response): Promise<unknown> {
+  const text = await res.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: res.statusText || "Request failed" };
+  }
 }
 
 export type CreateWorkspaceBody = {
@@ -47,7 +62,7 @@ export const workspacesApi = {
   list: async (): Promise<Workspace[]> => {
     const res = await api("/workspaces");
     if (res.status === 401) return [];
-    const data = await res.json();
+    const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
     return (data as ListWorkspacesResponse).workspaces ?? [];
   },
@@ -55,7 +70,7 @@ export const workspacesApi = {
   get: async (id: string): Promise<Workspace | null> => {
     const res = await api(`/workspaces/${id}`);
     if (res.status === 404) return null;
-    const data = await res.json();
+    const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
     return data as Workspace;
   },
@@ -65,7 +80,7 @@ export const workspacesApi = {
       method: "POST",
       body: JSON.stringify(body),
     });
-    const data = await res.json();
+    const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
     return data as Workspace;
   },
@@ -75,7 +90,7 @@ export const workspacesApi = {
       method: "PATCH",
       body: JSON.stringify(body),
     });
-    const data = await res.json();
+    const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
     return data as Workspace;
   },
@@ -83,7 +98,7 @@ export const workspacesApi = {
   delete: async (id: string): Promise<void> => {
     const res = await api(`/workspaces/${id}`, { method: "DELETE" });
     if (res.status === 204) return;
-    const data = await res.json().catch(() => ({}));
+    const data = await parseJson(res);
     throw new Error(getMessage(data));
   },
 };

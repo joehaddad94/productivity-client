@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useId } from "react";
+import { useId } from "react";
+import Link from "next/link";
 import {
   Building2,
   ChevronDown,
@@ -16,7 +17,6 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
-import { ManageWorkspacesDialog } from "./ManageWorkspacesDialog";
 import { cn } from "@/app/components/ui/utils";
 
 export function WorkspaceSwitcher() {
@@ -29,7 +29,6 @@ export function WorkspaceSwitcher() {
     isFetched,
     hasWorkspaces,
   } = useWorkspace();
-  const [manageOpen, setManageOpen] = useState(false);
 
   const containerClass = cn(
     "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md",
@@ -145,7 +144,6 @@ export function WorkspaceSwitcher() {
             </div>
           </div>
         </div>
-        <ManageWorkspacesDialog open={manageOpen} onOpenChange={setManageOpen} />
       </>
     );
   }
@@ -153,9 +151,8 @@ export function WorkspaceSwitcher() {
   if (!hasWorkspaces || !currentWorkspace) {
     return (
       <>
-        <button
-          type="button"
-          onClick={() => setManageOpen(true)}
+        <Link
+          href="/workspaces"
           className={containerClass}
           aria-label="No workspace selected"
         >
@@ -173,8 +170,7 @@ export function WorkspaceSwitcher() {
             </p>
           </div>
           <ChevronDown className="size-3.5 text-gray-400 flex-shrink-0" />
-        </button>
-        <ManageWorkspacesDialog open={manageOpen} onOpenChange={setManageOpen} />
+        </Link>
       </>
     );
   }
@@ -223,17 +219,14 @@ export function WorkspaceSwitcher() {
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setManageOpen(true)}>
-            <Settings2 className="size-3.5 mr-2" />
-            Manage workspaces
+          <DropdownMenuItem asChild>
+            <Link href="/workspaces">
+              <Settings2 className="size-3.5 mr-2" />
+              Manage workspaces
+            </Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <ManageWorkspacesDialog
-        open={manageOpen}
-        onOpenChange={setManageOpen}
-      />
     </>
   );
 }
