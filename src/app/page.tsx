@@ -21,5 +21,9 @@ export default function HomePage() {
     return <ScreenLoader variant="auth" message="Checking authentication…" />;
   }
 
+  if (isAuthenticated) {
+    return <ScreenLoader variant="auth" message="Checking authentication…" />;
+  }
+
   return <Login />;
 }
