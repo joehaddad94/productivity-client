@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
+import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 import { CreateFirstWorkspace } from "../screens/workspace/CreateFirstWorkspace";
 import { WorkspacePicker } from "../screens/workspace/WorkspacePicker";
 import { AuthScreenWrap } from "@/app/components/auth/AuthScreenWrap";
@@ -43,7 +44,7 @@ export default function WorkspaceGatePage() {
   if (!isFetched || isLoading) {
     return (
       <AuthScreenWrap>
-        <ScreenLoader variant="auth" message="Loading workspaces…" />
+        <ScreenSkeleton />
       </AuthScreenWrap>
     );
   }
@@ -75,7 +76,7 @@ export default function WorkspaceGatePage() {
 
   return (
     <AuthScreenWrap>
-      <ScreenLoader variant="auth" message="Taking you to Notes…" />
+      <ScreenSkeleton />
     </AuthScreenWrap>
   );
 }

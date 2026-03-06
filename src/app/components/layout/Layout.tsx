@@ -1,15 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Bell, Moon, Sun, LogOut, Loader2 } from "lucide-react";
+import { Menu, X, Bell, Moon, Sun, LogOut, Loader2, Sparkles, LayoutDashboard } from "lucide-react";
 import { useLayout } from "./useLayout";
 import { NAV_ITEMS } from "./types";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
+import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const [previewMode, setPreviewMode] = useState<"auth" | "skeleton" | null>(null);
   const {
     showSidebar,
     redirectingToWorkspace,
@@ -51,6 +54,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </button>
         <h1 className="font-semibold text-sm">Tasky</h1>
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setPreviewMode("auth")}
+            className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
+            title="Preview auth loading screen"
+          >
+            <Sparkles className="size-4" />
+          </button>
+          <button
+            onClick={() => setPreviewMode("skeleton")}
+            className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
+            title="Preview skeleton loading"
+          >
+            <LayoutDashboard className="size-4" />
+          </button>
           <button className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md relative">
             <Bell className="size-4" />
             <Badge className="absolute -top-0.5 -right-0.5 size-3.5 p-0 flex items-center justify-center text-[9px]" variant="destructive">3</Badge>
@@ -147,6 +164,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <main className="lg:ml-56 min-h-screen flex flex-col pt-12">
         <div className="hidden lg:flex fixed top-0 right-0 lg:left-56 h-12 flex-shrink-0 items-center justify-end px-4 bg-[var(--header-bg)] border-b border-gray-200 dark:border-gray-800 z-30">
           <div className="flex items-center gap-1">
+          <button
+            onClick={() => setPreviewMode("auth")}
+            className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
+            title="Preview auth loading screen"
+          >
+            <Sparkles className="size-4" />
+          </button>
+          <button
+            onClick={() => setPreviewMode("skeleton")}
+            className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
+            title="Preview skeleton loading"
+          >
+            <LayoutDashboard className="size-4" />
+          </button>
             <button className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md relative">
               <Bell className="size-4" />
               <Badge className="absolute -top-0.5 -right-0.5 size-3.5 p-0 flex items-center justify-center text-[9px]" variant="destructive">3</Badge>
@@ -164,13 +195,36 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex-1 min-h-0 flex flex-col p-5">
           <div className="flex-1 min-h-0">
             {redirectingToWorkspace ? (
-              <ScreenLoader variant="app" message="Loading…" />
+              <ScreenSkeleton />
             ) : (
               children
             )}
           </div>
         </div>
       </main>
+
+      {/* Full-screen preview: auth loader or skeleton */}
+      {previewMode && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-[var(--page-bg)]">
+          {previewMode === "auth" ? (
+            <div className="absolute inset-0">
+              <ScreenLoader variant="auth" message="Checking authentication…" />
+            </div>
+          ) : (
+            <div className="flex-1 overflow-auto pt-12">
+              <ScreenSkeleton />
+            </div>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="absolute top-4 right-4 z-[101] shadow-lg"
+            onClick={() => setPreviewMode(null)}
+          >
+            Close preview
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

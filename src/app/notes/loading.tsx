@@ -1,5 +1,5 @@
-import { ScreenLoader } from "@/app/components/ScreenLoader";
+import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 
 export default function Loading() {
-  return <ScreenLoader variant="app" message="Loading…" />;
+  return <ScreenSkeleton />;
 }
