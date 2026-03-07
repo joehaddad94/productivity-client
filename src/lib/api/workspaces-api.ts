@@ -1,6 +1,16 @@
 /**
  * Workspaces API client. Uses same base and credentials as auth (cookie).
  * Base: {NEXT_PUBLIC_API_URL}/workspaces
+ *
+ * All workspace routes require auth (Bearer JWT or cookie).
+ *
+ * Method   Path              Body                            Description
+ * POST     /workspaces       { name, slug?, isPersonal? }    Create workspace; caller becomes owner.
+ * GET      /workspaces       —                               List workspaces for current user.
+ * GET      /workspaces/:id   —                               Get one workspace (must be member).
+ * PATCH    /workspaces/:id   { name?, slug?, isPersonal? }    Update workspace (must be member).
+ * DELETE   /workspaces/:id   —                               Delete workspace (owner only).
+ * :id is a UUID.
  */
 
 import type { Workspace } from "@/lib/types";

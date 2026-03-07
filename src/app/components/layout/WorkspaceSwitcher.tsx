@@ -203,7 +203,10 @@ export function WorkspaceSwitcher() {
           side="bottom"
           className="w-52 rounded-lg border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 dark:border-l-primary/40 shadow-sm bg-card text-card-foreground p-1 text-sm"
         >
-          <DropdownMenuLabel className="text-[10px] font-normal text-gray-500 dark:text-gray-400">
+          <DropdownMenuLabel
+            key="switch-label"
+            className="text-[10px] font-normal text-gray-500 dark:text-gray-400"
+          >
             Switch workspace
           </DropdownMenuLabel>
           {workspaces.map((ws) => (
@@ -218,8 +221,8 @@ export function WorkspaceSwitcher() {
               )}
             </DropdownMenuItem>
           ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
+          <DropdownMenuSeparator key="separator" />
+          <DropdownMenuItem key="manage" asChild>
             <Link href="/workspaces">
               <Settings2 className="size-3.5 mr-2" />
               Manage workspaces
