@@ -107,7 +107,7 @@ export const workspacesApi = {
 
   delete: async (id: string): Promise<void> => {
     const res = await api(`/workspaces/${id}`, { method: "DELETE" });
-    if (res.status === 204) return;
+    if (res.ok) return;
     const data = await parseJson(res);
     throw new Error(getMessage(data));
   },

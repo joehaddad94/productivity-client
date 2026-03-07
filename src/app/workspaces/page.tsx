@@ -27,11 +27,23 @@ import {
   useCreateWorkspaceMutation,
   useUpdateWorkspaceMutation,
   useDeleteWorkspaceMutation,
+  WORKSPACES_QUERY_KEY,
 } from "@/app/hooks/useWorkspacesApi";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/app/components/ui/utils";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 
 export default function WorkspacesPage() {
+  const queryClient = useQueryClient();
   const {
     workspaces,
     currentWorkspace,
@@ -41,7 +53,7 @@ export default function WorkspacesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Workspace | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [workspaceToDelete, setWorkspaceToDelete] = useState<Workspace | null>(null);
 
   const filteredWorkspaces = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -67,19 +79,23 @@ export default function WorkspacesPage() {
   });
   const deleteMutation = useDeleteWorkspaceMutation({
     onSuccess: (_, id) => {
-      setDeletingId(null);
+      setWorkspaceToDelete(null);
       if (currentWorkspace?.id === id) {
-        const rest = workspaces.filter((w) => w.id !== id);
-        setCurrentWorkspaceId(rest[0]?.id ?? null);
+        const list = queryClient.getQueryData<Workspace[]>(WORKSPACES_QUERY_KEY) ?? [];
+        setCurrentWorkspaceId(list[0]?.id ?? null);
       }
-      refetchWorkspaces();
+      toast.success("Workspace deleted");
+      // Don't refetch: hook already updated cache; refetch can overwrite with stale data
+    },
+    onError: (err) => {
+      toast.error(err.message);
     },
   });
 
   return (
     <div className="max-w-2xl space-y-6">
       {/* Header card */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-card overflow-hidden">
+      <div key="header" className="rounded-xl border border-gray-200 dark:border-gray-700 bg-card overflow-hidden">
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className="size-12 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center flex-shrink-0">
@@ -103,7 +119,7 @@ export default function WorkspacesPage() {
       </div>
 
       {/* Search */}
-      <div className="relative">
+      <div key="search" className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
         <Input
           type="search"
@@ -116,9 +132,9 @@ export default function WorkspacesPage() {
       </div>
 
       {/* Create + List in a card */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-card overflow-hidden">
+      <div key="card" className="rounded-xl border border-gray-200 dark:border-gray-700 bg-card overflow-hidden">
         <div className="p-5 space-y-5">
-          <section>
+          <section key="add-workspace">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
               Add workspace
             </h2>
@@ -151,7 +167,7 @@ export default function WorkspacesPage() {
             )}
           </section>
 
-          <section>
+          <section key="your-workspaces">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
               Your workspaces
               {workspaces.length > 0 && (
@@ -234,22 +250,11 @@ export default function WorkspacesPage() {
                       size="sm"
                       variant="ghost"
                       className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            `Delete "${ws.name}"? This cannot be undone.`
-                          )
-                        ) {
-                          setDeletingId(ws.id);
-                          deleteMutation.mutate(ws.id);
-                        }
-                      }}
-                      disabled={
-                        deleteMutation.isPending && deletingId === ws.id
-                      }
+                      onClick={() => setWorkspaceToDelete(ws)}
+                      disabled={deleteMutation.isPending && workspaceToDelete?.id === ws.id}
                       aria-label="Delete workspace"
                     >
-                      {deleteMutation.isPending && deletingId === ws.id ? (
+                      {deleteMutation.isPending && workspaceToDelete?.id === ws.id ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : (
                         <Trash2 className="size-4" />
@@ -276,7 +281,7 @@ export default function WorkspacesPage() {
       </div>
 
       {/* About / tips */}
-      <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 p-5">
+      <div key="about" className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 p-5">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
           About workspaces
         </h3>
@@ -285,6 +290,66 @@ export default function WorkspacesPage() {
           Switch using the workspace dropdown in the sidebar—your current workspace is used for all new notes and tasks.
         </p>
       </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog key="delete-dialog" open={!!workspaceToDelete} onOpenChange={(open) => !open && setWorkspaceToDelete(null)}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <div className="space-y-3">
+              <AlertDialogTitle className="text-base">
+                Delete workspace
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                You are about to delete this workspace. All notes and data in it will be permanently removed.
+              </AlertDialogDescription>
+              {workspaceToDelete && (
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-3 py-2">
+                    <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      Workspace
+                    </p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                      {workspaceToDelete.name}
+                    </p>
+                    {workspaceToDelete.slug && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                        {workspaceToDelete.slug}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium text-destructive/90 dark:text-destructive/80">
+                    This action cannot be undone.
+                  </p>
+                </div>
+              )}
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-3 sm:justify-end">
+            <AlertDialogCancel key="cancel" disabled={deleteMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              key="delete"
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (workspaceToDelete) {
+                  deleteMutation.mutate(workspaceToDelete.id);
+                }
+              }}
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-2" />
+                  Deleting…
+                </>
+              ) : (
+                "Delete workspace"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -334,8 +399,6 @@ function CreateForm({
       slug: finalSlug || undefined,
       isPersonal,
     });
-    setName("");
-    setSlug("");
   };
 
   return (

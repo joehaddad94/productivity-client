@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, Fragment } from "react";
 import Link from "next/link";
 import {
   Building2,
@@ -209,18 +209,20 @@ export function WorkspaceSwitcher() {
           >
             Switch workspace
           </DropdownMenuLabel>
-          {workspaces.map((ws) => (
-            <DropdownMenuItem
-              key={ws.id}
-              onClick={() => setCurrentWorkspaceId(ws.id)}
-            >
-              <Building2 className="size-3.5 mr-2 opacity-70" />
-              <span className="flex-1 truncate">{ws.name}</span>
-              {ws.id === currentWorkspace.id && (
-                <Check className="size-3.5 text-primary" />
-              )}
-            </DropdownMenuItem>
-          ))}
+          <Fragment key="workspace-list">
+            {workspaces.map((ws) => (
+              <DropdownMenuItem
+                key={ws.id}
+                onClick={() => setCurrentWorkspaceId(ws.id)}
+              >
+                <Building2 className="size-3.5 mr-2 opacity-70" />
+                <span className="flex-1 truncate">{ws.name}</span>
+                {ws.id === currentWorkspace.id && (
+                  <Check className="size-3.5 text-primary" />
+                )}
+              </DropdownMenuItem>
+            ))}
+          </Fragment>
           <DropdownMenuSeparator key="separator" />
           <DropdownMenuItem key="manage" asChild>
             <Link href="/workspaces">
