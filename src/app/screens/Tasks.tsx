@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Plus, Search, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { TaskCard } from "@/app/components/TaskCard";
 import { Button } from "@/app/components/ui/button";
+import { SearchInput } from "@/app/components/ui/search-input";
 import { Input } from "@/app/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
@@ -135,15 +136,13 @@ export function Tasks() {
           </div>
 
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-            <Input
-              placeholder="Search tasks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+          <SearchInput
+            type="search"
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search tasks"
+          />
 
           {/* Filter Tabs */}
           <Tabs defaultValue="today" className="w-full">

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Plus, Search, Bold, Italic, List, ListOrdered, Tag, MoreVertical } from "lucide-react";
+import { Plus, Bold, Italic, List, ListOrdered, Tag, MoreVertical } from "lucide-react";
 import type { Note } from "@/lib/types";
 import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
+import { SearchInput } from "@/app/components/ui/search-input";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { Badge } from "@/app/components/ui/badge";
@@ -86,15 +87,13 @@ export function Notes() {
             </Button>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400" />
-            <Input
-              placeholder="Search notes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <SearchInput
+            type="search"
+            placeholder="Search notes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search notes"
+          />
 
           <div className="flex-1 overflow-y-auto space-y-1.5 pr-1.5">
             {filteredNotes.map((note) => (

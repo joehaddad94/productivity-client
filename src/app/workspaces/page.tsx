@@ -9,7 +9,6 @@ import {
   X,
   Plus,
   Sparkles,
-  Search,
 } from "lucide-react";
 import {
   slugFromName,
@@ -20,6 +19,7 @@ import {
 import type { Workspace } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import { SearchInput } from "@/app/components/ui/search-input";
 import { Label } from "@/app/components/ui/label";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -119,17 +119,14 @@ export default function WorkspacesPage() {
       </div>
 
       {/* Search */}
-      <div key="search" className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-        <Input
-          type="search"
-          placeholder="Search workspaces by name or slug…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9 rounded-lg border-gray-200 dark:border-gray-700 h-11"
-          aria-label="Search workspaces"
-        />
-      </div>
+      <SearchInput
+        key="search"
+        type="search"
+        placeholder="Search workspaces by name or slug…"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        aria-label="Search workspaces"
+      />
 
       {/* Create + List in a card */}
       <div key="card" className="rounded-xl border border-gray-200 dark:border-gray-700 bg-card overflow-hidden">
