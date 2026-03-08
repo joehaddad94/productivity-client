@@ -7,7 +7,6 @@ import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 import { CreateFirstWorkspace } from "../screens/workspace/CreateFirstWorkspace";
-import { WorkspacePicker } from "../screens/workspace/WorkspacePicker";
 import { AuthScreenWrap } from "@/app/components/auth/AuthScreenWrap";
 import type { Workspace } from "@/lib/types";
 
@@ -15,7 +14,6 @@ export default function WorkspaceGatePage() {
   const router = useRouter();
   const { isAuthenticated, isInitialized } = useAuth();
   const {
-    workspaces,
     isLoading,
     isFetched,
     hasWorkspaces,
@@ -61,13 +59,7 @@ export default function WorkspaceGatePage() {
               }}
             />
           ) : (
-            <WorkspacePicker
-              workspaces={workspaces}
-              onSelect={(workspace: Workspace) => {
-                setCurrentWorkspaceId(workspace.id);
-                router.replace("/notes");
-              }}
-            />
+            <ScreenLoader variant="auth" message="Taking you to Notes…" />
           )}
         </div>
       </AuthScreenWrap>

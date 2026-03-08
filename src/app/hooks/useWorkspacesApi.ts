@@ -53,11 +53,11 @@ export function useCreateWorkspaceMutation(
     mutationFn: (body: CreateWorkspaceBody) => workspacesApi.create(body),
     ...options,
     onSuccess: (data, variables, context, mutation) => {
+      options?.onSuccess?.(data, variables, context, mutation);
       queryClient.setQueryData(WORKSPACES_QUERY_KEY, (prev: Workspace[] | undefined) =>
         prev ? [...prev, data] : [data]
       );
       queryClient.setQueryData(WORKSPACE_QUERY_KEY(data.id), data);
-      options?.onSuccess?.(data, variables, context, mutation);
     },
   });
 }
