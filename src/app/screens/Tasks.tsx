@@ -54,6 +54,7 @@ function TaskRow({
   return (
     <>
       <div
+        data-testid="task-row"
         className={cn(
           "group flex items-start gap-3 p-3 rounded-lg border transition-all duration-200 cursor-pointer shadow-sm",
           isCompleted
@@ -122,6 +123,8 @@ function TaskRow({
         </div>
 
         <button
+          title="Delete task"
+          aria-label="Delete task"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(task.id);
@@ -157,7 +160,7 @@ function CreateTaskForm({
   isPending: boolean;
 }) {
   const [title, setTitle] = useState("");
-  const [priority, setPriority] = useState<"low" | "medium" | "high" | "">("");
+  const [priority, setPriority] = useState<"low" | "medium" | "high" | "none">("none");
   const [dueDate, setDueDate] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -168,11 +171,11 @@ function CreateTaskForm({
     }
     onSubmit({
       title: title.trim(),
-      priority: priority || undefined,
+      priority: priority === "none" ? undefined : priority,
       dueDate: dueDate || undefined,
     });
     setTitle("");
-    setPriority("");
+    setPriority("none");
     setDueDate("");
   };
 
@@ -201,7 +204,7 @@ function CreateTaskForm({
               <SelectValue placeholder="None" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">None</SelectItem>
+              <SelectItem value="none">None</SelectItem>
               <SelectItem value="low">Low</SelectItem>
               <SelectItem value="medium">Medium</SelectItem>
               <SelectItem value="high">High</SelectItem>
@@ -238,14 +241,14 @@ export function Tasks() {
   const workspaceId = currentWorkspace?.id ?? null;
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterPriority, setFilterPriority] = useState("");
+  const [filterPriority, setFilterPriority] = useState("all");
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showDetail, setShowDetail] = useState(false);
 
   const { data: tasks = [], isLoading, error } = useTasksQuery(workspaceId, {
     search: searchQuery || undefined,
-    priority: filterPriority || undefined,
+    priority: filterPriority === "all" ? undefined : filterPriority || undefined,
   });
 
   const createMutation = useCreateTaskMutation(workspaceId, {
@@ -348,7 +351,7 @@ export function Tasks() {
                 <SelectValue placeholder="Priority" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All priorities</SelectItem>
+                <SelectItem value="all">All priorities</SelectItem>
                 <SelectItem value="high">High</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
                 <SelectItem value="low">Low</SelectItem>
@@ -459,11 +462,11 @@ export function Tasks() {
                 <div>
                   <Label className="text-sm font-medium mb-2 block">Priority</Label>
                   <Select
-                    defaultValue={selectedTask.priority ?? ""}
+                    defaultValue={selectedTask.priority ?? "none"}
                     onValueChange={(v) => {
                       updateMutation.mutate({
                         id: selectedTask.id,
-                        body: { priority: v as Task["priority"] || undefined },
+                        body: { priority: v === "none" ? undefined : v as Task["priority"] },
                       });
                     }}
                   >
@@ -471,7 +474,7 @@ export function Tasks() {
                       <SelectValue placeholder="None" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       <SelectItem value="low">Low</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
                       <SelectItem value="high">High</SelectItem>
