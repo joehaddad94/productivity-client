@@ -20,7 +20,7 @@ export function useLayout() {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const { logout, user } = useAuth();
+  const { logout, user, isInitialized } = useAuth();
   const { needsWorkspace, isFetched } = useWorkspace();
 
   // Auth routes (/, /login, /signup, /verify) and focus: no sidebar.
@@ -39,11 +39,20 @@ export function useLayout() {
     needsWorkspace &&
     path !== WORKSPACE_GATE_PATH;
 
+  const redirectingToLogin =
+    isInitialized &&
+    !user &&
+    path !== "" &&
+    !isAuthOrFocusRoute(path) &&
+    path !== WORKSPACE_GATE_PATH;
+
   useEffect(() => {
-    if (redirectingToWorkspace) {
+    if (redirectingToLogin) {
+      router.replace("/login");
+    } else if (redirectingToWorkspace) {
       router.replace(WORKSPACE_GATE_PATH);
     }
-  }, [redirectingToWorkspace, router]);
+  }, [redirectingToLogin, redirectingToWorkspace, router]);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
