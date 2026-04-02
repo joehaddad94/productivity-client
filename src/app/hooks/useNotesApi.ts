@@ -61,13 +61,10 @@ export function useCreateNoteMutation(
     onSuccess: (data, variables, context, mutation) => {
       options?.onSuccess?.(data, variables, context, mutation);
       queryClient.setQueryData(
-        NOTES_QUERY_KEY(workspaceId ?? ""),
-        (prev: Note[] | undefined) => (prev ? [data, ...prev] : [data])
-      );
-      queryClient.setQueryData(
         NOTE_QUERY_KEY(workspaceId ?? "", data.id),
         data
       );
+      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
     },
   });
 }
@@ -86,11 +83,7 @@ export function useUpdateNoteMutation(
         NOTE_QUERY_KEY(workspaceId ?? "", data.id),
         data
       );
-      queryClient.setQueryData(
-        NOTES_QUERY_KEY(workspaceId ?? ""),
-        (prev: Note[] | undefined) =>
-          prev ? prev.map((n) => (n.id === data.id ? data : n)) : [data]
-      );
+      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });
@@ -108,11 +101,7 @@ export function useDeleteNoteMutation(
       queryClient.removeQueries({
         queryKey: NOTE_QUERY_KEY(workspaceId ?? "", id),
       });
-      queryClient.setQueryData(
-        NOTES_QUERY_KEY(workspaceId ?? ""),
-        (prev: Note[] | undefined) =>
-          prev ? prev.filter((n) => n.id !== id) : []
-      );
+      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(_, id, context, mutation);
     },
   });
