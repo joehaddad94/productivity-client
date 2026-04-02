@@ -36,3 +36,6 @@ Thumbs.db
 
 # Vite (legacy)
 *.local
+playwright/.auth/
+playwright-report/
+test-results/
