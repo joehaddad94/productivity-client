@@ -26,7 +26,7 @@ function ProjectCard({
   onDelete: (id: string) => void;
 }) {
   return (
-    <Card className="border-l-4 border-l-primary/30 hover:shadow-md transition-all duration-200">
+    <Card data-testid="project-card" className="border-l-4 border-l-primary/30 hover:shadow-md transition-all duration-200">
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
@@ -49,6 +49,7 @@ function ProjectCard({
               variant="ghost"
               size="sm"
               className="h-7 w-7 p-0"
+              aria-label="Edit project"
               onClick={() => onEdit(project)}
             >
               <Pencil className="size-3.5" />
@@ -57,6 +58,7 @@ function ProjectCard({
               variant="ghost"
               size="sm"
               className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+              aria-label="Delete project"
               onClick={() => onDelete(project.id)}
             >
               <Trash2 className="size-3.5" />

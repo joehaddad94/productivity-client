@@ -78,6 +78,7 @@ export function PomodoroWidget() {
       >
         {/* Header — always visible */}
         <button
+          aria-label="Toggle Pomodoro timer"
           onClick={() => setExpanded((p) => !p)}
           className={cn(
             "w-full flex items-center gap-2 px-3 py-2 text-xs font-medium",
@@ -166,6 +167,7 @@ export function PomodoroWidget() {
               </Button>
               <Button
                 size="sm"
+                aria-label={isRunning ? "Pause" : "Start"}
                 className={cn(
                   "h-9 w-9 p-0 rounded-full",
                   SESSION_COLORS[sessionType]
