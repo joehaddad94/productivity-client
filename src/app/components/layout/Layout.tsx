@@ -10,6 +10,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
+import { PomodoroWidget } from "@/app/components/pomodoro";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [previewMode, setPreviewMode] = useState<"auth" | "skeleton" | null>(null);
@@ -239,6 +240,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </main>
+
+      <PomodoroWidget />
 
       {previewOverlay}
     </div>

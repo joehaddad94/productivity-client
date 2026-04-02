@@ -22,7 +22,7 @@ export function NoteCard({ note, isActive, onSelect }: NoteCardProps) {
     >
       <h3 className="font-medium text-sm mb-1.5 truncate">{note.title}</h3>
       <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
-        {note.preview}
+        {note.preview ?? note.content?.replace(/<[^>]+>/g, "").slice(0, 120) ?? ""}
       </p>
       <div className="flex items-center justify-between">
         <div className="flex flex-wrap gap-1">
@@ -35,7 +35,7 @@ export function NoteCard({ note, isActive, onSelect }: NoteCardProps) {
         </div>
         <div className="flex items-center gap-0.5 text-[10px] text-gray-500 dark:text-gray-400">
           <Clock className="size-2.5" />
-          <span>{note.lastEdited}</span>
+          <span>{note.lastEdited ?? new Date(note.updatedAt).toLocaleDateString()}</span>
         </div>
       </div>
     </div>

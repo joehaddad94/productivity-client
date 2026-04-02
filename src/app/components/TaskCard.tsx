@@ -1,4 +1,4 @@
-import { Calendar, Flag, Tag } from "lucide-react";
+import { Calendar, Flag } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
 import { Badge } from "./ui/badge";
@@ -17,12 +17,14 @@ export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
     high: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
   };
 
+  const isCompleted = task.status === "completed" || task.completed === true;
+
   return (
     <div
       onClick={() => onSelect?.(task)}
       className={cn(
         "group p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-sm",
-        task.completed
+        isCompleted
           ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 border-l-4 border-l-emerald-400 dark:border-l-emerald-500 hover:shadow-md"
           : task.overdue
           ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900 border-l-4 border-l-red-400 dark:border-l-red-500 hover:shadow-md"
@@ -31,7 +33,7 @@ export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
     >
       <div className="flex items-start gap-3">
         <Checkbox
-          checked={task.completed}
+          checked={isCompleted}
           onCheckedChange={() => onToggle(task.id)}
           className="mt-0.5"
           onClick={(e) => e.stopPropagation()}
@@ -40,7 +42,7 @@ export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
           <h3
             className={cn(
               "font-medium mb-2",
-              task.completed && "line-through text-emerald-700 dark:text-emerald-400"
+              isCompleted && "line-through text-emerald-700 dark:text-emerald-400"
             )}
           >
             {task.title}
@@ -49,12 +51,16 @@ export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
             {task.dueDate && (
               <div className={cn(
                 "flex items-center gap-1 text-xs",
-                task.overdue && !task.completed
+                task.overdue && !isCompleted
                   ? "text-red-600 dark:text-red-400 font-medium"
                   : "text-gray-500 dark:text-gray-400"
               )}>
                 <Calendar className="size-3" />
-                <span>{task.dueDate}</span>
+                <span>
+                  {typeof task.dueDate === "string" && task.dueDate.includes("T")
+                    ? new Date(task.dueDate).toLocaleDateString()
+                    : task.dueDate}
+                </span>
               </div>
             )}
             {task.priority && (
@@ -68,12 +74,6 @@ export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
                 {task.status}
               </Badge>
             )}
-            {task.tags?.map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs">
-                <Tag className="size-3 mr-1" />
-                {tag}
-              </Badge>
-            ))}
           </div>
         </div>
       </div>
