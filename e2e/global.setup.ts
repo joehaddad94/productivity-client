@@ -8,7 +8,9 @@
 import { test as setup, expect, request } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const API = 'http://localhost:8000';
 const AUTH_FILE = path.join(__dirname, '../playwright/.auth/user.json');
 

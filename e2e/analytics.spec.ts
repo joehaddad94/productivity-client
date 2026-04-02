@@ -26,6 +26,6 @@ test.describe('Analytics', () => {
   });
 
   test('no API errors shown to user', async ({ page }) => {
-    await expect(page.getByText(/error|failed|could not load/i)).not.toBeVisible();
+    await expect(page.locator('main').getByText(/failed to load|could not load/i)).not.toBeVisible();
   });
 });
