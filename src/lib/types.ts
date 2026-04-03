@@ -61,6 +61,8 @@ export interface Task {
   project?: string;
 }
 
+export type Subtask = Pick<Task, "id" | "title" | "completed">;
+
 export interface Note {
   id: string;
   workspaceId: string;
