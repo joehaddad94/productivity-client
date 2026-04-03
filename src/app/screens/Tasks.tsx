@@ -466,7 +466,12 @@ export function Tasks() {
                     onValueChange={(v) => {
                       updateMutation.mutate({
                         id: selectedTask.id,
-                        body: { priority: v === "none" ? undefined : v as Task["priority"] },
+                        body: {
+                          priority:
+                            v === "none"
+                              ? undefined
+                              : (v as Exclude<Task["priority"], null>),
+                        },
                       });
                     }}
                   >
