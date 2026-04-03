@@ -50,7 +50,7 @@ function writeStoredId(id: string | null) {
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isInitialized } = useAuth();
   const [currentId, setCurrentId] = useState<string | null>(readStoredId);
 
   const {
@@ -73,7 +73,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (isInitialized && !isAuthenticated) {
       setCurrentId(null);
       writeStoredId(null);
       return;
@@ -87,7 +87,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     } else if (currentId !== stored) {
       setCurrentId(stored);
     }
-  }, [isAuthenticated, isFetched, workspaces, currentId]);
+  }, [isAuthenticated, isInitialized, isFetched, workspaces, currentId]);
 
   const hasWorkspaces = isFetched && workspaces.length > 0;
   const needsWorkspace = isFetched && (workspaces.length === 0 || !currentWorkspace);
