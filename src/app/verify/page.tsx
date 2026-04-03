@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { VerifyMagicLink } from "@/app/pages/VerifyMagicLink";
+import { VerifyMagicLink } from "@/app/screens/VerifyMagicLink";
 
 export default function VerifyPage() {
   return (

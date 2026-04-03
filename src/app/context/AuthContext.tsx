@@ -1,10 +1,24 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+"use client";
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
+import { createContext, useContext, useCallback, ReactNode } from "react";
+import type { User } from "@/lib/types";
+import type { AuthUser } from "@/lib/api/auth-api";
+import {
+  useMeQuery,
+  useRegisterMutation,
+  useLoginMutation,
+  useVerifyMutation,
+  useLogoutMutation,
+  AUTH_QUERY_KEY,
+} from "@/app/hooks/useAuthApi";
+import { useQueryClient } from "@tanstack/react-query";
+
+function mapUser(u: AuthUser): User {
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name ?? "",
+  };
 }
 
 interface AuthContextType {
@@ -12,46 +26,57 @@ interface AuthContextType {
   sendMagicLink: (email: string) => Promise<void>;
   verifyMagicLink: (token: string) => Promise<void>;
   signup: (name: string, email: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
+  isInitialized: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const queryClient = useQueryClient();
+  const { data: meUser, isFetched: meFetched } = useMeQuery();
+  const registerMutation = useRegisterMutation();
+  const loginMutation = useLoginMutation();
+  const verifyMutation = useVerifyMutation();
+  const logoutMutation = useLogoutMutation();
 
-  const sendMagicLink = async (email: string) => {
-    // Simulate API call to send magic link
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    // In a real app, this would send an email with a magic link
-    console.log(`Magic link sent to ${email}`);
-  };
+  // Derive user synchronously from the query so there's no one-frame lag.
+  // Previously we copied meUser into useState in an effect, so when meFetched
+  // became true we still had user=null for one render and the home page
+  // briefly showed the login screen before redirecting.
+  const user = meFetched ? (meUser ? mapUser(meUser) : null) : null;
 
-  const verifyMagicLink = async (token: string) => {
-    // Simulate API call to verify token
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    // Mock user data
-    setUser({
-      id: "1",
-      name: "John Doe",
-      email: "john@example.com",
-    });
-  };
+  const signup = useCallback(
+    async (name: string, email: string) => {
+      await registerMutation.mutateAsync({ email, name });
+    },
+    [registerMutation]
+  );
 
-  const signup = async (name: string, email: string) => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    // In a real app, this would create the user and send a magic link
-    console.log(`Magic link sent to ${email} for new user ${name}`);
-  };
+  const sendMagicLink = useCallback(
+    async (email: string) => {
+      await loginMutation.mutateAsync(email);
+    },
+    [loginMutation]
+  );
 
-  const logout = () => {
-    setUser(null);
-  };
+  const verifyMagicLink = useCallback(
+    async (token: string) => {
+      const { user: authUser } = await verifyMutation.mutateAsync(token);
+      queryClient.setQueryData(AUTH_QUERY_KEY, authUser);
+    },
+    [verifyMutation, queryClient]
+  );
+
+  const logout = useCallback(async () => {
+    queryClient.setQueryData(AUTH_QUERY_KEY, null);
+    try {
+      await logoutMutation.mutateAsync();
+    } finally {
+      queryClient.setQueryData(AUTH_QUERY_KEY, null);
+    }
+  }, [logoutMutation, queryClient]);
 
   return (
     <AuthContext.Provider
@@ -62,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signup,
         logout,
         isAuthenticated: !!user,
+        isInitialized: meFetched,
       }}
     >
       {children}
