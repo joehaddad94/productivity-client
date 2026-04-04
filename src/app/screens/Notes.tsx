@@ -11,12 +11,14 @@ import { Badge } from "@/app/components/ui/badge";
 import { Separator } from "@/app/components/ui/separator";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
+import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import {
   useNotesQuery,
   useCreateNoteMutation,
   useUpdateNoteMutation,
   useDeleteNoteMutation,
 } from "@/app/hooks/useNotesApi";
+import { useDebounce } from "@/app/hooks/useDebounce";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -157,9 +159,12 @@ export function Notes() {
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const { data: notes = [], isLoading, error } = useNotesQuery(workspaceId, {
-    search: searchQuery || undefined,
+    search: debouncedSearch || undefined,
   });
 
   const createMutation = useCreateNoteMutation(workspaceId, {
@@ -206,8 +211,13 @@ export function Notes() {
   );
 
   const handleDelete = (id: string) => {
-    if (!window.confirm("Delete this note?")) return;
-    deleteMutation.mutate(id);
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget);
+    setDeleteTarget(null);
   };
 
   const noteToCard = (note: Note): Note => ({
@@ -220,6 +230,13 @@ export function Notes() {
 
   return (
     <div className="w-full h-full flex flex-col min-h-0">
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title="Delete note?"
+        description="This action cannot be undone."
+        onConfirm={confirmDelete}
+      />
       <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
         {/* Notes List */}
         <div className="lg:min-w-72 lg:w-80 xl:w-96 flex-shrink-0 space-y-3 flex flex-col">

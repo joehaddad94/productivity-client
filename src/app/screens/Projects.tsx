@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/ca
 import { Label } from "@/app/components/ui/label";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
+import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import {
   useProjectsQuery,
   useCreateProjectMutation,
@@ -134,6 +135,7 @@ export function Projects() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const { data: projects = [], isLoading, error } = useProjectsQuery(workspaceId);
 
@@ -159,12 +161,24 @@ export function Projects() {
   });
 
   const handleDelete = (id: string) => {
-    if (!window.confirm("Delete this project? Notes linked to it will remain.")) return;
-    deleteMutation.mutate(id);
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget);
+    setDeleteTarget(null);
   };
 
   return (
     <div className="w-full space-y-6">
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title="Delete project?"
+        description="Notes linked to it will remain."
+        onConfirm={confirmDelete}
+      />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold mb-2">Projects</h1>

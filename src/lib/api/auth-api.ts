@@ -88,4 +88,14 @@ export const authApi = {
     if (!res.ok) throw new Error(getMessage(data));
     return (data as MeResponse).user ?? null;
   },
+
+  updateMe: async (data: { name?: string }): Promise<AuthUser> => {
+    const res = await api("/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(getMessage(json));
+    return (json as MeResponse).user;
+  },
 };

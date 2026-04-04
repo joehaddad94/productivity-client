@@ -26,7 +26,9 @@ import {
   useUpdateTaskMutation,
   useDeleteTaskMutation,
 } from "@/app/hooks/useTasksApi";
+import { useDebounce } from "@/app/hooks/useDebounce";
 import { cn } from "@/app/components/ui/utils";
+import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 
 const PRIORITY_COLORS = {
   low: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
@@ -245,9 +247,12 @@ export function Tasks() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const { data: tasks = [], isLoading, error } = useTasksQuery(workspaceId, {
-    search: searchQuery || undefined,
+    search: debouncedSearch || undefined,
     priority: filterPriority === "all" ? undefined : filterPriority || undefined,
   });
 
@@ -276,9 +281,14 @@ export function Tasks() {
   };
 
   const handleDelete = (id: string) => {
-    if (!window.confirm("Delete this task?")) return;
-    deleteMutation.mutate(id);
-    if (selectedTask?.id === id) setShowDetail(false);
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget);
+    if (selectedTask?.id === deleteTarget) setShowDetail(false);
+    setDeleteTarget(null);
   };
 
   const handleSelectTask = (task: Task) => {
@@ -290,11 +300,15 @@ export function Tasks() {
   const inProgressTasks = tasks.filter((t) => t.status === "in_progress");
   const completedTasks = tasks.filter((t) => t.status === "completed");
 
-  const TaskList = ({ items }: { items: Task[] }) => (
+  const isFiltered = debouncedSearch || filterPriority !== "all";
+
+  const TaskList = ({ items, tab }: { items: Task[]; tab: string }) => (
     <div className="space-y-2 mt-4">
       {items.length === 0 ? (
         <p className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
-          No tasks here
+          {isFiltered
+            ? `No ${tab} tasks match your filters`
+            : `No ${tab} tasks`}
         </p>
       ) : (
         items.map((task) => (
@@ -312,6 +326,13 @@ export function Tasks() {
 
   return (
     <div className="w-full">
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title="Delete task?"
+        description="This action cannot be undone."
+        onConfirm={confirmDelete}
+      />
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Main Content */}
         <div className="flex-1 space-y-4">
@@ -393,13 +414,13 @@ export function Tasks() {
               </TabsList>
 
               <TabsContent value="pending">
-                <TaskList items={pendingTasks} />
+                <TaskList items={pendingTasks} tab="pending" />
               </TabsContent>
               <TabsContent value="in_progress">
-                <TaskList items={inProgressTasks} />
+                <TaskList items={inProgressTasks} tab="in-progress" />
               </TabsContent>
               <TabsContent value="completed">
-                <TaskList items={completedTasks} />
+                <TaskList items={completedTasks} tab="completed" />
               </TabsContent>
             </Tabs>
           )}
