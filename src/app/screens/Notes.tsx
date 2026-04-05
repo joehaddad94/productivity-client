@@ -243,14 +243,6 @@ export function Notes() {
     });
   }, [queryClient, workspaceId, selectedNoteId, notes, deleteMutation]);
 
-  const noteToCard = (note: Note): Note => ({
-    ...note,
-    preview: note.content
-      ? note.content.replace(/<[^>]+>/g, "").slice(0, 120)
-      : "",
-    lastEdited: new Date(note.updatedAt).toLocaleDateString(),
-  });
-
   return (
     <div className="w-full h-full flex flex-col min-h-0">
       <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
@@ -302,7 +294,7 @@ export function Notes() {
                 notes.map((note) => (
                   <div key={note.id} className="relative group">
                     <NoteCard
-                      note={noteToCard(note)}
+                      note={note}
                       isActive={selectedNoteId === note.id}
                       onSelect={() => setSelectedNoteId(note.id)}
                     />
