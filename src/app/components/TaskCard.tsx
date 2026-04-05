@@ -17,7 +17,8 @@ export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
     high: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
   };
 
-  const isCompleted = task.status === "completed" || task.completed === true;
+  const isCompleted = task.status === "completed";
+  const isOverdue = !isCompleted && !!task.dueDate && task.dueDate.slice(0, 10) < new Date().toISOString().slice(0, 10);
 
   return (
     <div
@@ -26,7 +27,7 @@ export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
         "group p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-sm",
         isCompleted
           ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 border-l-4 border-l-emerald-400 dark:border-l-emerald-500 hover:shadow-md"
-          : task.overdue
+          : isOverdue
           ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900 border-l-4 border-l-red-400 dark:border-l-red-500 hover:shadow-md"
           : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 dark:border-l-primary/40 hover:shadow-md hover:border-primary/20 dark:hover:border-primary/30"
       )}
@@ -51,7 +52,7 @@ export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
             {task.dueDate && (
               <div className={cn(
                 "flex items-center gap-1 text-xs",
-                task.overdue && !isCompleted
+                isOverdue
                   ? "text-red-600 dark:text-red-400 font-medium"
                   : "text-gray-500 dark:text-gray-400"
               )}>
