@@ -53,6 +53,8 @@ export type ListNotesParams = {
   search?: string;
   tags?: string;
   projectId?: string;
+  limit?: number;
+  skip?: number;
 };
 
 export type CreateNoteBody = {
@@ -67,20 +69,23 @@ export type CreateNoteBody = {
 
 export type UpdateNoteBody = Partial<CreateNoteBody>;
 
-export type ListNotesResponse = { notes: Note[] };
+export type NotesPage = { notes: Note[]; total: number };
 
 export const notesApi = {
-  list: async (workspaceId: string, params?: ListNotesParams): Promise<Note[]> => {
+  list: async (workspaceId: string, params?: ListNotesParams): Promise<NotesPage> => {
     const qs = new URLSearchParams();
     if (params?.search) qs.set("search", params.search);
     if (params?.tags) qs.set("tags", params.tags);
     if (params?.projectId) qs.set("projectId", params.projectId);
+    if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+    if (params?.skip !== undefined) qs.set("skip", String(params.skip));
     const query = qs.toString() ? `?${qs.toString()}` : "";
     const res = await api(`/workspaces/${workspaceId}/notes${query}`);
-    if (res.status === 401) return [];
+    if (res.status === 401) return { notes: [], total: 0 };
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
-    return (data as ListNotesResponse).notes ?? [];
+    const d = data as { notes?: Note[]; total?: number };
+    return { notes: d.notes ?? [], total: d.total ?? 0 };
   },
 
   get: async (workspaceId: string, id: string): Promise<Note | null> => {
