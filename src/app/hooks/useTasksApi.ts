@@ -13,6 +13,7 @@ import {
   type CreateTaskBody,
   type UpdateTaskBody,
   type ListTasksParams,
+  type TasksPage,
 } from "@/lib/api/tasks-api";
 
 export const TASKS_QUERY_KEY = (workspaceId: string) =>
@@ -23,7 +24,7 @@ export const TASK_QUERY_KEY = (workspaceId: string, id: string) =>
 export function useTasksQuery(
   workspaceId: string | null | undefined,
   params?: ListTasksParams,
-  options?: Omit<UseQueryOptions<Task[]>, "queryKey" | "queryFn"> & {
+  options?: Omit<UseQueryOptions<TasksPage>, "queryKey" | "queryFn"> & {
     enabled?: boolean;
   }
 ) {

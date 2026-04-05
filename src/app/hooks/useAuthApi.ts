@@ -61,6 +61,24 @@ export function useVerifyMutation(
   });
 }
 
+export function useUpdateMeMutation(
+  options?: UseMutationOptions<
+    Awaited<ReturnType<typeof authApi.updateMe>>,
+    Error,
+    { name?: string }
+  >
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name?: string }) => authApi.updateMe(data),
+    ...options,
+    onSuccess: (data, variables, context, mutation) => {
+      queryClient.setQueryData(AUTH_QUERY_KEY, data);
+      options?.onSuccess?.(data, variables, context, mutation);
+    },
+  });
+}
+
 export function useLogoutMutation(
   options?: UseMutationOptions<
     Awaited<ReturnType<typeof authApi.logout>>,
