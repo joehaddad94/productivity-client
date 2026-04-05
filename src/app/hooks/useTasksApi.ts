@@ -103,6 +103,21 @@ export function useDeleteTaskMutation(
   });
 }
 
+export function useReorderTasksMutation(
+  workspaceId: string | null | undefined,
+  options?: UseMutationOptions<void, Error, string[]>
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => tasksApi.reorder(workspaceId!, ids),
+    ...options,
+    onSuccess: (_, ids, context, mutation) => {
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+      options?.onSuccess?.(_, ids, context, mutation);
+    },
+  });
+}
+
 export function useBulkTasksMutation(
   workspaceId: string | null | undefined,
   options?: UseMutationOptions<{ affected: number }, Error, BulkTaskBody>

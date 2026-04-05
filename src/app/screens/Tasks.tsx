@@ -26,6 +26,7 @@ import {
   useUpdateTaskMutation,
   useDeleteTaskMutation,
   useBulkTasksMutation,
+  useReorderTasksMutation,
   TASKS_QUERY_KEY,
 } from "@/app/hooks/useTasksApi";
 import { cn } from "@/app/components/ui/utils";
@@ -49,6 +50,10 @@ function TaskRow({
   isSelectMode = false,
   isSelected = false,
   onToggleSelect,
+  isDragOver = false,
+  onDragStart,
+  onDragOver,
+  onDrop,
 }: {
   task: Task;
   depth?: number;
@@ -60,6 +65,10 @@ function TaskRow({
   isSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
+  isDragOver?: boolean;
+  onDragStart?: (id: string) => void;
+  onDragOver?: (id: string) => void;
+  onDrop?: (id: string) => void;
 }) {
   const hasSubtasks = task.subtasks && task.subtasks.length > 0;
   const isCompleted = task.status === "completed";
@@ -68,13 +77,18 @@ function TaskRow({
     <>
       <div
         data-testid="task-row"
+        draggable={!isSelectMode && depth === 0}
+        onDragStart={(e) => { e.stopPropagation(); onDragStart?.(task.id); }}
+        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOver?.(task.id); }}
+        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop?.(task.id); }}
         className={cn(
           "group flex items-start gap-3 p-3 rounded-lg border transition-all duration-200 cursor-pointer shadow-sm",
-          isSelected
+          isDragOver && "border-primary border-dashed bg-primary/5",
+          !isDragOver && isSelected
             ? "bg-primary/10 dark:bg-primary/20 border-primary/40 border-l-4 border-l-primary"
-            : isCompleted
+            : !isDragOver && isCompleted
             ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 border-l-4 border-l-emerald-400"
-            : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 hover:shadow-md",
+            : !isDragOver && "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 hover:shadow-md",
           depth > 0 && "ml-6 mt-1"
         )}
         onClick={() => isSelectMode ? onToggleSelect?.(task.id) : onSelect(task)}
@@ -172,7 +186,7 @@ function TaskRow({
             onSelect={onSelect}
             onDelete={onDelete}
             isSelectMode={isSelectMode}
-            isSelected={isSelected}
+            isSelected={false}
             onToggleSelect={onToggleSelect}
           />
         ))}
@@ -282,6 +296,9 @@ export function Tasks() {
   // Bulk selection
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Drag-and-drop reorder
+  const draggedId = useRef<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
   // Pending deletes: id -> setTimeout handle
   const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -318,6 +335,45 @@ export function Tasks() {
   const bulkMutation = useBulkTasksMutation(workspaceId, {
     onError: (err) => toast.error(err.message),
   });
+
+  const reorderMutation = useReorderTasksMutation(workspaceId, {
+    onError: (err) => toast.error(err.message),
+  });
+
+  const handleDragStart = useCallback((id: string) => {
+    draggedId.current = id;
+  }, []);
+
+  const handleDragOver = useCallback((id: string) => {
+    if (draggedId.current && draggedId.current !== id) {
+      setDragOverId(id);
+    }
+  }, []);
+
+  const handleDrop = useCallback((dropTargetId: string) => {
+    const srcId = draggedId.current;
+    draggedId.current = null;
+    setDragOverId(null);
+    if (!srcId || srcId === dropTargetId) return;
+
+    // Reorder in the current flat task list (top-level only)
+    const allTopLevel = tasks.filter((t) => !t.parentTaskId);
+    const srcIdx = allTopLevel.findIndex((t) => t.id === srcId);
+    const dstIdx = allTopLevel.findIndex((t) => t.id === dropTargetId);
+    if (srcIdx === -1 || dstIdx === -1) return;
+
+    const reordered = [...allTopLevel];
+    const [moved] = reordered.splice(srcIdx, 1);
+    reordered.splice(dstIdx, 0, moved);
+
+    // Optimistic cache update
+    queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
+      { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+      (old) => old ? { ...old, tasks: reordered } : old
+    );
+
+    reorderMutation.mutate(reordered.map((t) => t.id));
+  }, [tasks, queryClient, workspaceId, reorderMutation]);
 
   const handleBulkComplete = () => {
     const ids = Array.from(selectedIds);
@@ -433,6 +489,10 @@ export function Tasks() {
             isSelectMode={isSelectMode}
             isSelected={selectedIds.has(task.id)}
             onToggleSelect={handleToggleSelect}
+            isDragOver={dragOverId === task.id}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
           />
         ))
       )}

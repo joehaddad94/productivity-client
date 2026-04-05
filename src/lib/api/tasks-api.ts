@@ -140,4 +140,14 @@ export const tasksApi = {
     if (!res.ok) throw new Error(getMessage(data));
     return data as { affected: number };
   },
+
+  reorder: async (workspaceId: string, ids: string[]): Promise<void> => {
+    const res = await api(`/workspaces/${workspaceId}/tasks/reorder`, {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    });
+    if (res.ok) return;
+    const data = await parseJson(res);
+    throw new Error(getMessage(data));
+  },
 };
