@@ -12,6 +12,7 @@ import {
   projectsApi,
   type CreateProjectBody,
   type UpdateProjectBody,
+  type ProjectsPage,
 } from "@/lib/api/projects-api";
 
 export const PROJECTS_QUERY_KEY = (workspaceId: string) =>
@@ -21,13 +22,14 @@ export const PROJECT_QUERY_KEY = (workspaceId: string, id: string) =>
 
 export function useProjectsQuery(
   workspaceId: string | null | undefined,
-  options?: Omit<UseQueryOptions<Project[]>, "queryKey" | "queryFn"> & {
+  params?: { limit?: number; skip?: number },
+  options?: Omit<UseQueryOptions<ProjectsPage>, "queryKey" | "queryFn"> & {
     enabled?: boolean;
   }
 ) {
   return useQuery({
-    queryKey: PROJECTS_QUERY_KEY(workspaceId ?? ""),
-    queryFn: () => projectsApi.list(workspaceId!),
+    queryKey: [...PROJECTS_QUERY_KEY(workspaceId ?? ""), params] as const,
+    queryFn: () => projectsApi.list(workspaceId!, params),
     enabled: !!workspaceId,
     ...options,
   });

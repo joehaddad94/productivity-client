@@ -54,14 +54,7 @@ export interface Task {
   completedAt?: string | null;
   deletedAt?: string | null;
   createdAt: string;
-  // Legacy fields kept for compatibility with existing components
-  completed?: boolean;
-  overdue?: boolean;
-  tags?: string[];
-  project?: string;
 }
-
-export type Subtask = Pick<Task, "id" | "title" | "completed">;
 
 export interface Note {
   id: string;
@@ -75,9 +68,6 @@ export interface Note {
   status?: string | null;
   createdAt: string;
   updatedAt: string;
-  // Legacy field for NoteCard compatibility
-  preview?: string;
-  lastEdited?: string;
 }
 
 export interface DailyStat {

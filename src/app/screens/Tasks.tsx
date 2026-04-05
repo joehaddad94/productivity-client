@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, X, ChevronDown, ChevronRight, Loader2, Trash2, Flag, Calendar } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Plus, X, ChevronDown, ChevronRight, Loader2, Trash2, Flag, Calendar, CheckSquare, Square } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
@@ -25,8 +25,12 @@ import {
   useCreateTaskMutation,
   useUpdateTaskMutation,
   useDeleteTaskMutation,
+  useBulkTasksMutation,
+  TASKS_QUERY_KEY,
 } from "@/app/hooks/useTasksApi";
 import { cn } from "@/app/components/ui/utils";
+import { useDebounce } from "@/app/hooks/useDebounce";
+import { useQueryClient } from "@tanstack/react-query";
 
 const PRIORITY_COLORS = {
   low: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
@@ -37,17 +41,26 @@ const PRIORITY_COLORS = {
 function TaskRow({
   task,
   depth = 0,
+  expanded,
+  onToggleExpand,
   onToggle,
   onSelect,
   onDelete,
+  isSelectMode = false,
+  isSelected = false,
+  onToggleSelect,
 }: {
   task: Task;
   depth?: number;
+  expanded: boolean;
+  onToggleExpand: (id: string) => void;
   onToggle: (id: string, completed: boolean) => void;
   onSelect: (task: Task) => void;
   onDelete: (id: string) => void;
+  isSelectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
   const hasSubtasks = task.subtasks && task.subtasks.length > 0;
   const isCompleted = task.status === "completed";
 
@@ -57,36 +70,48 @@ function TaskRow({
         data-testid="task-row"
         className={cn(
           "group flex items-start gap-3 p-3 rounded-lg border transition-all duration-200 cursor-pointer shadow-sm",
-          isCompleted
+          isSelected
+            ? "bg-primary/10 dark:bg-primary/20 border-primary/40 border-l-4 border-l-primary"
+            : isCompleted
             ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 border-l-4 border-l-emerald-400"
             : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 hover:shadow-md",
           depth > 0 && "ml-6 mt-1"
         )}
-        onClick={() => onSelect(task)}
+        onClick={() => isSelectMode ? onToggleSelect?.(task.id) : onSelect(task)}
       >
-        {hasSubtasks && (
+        {isSelectMode ? (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded((p) => !p);
-            }}
-            className="mt-0.5 text-gray-400"
+            onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }}
+            className="mt-0.5 text-primary"
           >
-            {expanded ? (
-              <ChevronDown className="size-3.5" />
-            ) : (
-              <ChevronRight className="size-3.5" />
-            )}
+            {isSelected ? <CheckSquare className="size-4" /> : <Square className="size-4 text-gray-400" />}
           </button>
+        ) : (
+          <>
+            {hasSubtasks && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleExpand(task.id);
+                }}
+                className="mt-0.5 text-gray-400"
+              >
+                {expanded ? (
+                  <ChevronDown className="size-3.5" />
+                ) : (
+                  <ChevronRight className="size-3.5" />
+                )}
+              </button>
+            )}
+            {!hasSubtasks && <div className="w-3.5" />}
+            <Checkbox
+              checked={isCompleted}
+              onCheckedChange={(checked) => onToggle(task.id, !!checked)}
+              className="mt-0.5"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </>
         )}
-        {!hasSubtasks && <div className="w-3.5" />}
-
-        <Checkbox
-          checked={isCompleted}
-          onCheckedChange={(checked) => onToggle(task.id, !!checked)}
-          className="mt-0.5"
-          onClick={(e) => e.stopPropagation()}
-        />
 
         <div className="flex-1 min-w-0">
           <p
@@ -141,9 +166,14 @@ function TaskRow({
             key={sub.id}
             task={sub}
             depth={depth + 1}
+            expanded={expanded}
+            onToggleExpand={onToggleExpand}
             onToggle={onToggle}
             onSelect={onSelect}
             onDelete={onDelete}
+            isSelectMode={isSelectMode}
+            isSelected={isSelected}
+            onToggleSelect={onToggleSelect}
           />
         ))}
     </>
@@ -239,17 +269,31 @@ function CreateTaskForm({
 export function Tasks() {
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
+  const queryClient = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPriority, setFilterPriority] = useState("all");
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [limit, setLimit] = useState(50);
+  // Track expanded subtask rows persistently across re-renders
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // Bulk selection
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Pending deletes: id -> setTimeout handle
+  const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const { data: tasks = [], isLoading, error } = useTasksQuery(workspaceId, {
-    search: searchQuery || undefined,
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
+  const { data: page, isLoading, error } = useTasksQuery(workspaceId, {
+    search: debouncedSearch || undefined,
     priority: filterPriority === "all" ? undefined : filterPriority || undefined,
+    limit,
   });
+  const tasks = page?.tasks ?? [];
+  const total = page?.total ?? 0;
 
   const createMutation = useCreateTaskMutation(workspaceId, {
     onSuccess: () => {
@@ -264,9 +308,54 @@ export function Tasks() {
   });
 
   const deleteMutation = useDeleteTaskMutation(workspaceId, {
-    onSuccess: () => toast.success("Task deleted"),
+    onError: (err) => {
+      toast.error(err.message);
+      // Restore on error
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+    },
+  });
+
+  const bulkMutation = useBulkTasksMutation(workspaceId, {
     onError: (err) => toast.error(err.message),
   });
+
+  const handleBulkComplete = () => {
+    const ids = Array.from(selectedIds);
+    bulkMutation.mutate(
+      { action: "complete", ids },
+      {
+        onSuccess: ({ affected }) => {
+          toast.success(`${affected} task${affected !== 1 ? "s" : ""} completed`);
+          setSelectedIds(new Set());
+          setIsSelectMode(false);
+        },
+      }
+    );
+  };
+
+  const handleBulkDelete = () => {
+    const ids = Array.from(selectedIds);
+    bulkMutation.mutate(
+      { action: "delete", ids },
+      {
+        onSuccess: ({ affected }) => {
+          toast.success(`${affected} task${affected !== 1 ? "s" : ""} deleted`);
+          setSelectedIds(new Set());
+          setIsSelectMode(false);
+          if (selectedTask && ids.includes(selectedTask.id)) setShowDetail(false);
+        },
+      }
+    );
+  };
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const handleToggle = (id: string, completed: boolean) => {
     updateMutation.mutate({
@@ -275,11 +364,42 @@ export function Tasks() {
     });
   };
 
-  const handleDelete = (id: string) => {
-    if (!window.confirm("Delete this task?")) return;
-    deleteMutation.mutate(id);
+  const handleToggleExpand = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleDelete = useCallback((id: string) => {
+    // Optimistically remove from all cached task queries for this workspace
+    queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
+      { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+      (old) => old ? { tasks: old.tasks.filter((t) => t.id !== id), total: old.total - 1 } : old
+    );
     if (selectedTask?.id === id) setShowDetail(false);
-  };
+
+    const timer = setTimeout(() => {
+      pendingDeletes.current.delete(id);
+      deleteMutation.mutate(id);
+    }, 5000);
+    pendingDeletes.current.set(id, timer);
+
+    toast.success("Task deleted", {
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const t = pendingDeletes.current.get(id);
+          if (t !== undefined) clearTimeout(t);
+          pendingDeletes.current.delete(id);
+          queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+        },
+      },
+    });
+  }, [queryClient, workspaceId, selectedTask, deleteMutation]);
 
   const handleSelectTask = (task: Task) => {
     setSelectedTask(task);
@@ -290,20 +410,29 @@ export function Tasks() {
   const inProgressTasks = tasks.filter((t) => t.status === "in_progress");
   const completedTasks = tasks.filter((t) => t.status === "completed");
 
-  const TaskList = ({ items }: { items: Task[] }) => (
+  const isFiltered = debouncedSearch || filterPriority !== "all";
+
+  const TaskList = ({ items, tab }: { items: Task[]; tab: string }) => (
     <div className="space-y-2 mt-4">
       {items.length === 0 ? (
         <p className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
-          No tasks here
+          {isFiltered
+            ? `No ${tab} tasks match your filters`
+            : `No ${tab} tasks`}
         </p>
       ) : (
         items.map((task) => (
           <TaskRow
             key={task.id}
             task={task}
+            expanded={expandedIds.has(task.id) ? false : true}
+            onToggleExpand={handleToggleExpand}
             onToggle={handleToggle}
             onSelect={handleSelectTask}
             onDelete={handleDelete}
+            isSelectMode={isSelectMode}
+            isSelected={selectedIds.has(task.id)}
+            onToggleSelect={handleToggleSelect}
           />
         ))
       )}
@@ -322,11 +451,51 @@ export function Tasks() {
                 Manage your tasks and stay productive
               </p>
             </div>
-            <Button onClick={() => setShowCreate((p) => !p)} disabled={!workspaceId}>
-              <Plus className="size-4 mr-2" />
-              Add Task
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant={isSelectMode ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setIsSelectMode((p) => !p);
+                  setSelectedIds(new Set());
+                }}
+                disabled={!workspaceId}
+              >
+                <CheckSquare className="size-4 mr-2" />
+                {isSelectMode ? "Cancel" : "Select"}
+              </Button>
+              <Button onClick={() => setShowCreate((p) => !p)} disabled={!workspaceId}>
+                <Plus className="size-4 mr-2" />
+                Add Task
+              </Button>
+            </div>
           </div>
+
+          {isSelectMode && selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+              <span className="text-sm font-medium text-primary">{selectedIds.size} selected</span>
+              <div className="flex gap-2 ml-auto">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleBulkComplete}
+                  disabled={bulkMutation.isPending}
+                >
+                  {bulkMutation.isPending ? <Loader2 className="size-3.5 animate-spin mr-1" /> : null}
+                  Mark Complete
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleBulkDelete}
+                  disabled={bulkMutation.isPending}
+                >
+                  {bulkMutation.isPending ? <Loader2 className="size-3.5 animate-spin mr-1" /> : null}
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
 
           {showCreate && (
             <CreateTaskForm
@@ -393,15 +562,27 @@ export function Tasks() {
               </TabsList>
 
               <TabsContent value="pending">
-                <TaskList items={pendingTasks} />
+                <TaskList items={pendingTasks} tab="pending" />
               </TabsContent>
               <TabsContent value="in_progress">
-                <TaskList items={inProgressTasks} />
+                <TaskList items={inProgressTasks} tab="in-progress" />
               </TabsContent>
               <TabsContent value="completed">
-                <TaskList items={completedTasks} />
+                <TaskList items={completedTasks} tab="completed" />
               </TabsContent>
             </Tabs>
+          )}
+
+          {!isLoading && tasks.length < total && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLimit((l) => l + 50)}
+              >
+                Load more ({tasks.length} / {total})
+              </Button>
+            </div>
           )}
         </div>
 
