@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Plus, Pencil, Trash2, Loader2, FolderOpen, FileText } from "lucide-react";
 import type { Project } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
@@ -9,13 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/ca
 import { Label } from "@/app/components/ui/label";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
-import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import {
   useProjectsQuery,
   useCreateProjectMutation,
   useUpdateProjectMutation,
   useDeleteProjectMutation,
+  PROJECTS_QUERY_KEY,
 } from "@/app/hooks/useProjectsApi";
+import { useQueryClient } from "@tanstack/react-query";
 
 function ProjectCard({
   project,
@@ -132,10 +133,11 @@ function ProjectForm({
 export function Projects() {
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
+  const queryClient = useQueryClient();
 
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const { data: projects = [], isLoading, error } = useProjectsQuery(workspaceId);
 
@@ -156,29 +158,40 @@ export function Projects() {
   });
 
   const deleteMutation = useDeleteProjectMutation(workspaceId, {
-    onSuccess: () => toast.success("Project deleted"),
-    onError: (err) => toast.error(err.message),
+    onError: (err) => {
+      toast.error(err.message);
+      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY(workspaceId ?? "") });
+    },
   });
 
-  const handleDelete = (id: string) => {
-    setDeleteTarget(id);
-  };
+  const handleDelete = useCallback((id: string) => {
+    queryClient.setQueriesData<Project[]>(
+      { queryKey: PROJECTS_QUERY_KEY(workspaceId ?? "") },
+      (old) => old?.filter((p) => p.id !== id)
+    );
 
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    deleteMutation.mutate(deleteTarget);
-    setDeleteTarget(null);
-  };
+    const timer = setTimeout(() => {
+      pendingDeletes.current.delete(id);
+      deleteMutation.mutate(id);
+    }, 5000);
+    pendingDeletes.current.set(id, timer);
+
+    toast.success("Project deleted", {
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const t = pendingDeletes.current.get(id);
+          if (t !== undefined) clearTimeout(t);
+          pendingDeletes.current.delete(id);
+          queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY(workspaceId ?? "") });
+        },
+      },
+    });
+  }, [queryClient, workspaceId, deleteMutation]);
 
   return (
     <div className="w-full space-y-6">
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
-        title="Delete project?"
-        description="Notes linked to it will remain."
-        onConfirm={confirmDelete}
-      />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold mb-2">Projects</h1>
