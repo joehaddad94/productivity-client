@@ -16,7 +16,10 @@ import {
   useCreateNoteMutation,
   useUpdateNoteMutation,
   useDeleteNoteMutation,
+  NOTES_QUERY_KEY,
 } from "@/app/hooks/useNotesApi";
+import { useDebounce } from "@/app/hooks/useDebounce";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -154,12 +157,16 @@ function NoteEditor({
 export function Notes() {
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
+  const queryClient = useQueryClient();
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const { data: notes = [], isLoading, error } = useNotesQuery(workspaceId, {
-    search: searchQuery || undefined,
+    search: debouncedSearch || undefined,
   });
 
   const createMutation = useCreateNoteMutation(workspaceId, {
@@ -175,13 +182,10 @@ export function Notes() {
   });
 
   const deleteMutation = useDeleteNoteMutation(workspaceId, {
-    onSuccess: (_, id) => {
-      if (selectedNoteId === id) {
-        setSelectedNoteId(notes.find((n) => n.id !== id)?.id ?? null);
-      }
-      toast.success("Note deleted");
+    onError: (err) => {
+      toast.error(err.message);
+      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
     },
-    onError: (err) => toast.error(err.message),
   });
 
   // Auto-select first note
@@ -205,10 +209,35 @@ export function Notes() {
     [updateMutation]
   );
 
-  const handleDelete = (id: string) => {
-    if (!window.confirm("Delete this note?")) return;
-    deleteMutation.mutate(id);
-  };
+  const handleDelete = useCallback((id: string) => {
+    // Optimistically remove from all cached note queries for this workspace
+    queryClient.setQueriesData<Note[]>(
+      { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
+      (old) => old?.filter((n) => n.id !== id)
+    );
+    if (selectedNoteId === id) {
+      setSelectedNoteId(notes.find((n) => n.id !== id)?.id ?? null);
+    }
+
+    const timer = setTimeout(() => {
+      pendingDeletes.current.delete(id);
+      deleteMutation.mutate(id);
+    }, 5000);
+    pendingDeletes.current.set(id, timer);
+
+    toast.success("Note deleted", {
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const t = pendingDeletes.current.get(id);
+          if (t !== undefined) clearTimeout(t);
+          pendingDeletes.current.delete(id);
+          queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
+        },
+      },
+    });
+  }, [queryClient, workspaceId, selectedNoteId, notes, deleteMutation]);
 
   const noteToCard = (note: Note): Note => ({
     ...note,
