@@ -55,6 +55,8 @@ export type ListTasksParams = {
   dueBefore?: string;
   dueAfter?: string;
   search?: string;
+  limit?: number;
+  skip?: number;
 };
 
 export type CreateTaskBody = {
@@ -68,20 +70,25 @@ export type CreateTaskBody = {
 
 export type UpdateTaskBody = Partial<CreateTaskBody>;
 
+export type TasksPage = { tasks: Task[]; total: number };
+
 export const tasksApi = {
-  list: async (workspaceId: string, params?: ListTasksParams): Promise<Task[]> => {
+  list: async (workspaceId: string, params?: ListTasksParams): Promise<TasksPage> => {
     const qs = new URLSearchParams();
     if (params?.status) qs.set("status", params.status);
     if (params?.priority) qs.set("priority", params.priority);
     if (params?.dueBefore) qs.set("dueBefore", params.dueBefore);
     if (params?.dueAfter) qs.set("dueAfter", params.dueAfter);
     if (params?.search) qs.set("search", params.search);
+    if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+    if (params?.skip !== undefined) qs.set("skip", String(params.skip));
     const query = qs.toString() ? `?${qs.toString()}` : "";
     const res = await api(`/workspaces/${workspaceId}/tasks${query}`);
-    if (res.status === 401) return [];
+    if (res.status === 401) return { tasks: [], total: 0 };
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
-    return (data as { tasks: Task[] }).tasks ?? [];
+    const d = data as { tasks?: Task[]; total?: number };
+    return { tasks: d.tasks ?? [], total: d.total ?? 0 };
   },
 
   get: async (workspaceId: string, id: string): Promise<Task | null> => {

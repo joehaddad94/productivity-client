@@ -57,13 +57,20 @@ export type UpdateProjectBody = {
   name?: string;
 };
 
+export type ProjectsPage = { projects: Project[]; total: number };
+
 export const projectsApi = {
-  list: async (workspaceId: string): Promise<Project[]> => {
-    const res = await api(`/workspaces/${workspaceId}/projects`);
-    if (res.status === 401) return [];
+  list: async (workspaceId: string, params?: { limit?: number; skip?: number }): Promise<ProjectsPage> => {
+    const qs = new URLSearchParams();
+    if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+    if (params?.skip !== undefined) qs.set("skip", String(params.skip));
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await api(`/workspaces/${workspaceId}/projects${query}`);
+    if (res.status === 401) return { projects: [], total: 0 };
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
-    return (data as { projects: Project[] }).projects ?? [];
+    const d = data as { projects?: Project[]; total?: number };
+    return { projects: d.projects ?? [], total: d.total ?? 0 };
   },
 
   get: async (workspaceId: string, id: string): Promise<Project | null> => {
