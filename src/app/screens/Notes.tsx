@@ -161,13 +161,17 @@ export function Notes() {
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [limit, setLimit] = useState(50);
   const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  const { data: notes = [], isLoading, error } = useNotesQuery(workspaceId, {
+  const { data: page, isLoading, error } = useNotesQuery(workspaceId, {
     search: debouncedSearch || undefined,
+    limit,
   });
+  const notes = page?.notes ?? [];
+  const total = page?.total ?? 0;
 
   const createMutation = useCreateNoteMutation(workspaceId, {
     onSuccess: (note) => {
@@ -211,9 +215,9 @@ export function Notes() {
 
   const handleDelete = useCallback((id: string) => {
     // Optimistically remove from all cached note queries for this workspace
-    queryClient.setQueriesData<Note[]>(
+    queryClient.setQueriesData<{ notes: Note[]; total: number }>(
       { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
-      (old) => old?.filter((n) => n.id !== id)
+      (old) => old ? { notes: old.notes.filter((n) => n.id !== id), total: old.total - 1 } : old
     );
     if (selectedNoteId === id) {
       setSelectedNoteId(notes.find((n) => n.id !== id)?.id ?? null);
@@ -314,6 +318,14 @@ export function Notes() {
                     </button>
                   </div>
                 ))
+              )}
+              {notes.length < total && (
+                <button
+                  onClick={() => setLimit((l) => l + 50)}
+                  className="w-full text-xs text-center py-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                >
+                  Load more ({notes.length} / {total})
+                </button>
               )}
             </div>
           )}

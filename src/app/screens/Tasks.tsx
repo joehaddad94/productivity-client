@@ -254,6 +254,7 @@ export function Tasks() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [limit, setLimit] = useState(50);
   // Track expanded subtask rows persistently across re-renders
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   // Pending deletes: id -> setTimeout handle
@@ -261,10 +262,13 @@ export function Tasks() {
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  const { data: tasks = [], isLoading, error } = useTasksQuery(workspaceId, {
+  const { data: page, isLoading, error } = useTasksQuery(workspaceId, {
     search: debouncedSearch || undefined,
     priority: filterPriority === "all" ? undefined : filterPriority || undefined,
+    limit,
   });
+  const tasks = page?.tasks ?? [];
+  const total = page?.total ?? 0;
 
   const createMutation = useCreateTaskMutation(workspaceId, {
     onSuccess: () => {
@@ -304,9 +308,9 @@ export function Tasks() {
 
   const handleDelete = useCallback((id: string) => {
     // Optimistically remove from all cached task queries for this workspace
-    queryClient.setQueriesData<Task[]>(
+    queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
       { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
-      (old) => old?.filter((t) => t.id !== id)
+      (old) => old ? { tasks: old.tasks.filter((t) => t.id !== id), total: old.total - 1 } : old
     );
     if (selectedTask?.id === id) setShowDetail(false);
 
@@ -457,6 +461,18 @@ export function Tasks() {
                 <TaskList items={completedTasks} tab="completed" />
               </TabsContent>
             </Tabs>
+          )}
+
+          {!isLoading && tasks.length < total && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLimit((l) => l + 50)}
+              >
+                Load more ({tasks.length} / {total})
+              </Button>
+            </div>
           )}
         </div>
 

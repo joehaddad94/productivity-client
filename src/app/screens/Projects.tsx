@@ -137,9 +137,12 @@ export function Projects() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
+  const [limit, setLimit] = useState(50);
   const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const { data: projects = [], isLoading, error } = useProjectsQuery(workspaceId);
+  const { data: page, isLoading, error } = useProjectsQuery(workspaceId, { limit });
+  const projects = page?.projects ?? [];
+  const total = page?.total ?? 0;
 
   const createMutation = useCreateProjectMutation(workspaceId, {
     onSuccess: () => {
@@ -165,9 +168,9 @@ export function Projects() {
   });
 
   const handleDelete = useCallback((id: string) => {
-    queryClient.setQueriesData<Project[]>(
+    queryClient.setQueriesData<{ projects: Project[]; total: number }>(
       { queryKey: PROJECTS_QUERY_KEY(workspaceId ?? "") },
-      (old) => old?.filter((p) => p.id !== id)
+      (old) => old ? { projects: old.projects.filter((p) => p.id !== id), total: old.total - 1 } : old
     );
 
     const timer = setTimeout(() => {
@@ -252,35 +255,49 @@ export function Projects() {
       )}
 
       {!isLoading && !error && projects.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map((project) => (
-            editing?.id === project.id ? (
-              <Card key={project.id} className="border-l-4 border-l-primary/30">
-                <CardHeader>
-                  <CardTitle className="text-sm">Edit Project</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <ProjectForm
-                    initialName={project.name}
-                    onSubmit={(name) =>
-                      updateMutation.mutate({ id: project.id, body: { name } })
-                    }
-                    onCancel={() => setEditing(null)}
-                    isPending={updateMutation.isPending}
-                    submitLabel="Save"
-                  />
-                </CardContent>
-              </Card>
-            ) : (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onEdit={setEditing}
-                onDelete={handleDelete}
-              />
-            )
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {projects.map((project) => (
+              editing?.id === project.id ? (
+                <Card key={project.id} className="border-l-4 border-l-primary/30">
+                  <CardHeader>
+                    <CardTitle className="text-sm">Edit Project</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <ProjectForm
+                      initialName={project.name}
+                      onSubmit={(name) =>
+                        updateMutation.mutate({ id: project.id, body: { name } })
+                      }
+                      onCancel={() => setEditing(null)}
+                      isPending={updateMutation.isPending}
+                      submitLabel="Save"
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onEdit={setEditing}
+                  onDelete={handleDelete}
+                />
+              )
+            ))}
+          </div>
+
+          {projects.length < total && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLimit((l) => l + 50)}
+              >
+                Load more ({projects.length} / {total})
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -16,7 +16,8 @@ export function Dashboard() {
   const workspaceId = currentWorkspace?.id ?? null;
   const [newTaskTitle, setNewTaskTitle] = useState("");
 
-  const { data: tasks = [], isLoading: tasksLoading } = useTasksQuery(workspaceId);
+  const { data: tasksPage, isLoading: tasksLoading } = useTasksQuery(workspaceId);
+  const tasks = tasksPage?.tasks ?? [];
 
   const { data: analytics } = useAnalyticsQuery(workspaceId, {
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
