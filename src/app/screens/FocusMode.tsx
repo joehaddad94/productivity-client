@@ -1,32 +1,30 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { X, Play, Pause, RotateCcw, CheckCircle2 } from "lucide-react";
-import type { Subtask } from "@/lib/types";
+import { X, Play, Pause, RotateCcw, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Progress } from "@/app/components/ui/progress";
 import { toast } from "sonner";
-
-const mockTask = {
-  id: "1",
-  title: "Prepare presentation for stakeholders",
-  description: "Create a comprehensive presentation covering Q1 results and Q2 roadmap",
-  subtasks: [
-    { id: "1", title: "Gather Q1 performance data", completed: true },
-    { id: "2", title: "Create slide deck structure", completed: true },
-    { id: "3", title: "Design data visualizations", completed: false },
-    { id: "4", title: "Write speaker notes", completed: false },
-    { id: "5", title: "Review with team lead", completed: false },
-  ] as Subtask[],
-};
+import { useWorkspace } from "@/app/context/WorkspaceContext";
+import { useTaskQuery, useUpdateTaskMutation } from "@/app/hooks/useTasksApi";
 
 export function FocusMode() {
   const router = useRouter();
-  const { taskId } = useParams();
-  const [subtasks, setSubtasks] = useState<Subtask[]>(mockTask.subtasks);
-  const [timerSeconds, setTimerSeconds] = useState(25 * 60); // 25 minutes
+  const { taskId } = useParams<{ taskId: string }>();
+  const { currentWorkspace } = useWorkspace();
+  const workspaceId = currentWorkspace?.id ?? null;
+
+  const [timerSeconds, setTimerSeconds] = useState(25 * 60);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [isPomodoroMode, setIsPomodoroMode] = useState(false);
+
+  const { data: task, isLoading, error } = useTaskQuery(workspaceId, taskId);
+
+  const updateMutation = useUpdateTaskMutation(workspaceId, {
+    onError: (err) => toast.error(err.message),
+  });
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -41,19 +39,16 @@ export function FocusMode() {
     return () => clearInterval(interval);
   }, [isTimerRunning, timerSeconds, isPomodoroMode]);
 
-  const handleToggleSubtask = (id: string) => {
-    setSubtasks((prev) =>
-      prev.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
-    );
+  const handleToggleSubtask = (id: string, completed: boolean) => {
+    updateMutation.mutate({
+      id,
+      body: { status: completed ? "completed" : "pending" },
+    });
   };
 
   const handleToggleTimer = () => {
     setIsTimerRunning(!isTimerRunning);
-    if (!isPomodoroMode) {
-      setIsPomodoroMode(true);
-    }
+    if (!isPomodoroMode) setIsPomodoroMode(true);
   };
 
   const handleResetTimer = () => {
@@ -67,9 +62,27 @@ export function FocusMode() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const completedSubtasks = subtasks.filter((t) => t.completed).length;
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-gray-50 dark:bg-gray-950 z-50 flex items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (error || !task) {
+    return (
+      <div className="fixed inset-0 bg-gray-50 dark:bg-gray-950 z-50 flex flex-col items-center justify-center gap-4">
+        <p className="text-gray-500 dark:text-gray-400">Task not found.</p>
+        <Button variant="outline" onClick={() => router.back()}>Go back</Button>
+      </div>
+    );
+  }
+
+  const subtasks = task.subtasks ?? [];
+  const completedSubtasks = subtasks.filter((t) => t.status === "completed").length;
   const totalSubtasks = subtasks.length;
-  const progress = (completedSubtasks / totalSubtasks) * 100;
+  const progress = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
 
   return (
     <div className="fixed inset-0 bg-gray-50 dark:bg-gray-950 z-50 overflow-auto">
@@ -84,9 +97,11 @@ export function FocusMode() {
             <X className="size-5" />
             Exit Focus Mode
           </Button>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            {completedSubtasks} of {totalSubtasks} completed
-          </div>
+          {totalSubtasks > 0 && (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              {completedSubtasks} of {totalSubtasks} completed
+            </div>
+          )}
         </div>
 
         {/* Main Content */}
@@ -94,15 +109,15 @@ export function FocusMode() {
           <div className="w-full max-w-3xl space-y-12">
             {/* Task Title */}
             <div className="text-center space-y-4">
-              <h1 className="text-4xl md:text-5xl font-bold">
-                {mockTask.title}
-              </h1>
-              {mockTask.description && (
+              <h1 className="text-4xl md:text-5xl font-bold">{task.title}</h1>
+              {task.description && (
                 <p className="text-lg text-gray-600 dark:text-gray-400">
-                  {mockTask.description}
+                  {task.description}
                 </p>
               )}
-              <Progress value={progress} className="h-2" />
+              {totalSubtasks > 0 && (
+                <Progress value={progress} className="h-2" />
+              )}
             </div>
 
             {/* Pomodoro Timer */}
@@ -114,29 +129,14 @@ export function FocusMode() {
                   </div>
                 </div>
                 <div className="flex items-center justify-center gap-4">
-                  <Button
-                    size="lg"
-                    onClick={handleToggleTimer}
-                    className="gap-2"
-                  >
+                  <Button size="lg" onClick={handleToggleTimer} className="gap-2">
                     {isTimerRunning ? (
-                      <>
-                        <Pause className="size-5" />
-                        Pause
-                      </>
+                      <><Pause className="size-5" />Pause</>
                     ) : (
-                      <>
-                        <Play className="size-5" />
-                        Start
-                      </>
+                      <><Play className="size-5" />Start</>
                     )}
                   </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={handleResetTimer}
-                    className="gap-2"
-                  >
+                  <Button size="lg" variant="outline" onClick={handleResetTimer} className="gap-2">
                     <RotateCcw className="size-5" />
                     Reset
                   </Button>
@@ -147,11 +147,7 @@ export function FocusMode() {
             {/* Start Pomodoro Button */}
             {!isPomodoroMode && (
               <div className="text-center">
-                <Button
-                  size="lg"
-                  onClick={handleToggleTimer}
-                  className="gap-2"
-                >
+                <Button size="lg" onClick={handleToggleTimer} className="gap-2">
                   <Play className="size-5" />
                   Start Pomodoro (25:00)
                 </Button>
@@ -159,35 +155,40 @@ export function FocusMode() {
             )}
 
             {/* Subtasks */}
-            <div className="space-y-4">
-              <h2 className="text-2xl font-semibold">Subtasks</h2>
-              <div className="space-y-3">
-                {subtasks.map((subtask) => (
-                  <div
-                    key={subtask.id}
-                    className="flex items-center gap-4 p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 transition-all hover:shadow-md"
-                  >
-                    <Checkbox
-                      checked={subtask.completed}
-                      onCheckedChange={() => handleToggleSubtask(subtask.id)}
-                      className="size-6"
-                    />
-                    <span
-                      className={`text-lg flex-1 ${
-                        subtask.completed
-                          ? "line-through text-gray-500 dark:text-gray-500"
-                          : ""
-                      }`}
-                    >
-                      {subtask.title}
-                    </span>
-                    {subtask.completed && (
-                      <CheckCircle2 className="size-5 text-green-600 dark:text-green-400" />
-                    )}
-                  </div>
-                ))}
+            {subtasks.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="text-2xl font-semibold">Subtasks</h2>
+                <div className="space-y-3">
+                  {subtasks.map((subtask) => {
+                    const isDone = subtask.status === "completed";
+                    return (
+                      <div
+                        key={subtask.id}
+                        className="flex items-center gap-4 p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 transition-all hover:shadow-md"
+                      >
+                        <Checkbox
+                          checked={isDone}
+                          onCheckedChange={(checked) =>
+                            handleToggleSubtask(subtask.id, !!checked)
+                          }
+                          className="size-6"
+                        />
+                        <span
+                          className={`text-lg flex-1 ${
+                            isDone ? "line-through text-gray-500 dark:text-gray-500" : ""
+                          }`}
+                        >
+                          {subtask.title}
+                        </span>
+                        {isDone && (
+                          <CheckCircle2 className="size-5 text-green-600 dark:text-green-400" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
