@@ -13,6 +13,7 @@ import {
   type CreateNoteBody,
   type UpdateNoteBody,
   type ListNotesParams,
+  type NotesPage,
 } from "@/lib/api/notes-api";
 
 export const NOTES_QUERY_KEY = (workspaceId: string) =>
@@ -23,7 +24,7 @@ export const NOTE_QUERY_KEY = (workspaceId: string, id: string) =>
 export function useNotesQuery(
   workspaceId: string | null | undefined,
   params?: ListNotesParams,
-  options?: Omit<UseQueryOptions<Note[]>, "queryKey" | "queryFn"> & {
+  options?: Omit<UseQueryOptions<NotesPage>, "queryKey" | "queryFn"> & {
     enabled?: boolean;
   }
 ) {
