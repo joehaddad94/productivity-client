@@ -72,6 +72,9 @@ export type UpdateTaskBody = Partial<CreateTaskBody>;
 
 export type TasksPage = { tasks: Task[]; total: number };
 
+export type BulkTaskAction = "complete" | "delete";
+export type BulkTaskBody = { action: BulkTaskAction; ids: string[] };
+
 export const tasksApi = {
   list: async (workspaceId: string, params?: ListTasksParams): Promise<TasksPage> => {
     const qs = new URLSearchParams();
@@ -122,6 +125,26 @@ export const tasksApi = {
   delete: async (workspaceId: string, id: string): Promise<void> => {
     const res = await api(`/workspaces/${workspaceId}/tasks/${id}`, {
       method: "DELETE",
+    });
+    if (res.ok) return;
+    const data = await parseJson(res);
+    throw new Error(getMessage(data));
+  },
+
+  bulk: async (workspaceId: string, body: BulkTaskBody): Promise<{ affected: number }> => {
+    const res = await api(`/workspaces/${workspaceId}/tasks/bulk`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    const data = await parseJson(res);
+    if (!res.ok) throw new Error(getMessage(data));
+    return data as { affected: number };
+  },
+
+  reorder: async (workspaceId: string, ids: string[]): Promise<void> => {
+    const res = await api(`/workspaces/${workspaceId}/tasks/reorder`, {
+      method: "POST",
+      body: JSON.stringify({ ids }),
     });
     if (res.ok) return;
     const data = await parseJson(res);

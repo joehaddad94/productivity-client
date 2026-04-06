@@ -51,6 +51,7 @@ export interface Task {
   status: "pending" | "in_progress" | "completed";
   parentTaskId?: string | null;
   subtasks?: Task[];
+  sortOrder?: number;
   completedAt?: string | null;
   deletedAt?: string | null;
   createdAt: string;
