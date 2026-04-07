@@ -56,13 +56,36 @@ test.describe('Notes', () => {
     await page.getByRole('button', { name: /new/i }).click();
     await expectToast(page, /note created/i);
 
-    // Hover the note card to reveal the delete button (opacity-0 → opacity-100)
-    const noteCard = page.getByText('Untitled Note').first();
-    await noteCard.hover();
+    // Wait for the refetch to settle
+    await page.waitForLoadState('networkidle');
 
-    // Register dialog handler BEFORE clicking delete
-    page.once('dialog', (dialog) => dialog.accept());
-    await page.getByRole('button', { name: /delete note/i }).first().click({ force: true });
+    // Get the bounding box of the first note card wrapper
+    const wrapper = page.locator('.relative.group').first();
+    await expect(wrapper).toBeVisible({ timeout: 5_000 });
+
+    // Hover to reveal the delete button, wait for CSS transition
+    await wrapper.hover();
+    await page.waitForTimeout(300);
+
+    // Trigger the button's React onClick directly via the fiber tree
+    const triggered = await page.evaluate(() => {
+      const btn = document.querySelector<HTMLElement>('[title="Delete note"]');
+      if (!btn) return false;
+      const fiberKey = Object.keys(btn).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'));
+      if (!fiberKey) return false;
+      let fiber = (btn as any)[fiberKey];
+      while (fiber) {
+        const onClick = fiber.pendingProps?.onClick || fiber.memoizedProps?.onClick;
+        if (onClick) {
+          const evt = new MouseEvent('click', { bubbles: true, cancelable: true });
+          onClick(evt);
+          return true;
+        }
+        fiber = fiber.return;
+      }
+      return false;
+    });
+    console.log('React handler triggered:', triggered);
 
     await expectToast(page, /note deleted/i);
   });

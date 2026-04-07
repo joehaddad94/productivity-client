@@ -136,6 +136,7 @@ export function Calendar() {
                 return (
                   <button
                     key={ymd}
+                    data-date={ymd}
                     onClick={() => setSelectedDate(ymd)}
                     className={cn(
                       "aspect-square flex flex-col items-center justify-start pt-1 pb-0.5 rounded-lg text-sm transition-colors",

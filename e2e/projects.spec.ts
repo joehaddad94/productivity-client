@@ -15,11 +15,9 @@ test.describe('Projects', () => {
   test('create a project', async ({ page }) => {
     await page.getByRole('button', { name: /new project/i }).first().click();
 
-    // Input placeholder is "My Project", label is "Project Name"
     const nameInput = page.getByLabel('Project Name').first();
     await nameInput.fill('E2E Project');
 
-    // Submit button label is "Create Project"
     await page.getByRole('button', { name: /create project/i }).first().click();
 
     await expectToast(page, /project created/i);
@@ -33,14 +31,15 @@ test.describe('Projects', () => {
     await page.getByRole('button', { name: /create project/i }).first().click();
     await expectToast(page, /project created/i);
 
-    // Edit it — edit button has aria-label="Edit project"
-    const card = page.locator('div').filter({ hasText: 'Project to Edit' }).first();
+    // Wait for toast to clear before interacting with the card
+    await page.waitForTimeout(600);
+
+    const card = page.locator('[data-testid="project-card"]').filter({ hasText: 'Project to Edit' }).first();
     await card.getByRole('button', { name: /edit project/i }).first().click();
 
     const editInput = page.getByLabel('Project Name').first();
     await editInput.clear();
     await editInput.fill('Renamed Project');
-    // Submit label is "Save"
     await page.getByRole('button', { name: /^save$/i }).first().click();
 
     await expectToast(page, /project updated/i);
@@ -48,21 +47,25 @@ test.describe('Projects', () => {
   });
 
   test('delete a project', async ({ page }) => {
+    const uniqueName = `Delete Me ${Date.now()}`;
+
     // Create first
     await page.getByRole('button', { name: /new project/i }).first().click();
-    await page.getByLabel('Project Name').first().fill('Project to Delete');
+    await page.getByLabel('Project Name').first().fill(uniqueName);
     await page.getByRole('button', { name: /create project/i }).first().click();
     await expectToast(page, /project created/i);
 
-    // Register dialog BEFORE clicking delete
-    page.once('dialog', (d) => d.accept());
+    // Wait for the new card to appear in the list (cache key mismatch means it may take a moment)
+    const card = page.locator('[data-testid="project-card"]').filter({ hasText: uniqueName }).first();
+    await expect(card).toBeVisible({ timeout: 8_000 });
 
-    const card = page.locator('div').filter({ hasText: 'Project to Delete' }).first();
     await card.getByRole('button', { name: /delete project/i }).first().click();
-    await page.waitForTimeout(500);
 
     await expectToast(page, /project deleted/i);
-    await expect(page.getByText('Project to Delete')).not.toBeVisible({ timeout: 5_000 });
+    // Card should be removed optimistically
+    await expect(
+      page.locator('[data-testid="project-card"]').filter({ hasText: uniqueName })
+    ).not.toBeVisible({ timeout: 5_000 });
   });
 
   test('project shows note count', async ({ page }) => {
@@ -71,21 +74,21 @@ test.describe('Projects', () => {
     await page.getByRole('button', { name: /create project/i }).first().click();
     await expectToast(page, /project created/i);
 
-    // Should show "0 notes" or similar
     const card = page.locator('[data-testid="project-card"]').filter({ hasText: 'Count Project' }).first();
-    await expect(card.getByText(/\d+ notes?/i)).toBeVisible();
+    // Shows "0 notes" by default
+    await expect(card.getByText(/\d+ notes?/i)).toBeVisible({ timeout: 5_000 });
   });
 
   test('linking a note to a project increments note count', async ({ page }) => {
     const projectName = `Linked Note Project ${Date.now()}`;
 
-    // Create a project
+    // Create a project via UI
     await page.getByRole('button', { name: /new project/i }).first().click();
     await page.getByLabel('Project Name').first().fill(projectName);
     await page.getByRole('button', { name: /create project/i }).first().click();
     await expectToast(page, /project created/i);
 
-    // Get the workspace ID and project ID via API
+    // Get workspace ID and project ID via API
     const workspaceId = await page.evaluate(() =>
       localStorage.getItem('tasky_current_workspace_id')
     );
@@ -100,12 +103,12 @@ test.describe('Projects', () => {
       data: { title: 'Note linked to project', tags: [], projectId: project!.id },
     });
 
-    // Reload the projects page to pick up the updated count
+    // Reload to pick up updated count
     await page.reload();
     await page.waitForLoadState('networkidle');
 
     const card = page.locator('[data-testid="project-card"]').filter({ hasText: projectName }).first();
-    await expect(card.getByText('1 notes')).toBeVisible({ timeout: 5_000 });
+    await expect(card.getByText(/1 notes?/i)).toBeVisible({ timeout: 5_000 });
   });
 
   test('empty project name shows validation error', async ({ page }) => {

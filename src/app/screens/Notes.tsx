@@ -217,7 +217,7 @@ export function Notes() {
     // Optimistically remove from all cached note queries for this workspace
     queryClient.setQueriesData<{ notes: Note[]; total: number }>(
       { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
-      (old) => old ? { notes: old.notes.filter((n) => n.id !== id), total: old.total - 1 } : old
+      (old) => old && Array.isArray(old.notes) ? { notes: old.notes.filter((n) => n.id !== id), total: old.total - 1 } : old
     );
     if (selectedNoteId === id) {
       setSelectedNoteId(notes.find((n) => n.id !== id)?.id ?? null);
