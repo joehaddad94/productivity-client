@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Plus, Bold, Italic, List, ListOrdered, Tag, MoreVertical, Trash2, Loader2 } from "lucide-react";
+import { Plus, Bold, Italic, List, ListOrdered, Tag, MoreVertical, Trash2, Loader2, X } from "lucide-react";
 import type { Note } from "@/lib/types";
 import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
@@ -27,15 +27,20 @@ import Placeholder from "@tiptap/extension-placeholder";
 function NoteEditor({
   note,
   onUpdate,
+  onTagsChange,
   isSaving,
 }: {
   note: Note;
   onUpdate: (id: string, changes: { title?: string; content?: string }) => void;
+  onTagsChange: (id: string, tags: string[]) => void;
   isSaving: boolean;
 }) {
   const [title, setTitle] = useState(note.title);
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [tagInput, setTagInput] = useState("");
   const contentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tagInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -141,13 +146,71 @@ function NoteEditor({
         </div>
 
         {/* Tags */}
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 items-center">
           {note.tags?.map((tag) => (
-            <Badge key={tag} variant="secondary" className="text-[10px]">
-              <Tag className="size-2.5 mr-1" />
+            <Badge
+              key={tag}
+              variant="secondary"
+              className="text-[10px] gap-1 pr-1 cursor-default"
+            >
+              <Tag className="size-2.5" />
               {tag}
+              <button
+                onClick={() =>
+                  onTagsChange(note.id, (note.tags ?? []).filter((t) => t !== tag))
+                }
+                className="ml-0.5 hover:text-red-500 transition-colors"
+                title={`Remove tag "${tag}"`}
+              >
+                <X className="size-2.5" />
+              </button>
             </Badge>
           ))}
+          {isAddingTag ? (
+            <input
+              ref={tagInputRef}
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const tag = tagInput.trim().toLowerCase();
+                  if (tag && !(note.tags ?? []).includes(tag)) {
+                    onTagsChange(note.id, [...(note.tags ?? []), tag]);
+                  }
+                  setTagInput("");
+                  setIsAddingTag(false);
+                }
+                if (e.key === "Escape") {
+                  setTagInput("");
+                  setIsAddingTag(false);
+                }
+              }}
+              onBlur={() => {
+                const tag = tagInput.trim().toLowerCase();
+                if (tag && !(note.tags ?? []).includes(tag)) {
+                  onTagsChange(note.id, [...(note.tags ?? []), tag]);
+                }
+                setTagInput("");
+                setIsAddingTag(false);
+              }}
+              placeholder="tag name…"
+              className="text-[11px] px-2 py-0.5 rounded-full border border-primary/40 bg-primary/5 focus:outline-none focus:border-primary w-24"
+              autoFocus
+            />
+          ) : (
+            <button
+              onClick={() => {
+                setIsAddingTag(true);
+                setTimeout(() => tagInputRef.current?.focus(), 0);
+              }}
+              className="text-[10px] text-gray-400 hover:text-primary flex items-center gap-0.5 transition-colors"
+              title="Add tag"
+            >
+              <Plus className="size-3" />
+              Add tag
+            </button>
+          )}
         </div>
       </div>
 
@@ -191,13 +254,21 @@ export function Notes() {
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [limit, setLimit] = useState(50);
   const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
+  // Unfiltered query just for collecting available tags
+  const { data: allNotesPage } = useNotesQuery(workspaceId, { limit: 200 });
+  const allTags = Array.from(
+    new Set((allNotesPage?.notes ?? []).flatMap((n) => n.tags ?? []))
+  ).sort();
+
   const { data: page, isLoading, error } = useNotesQuery(workspaceId, {
     search: debouncedSearch || undefined,
+    tags: selectedTag ?? undefined,
     limit,
   });
   const notes = page?.notes ?? [];
@@ -239,6 +310,13 @@ export function Notes() {
   const handleUpdate = useCallback(
     (id: string, changes: { title?: string; content?: string }) => {
       updateMutation.mutate({ id, body: changes });
+    },
+    [updateMutation]
+  );
+
+  const handleTagsChange = useCallback(
+    (id: string, tags: string[]) => {
+      updateMutation.mutate({ id, body: { tags } });
     },
     [updateMutation]
   );
@@ -302,6 +380,25 @@ export function Notes() {
             aria-label="Search notes"
           />
 
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {allTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                  className={`text-[10px] flex items-center gap-1 px-2 py-0.5 rounded-full border transition-colors ${
+                    selectedTag === tag
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-primary hover:text-primary"
+                  }`}
+                >
+                  <Tag className="size-2.5" />
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+
           {isLoading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="size-5 animate-spin text-gray-400" />
@@ -356,7 +453,7 @@ export function Notes() {
         {/* Editor */}
         <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
           {selectedNote ? (
-            <NoteEditor key={selectedNote.id} note={selectedNote} onUpdate={handleUpdate} isSaving={updateMutation.isPending} />
+            <NoteEditor key={selectedNote.id} note={selectedNote} onUpdate={handleUpdate} onTagsChange={handleTagsChange} isSaving={updateMutation.isPending} />
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
               {workspaceId

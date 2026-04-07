@@ -90,6 +90,30 @@ test.describe('Notes', () => {
     await expectToast(page, /note deleted/i);
   });
 
+  test('can add and remove tags on a note', async ({ page }) => {
+    // Create a note
+    await page.getByRole('button', { name: /new/i }).click();
+    await expectToast(page, /note created/i);
+
+    // Click "Add tag" button
+    await page.getByTitle('Add tag').click();
+    const tagInput = page.locator('input[placeholder="tag name\u2026"]');
+    await expect(tagInput).toBeVisible();
+    await tagInput.fill('e2e-tag');
+    await tagInput.press('Enter');
+
+    // Tag badge should appear
+    await page.waitForTimeout(1500);
+    await expect(page.getByText('e2e-tag').first()).toBeVisible({ timeout: 5_000 });
+
+    // Remove the tag — click the × on the badge inside the editor toolbar
+    const removeBtn = page.locator('button[title="Remove tag \\"e2e-tag\\""]').first();
+    await removeBtn.click();
+    await page.waitForTimeout(1500);
+    // The badge with the × button should be gone from the editor toolbar
+    await expect(page.locator('button[title="Remove tag \\"e2e-tag\\""]')).not.toBeVisible({ timeout: 5_000 });
+  });
+
   test('search filters notes', async ({ page }) => {
     const searchInput = page.getByPlaceholder(/search notes/i);
     await searchInput.fill('zzznomatch999');
