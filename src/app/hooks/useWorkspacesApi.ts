@@ -53,11 +53,13 @@ export function useCreateWorkspaceMutation(
     mutationFn: (body: CreateWorkspaceBody) => workspacesApi.create(body),
     ...options,
     onSuccess: (data, variables, context, mutation) => {
-      options?.onSuccess?.(data, variables, context, mutation);
+      // Update cache before firing the caller's onSuccess so that WorkspaceContext
+      // already sees the new workspace when any navigation triggered by onSuccess occurs.
       queryClient.setQueryData(WORKSPACES_QUERY_KEY, (prev: Workspace[] | undefined) =>
         prev ? [...prev, data] : [data]
       );
       queryClient.setQueryData(WORKSPACE_QUERY_KEY(data.id), data);
+      options?.onSuccess?.(data, variables, context, mutation);
     },
   });
 }
