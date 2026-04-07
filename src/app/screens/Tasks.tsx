@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Plus, X, ChevronDown, ChevronRight, Loader2, Trash2, Flag, Calendar, CheckSquare, Square } from "lucide-react";
+import { Plus, X, ChevronDown, ChevronRight, Loader2, Trash2, Flag, Calendar, CheckSquare, Square, FileText } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
@@ -32,6 +32,75 @@ import {
 import { cn } from "@/app/components/ui/utils";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNotesQuery, useCreateNoteMutation } from "@/app/hooks/useNotesApi";
+
+function LinkedNotesSection({
+  workspaceId,
+  taskId,
+  taskTitle,
+}: {
+  workspaceId: string | null;
+  taskId: string;
+  taskTitle: string;
+}) {
+  const { data: notesPage, isLoading } = useNotesQuery(workspaceId, { taskId, limit: 10 });
+  const notes = notesPage?.notes ?? [];
+
+  const createNoteMutation = useCreateNoteMutation(workspaceId, {
+    onSuccess: () => {},
+    onError: () => {},
+  });
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <Label className="text-sm font-medium flex items-center gap-1.5">
+          <FileText className="size-3.5" />
+          Linked Notes {notes.length > 0 && <span className="text-gray-400">({notes.length})</span>}
+        </Label>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 text-xs"
+          disabled={createNoteMutation.isPending || !workspaceId}
+          onClick={() =>
+            createNoteMutation.mutate({
+              title: `Note for: ${taskTitle}`,
+              tags: [],
+              taskId,
+            })
+          }
+        >
+          {createNoteMutation.isPending ? (
+            <Loader2 className="size-3 animate-spin" />
+          ) : (
+            <Plus className="size-3 mr-1" />
+          )}
+          New
+        </Button>
+      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-2">
+          <Loader2 className="size-4 animate-spin text-gray-400" />
+        </div>
+      ) : notes.length === 0 ? (
+        <p className="text-xs text-gray-400 py-1">No notes linked to this task.</p>
+      ) : (
+        <div className="space-y-1">
+          {notes.map((note) => (
+            <div
+              key={note.id}
+              className="text-xs flex items-center gap-1.5 px-2 py-1.5 rounded bg-gray-50 dark:bg-gray-800"
+            >
+              <FileText className="size-3 text-gray-400 flex-shrink-0" />
+              <span className="truncate">{note.title}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const PRIORITY_COLORS = {
   low: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
@@ -775,6 +844,12 @@ export function Tasks() {
                     </div>
                   </div>
                 )}
+
+                <LinkedNotesSection
+                  workspaceId={workspaceId}
+                  taskId={selectedTask.id}
+                  taskTitle={selectedTask.title}
+                />
 
                 <div className="pt-4">
                   <Button
