@@ -53,6 +53,7 @@ export type ListNotesParams = {
   search?: string;
   tags?: string;
   projectId?: string;
+  taskId?: string;
   limit?: number;
   skip?: number;
 };
@@ -77,6 +78,7 @@ export const notesApi = {
     if (params?.search) qs.set("search", params.search);
     if (params?.tags) qs.set("tags", params.tags);
     if (params?.projectId) qs.set("projectId", params.projectId);
+    if (params?.taskId) qs.set("taskId", params.taskId);
     if (params?.limit !== undefined) qs.set("limit", String(params.limit));
     if (params?.skip !== undefined) qs.set("skip", String(params.skip));
     const query = qs.toString() ? `?${qs.toString()}` : "";

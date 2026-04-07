@@ -123,6 +123,20 @@ test.describe('Tasks', () => {
     await expect(page.locator(`input[value="${uniqueTitle}"]`)).toBeVisible({ timeout: 3_000 });
   });
 
+  test('task detail panel shows Linked Notes section', async ({ page }) => {
+    // Create a task and open its detail panel
+    const uniqueTitle = `Link-test-${Date.now()}`;
+    await page.getByRole('button', { name: /add task/i }).first().click();
+    await page.getByPlaceholder(/task title/i).fill(uniqueTitle);
+    await page.getByRole('button', { name: /^create$/i }).first().click();
+    await page.waitForTimeout(500);
+
+    // Click on the row to open detail panel
+    await page.locator(`text=${uniqueTitle}`).first().click();
+    await expect(page.getByText('Task Details')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/linked notes/i)).toBeVisible({ timeout: 3_000 });
+  });
+
   test('empty task title shows validation error', async ({ page }) => {
     await page.getByRole('button', { name: /add task/i }).first().click();
     // Submit without filling title

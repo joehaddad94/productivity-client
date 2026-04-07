@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Plus, Bold, Italic, List, ListOrdered, Tag, MoreVertical, Trash2, Loader2, X } from "lucide-react";
-import type { Note } from "@/lib/types";
+import { Plus, Bold, Italic, List, ListOrdered, Tag, MoreVertical, Trash2, Loader2, X, Link2, LinkIcon, Unlink } from "lucide-react";
+import type { Note, Task } from "@/lib/types";
 import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
@@ -18,6 +18,7 @@ import {
   useDeleteNoteMutation,
   NOTES_QUERY_KEY,
 } from "@/app/hooks/useNotesApi";
+import { useTasksQuery } from "@/app/hooks/useTasksApi";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -28,19 +29,25 @@ function NoteEditor({
   note,
   onUpdate,
   onTagsChange,
+  onLinkTask,
   isSaving,
+  tasks,
 }: {
   note: Note;
   onUpdate: (id: string, changes: { title?: string; content?: string }) => void;
   onTagsChange: (id: string, tags: string[]) => void;
+  onLinkTask: (id: string, taskId: string | null) => void;
   isSaving: boolean;
+  tasks: Task[];
 }) {
   const [title, setTitle] = useState(note.title);
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  const [showTaskPicker, setShowTaskPicker] = useState(false);
   const contentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const linkedTask = tasks.find((t) => t.id === note.taskId) ?? null;
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -138,10 +145,49 @@ function NoteEditor({
               <ListOrdered className="size-3.5" />
             </Button>
           </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm">
-              <MoreVertical className="size-3.5" />
-            </Button>
+          <div className="relative flex items-center gap-1">
+            {linkedTask ? (
+              <div className="flex items-center gap-1 text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                <Link2 className="size-3" />
+                <span className="max-w-28 truncate">{linkedTask.title}</span>
+                <button
+                  onClick={() => onLinkTask(note.id, null)}
+                  className="hover:text-red-500 transition-colors"
+                  title="Unlink task"
+                >
+                  <Unlink className="size-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowTaskPicker((v) => !v)}
+                className="text-[10px] text-gray-400 hover:text-primary flex items-center gap-0.5 transition-colors"
+                title="Link to a task"
+              >
+                <LinkIcon className="size-3" />
+                Link task
+              </button>
+            )}
+            {showTaskPicker && (
+              <div className="absolute right-0 top-6 z-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg w-56 max-h-48 overflow-y-auto">
+                {tasks.length === 0 ? (
+                  <p className="text-xs text-gray-500 p-3">No tasks in workspace</p>
+                ) : (
+                  tasks.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        onLinkTask(note.id, t.id);
+                        setShowTaskPicker(false);
+                      }}
+                      className="w-full text-left text-xs px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 truncate"
+                    >
+                      {t.title}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -271,6 +317,9 @@ export function Notes() {
     tags: selectedTag ?? undefined,
     limit,
   });
+
+  const { data: tasksPage } = useTasksQuery(workspaceId);
+  const allTasks = tasksPage?.tasks ?? [];
   const notes = page?.notes ?? [];
   const total = page?.total ?? 0;
 
@@ -317,6 +366,13 @@ export function Notes() {
   const handleTagsChange = useCallback(
     (id: string, tags: string[]) => {
       updateMutation.mutate({ id, body: { tags } });
+    },
+    [updateMutation]
+  );
+
+  const handleLinkTask = useCallback(
+    (id: string, taskId: string | null) => {
+      updateMutation.mutate({ id, body: { taskId: taskId ?? undefined } });
     },
     [updateMutation]
   );
@@ -453,7 +509,15 @@ export function Notes() {
         {/* Editor */}
         <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
           {selectedNote ? (
-            <NoteEditor key={selectedNote.id} note={selectedNote} onUpdate={handleUpdate} onTagsChange={handleTagsChange} isSaving={updateMutation.isPending} />
+            <NoteEditor
+              key={selectedNote.id}
+              note={selectedNote}
+              onUpdate={handleUpdate}
+              onTagsChange={handleTagsChange}
+              onLinkTask={handleLinkTask}
+              isSaving={updateMutation.isPending}
+              tasks={allTasks}
+            />
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
               {workspaceId
