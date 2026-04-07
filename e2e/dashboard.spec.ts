@@ -55,4 +55,25 @@ test.describe('Dashboard', () => {
   test('no API errors shown to user', async ({ page }) => {
     await expect(page.locator('main').getByText(/failed to load|could not load|something went wrong/i)).not.toBeVisible();
   });
+
+  test('overdue section appears when an overdue task exists', async ({ page }) => {
+    const API = 'http://localhost:8000';
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    // Get workspace ID from API (page has auth cookies from storageState)
+    const wsRes = await page.request.get(`${API}/workspaces`);
+    const wsData = await wsRes.json();
+    const workspaceId = wsData.workspaces?.[0]?.id ?? wsData[0]?.id;
+    expect(workspaceId).toBeTruthy();
+
+    // Create a task with a past due date directly via API
+    const taskRes = await page.request.post(`${API}/workspaces/${workspaceId}/tasks`, {
+      data: { title: 'E2E overdue task', dueDate: yesterday, status: 'pending' },
+    });
+    expect(taskRes.status()).toBe(201);
+
+    // Reload dashboard — overdue section should appear
+    await goto(page, '/dashboard');
+    await expect(page.getByText(/overdue/i).first()).toBeVisible({ timeout: 5_000 });
+  });
 });

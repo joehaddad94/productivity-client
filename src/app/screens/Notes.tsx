@@ -27,12 +27,15 @@ import Placeholder from "@tiptap/extension-placeholder";
 function NoteEditor({
   note,
   onUpdate,
+  isSaving,
 }: {
   note: Note;
   onUpdate: (id: string, changes: { title?: string; content?: string }) => void;
+  isSaving: boolean;
 }) {
   const [title, setTitle] = useState(note.title);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -43,8 +46,8 @@ function NoteEditor({
     content: note.content ?? "",
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
+      if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
+      contentDebounceRef.current = setTimeout(() => {
         onUpdate(note.id, { content: html });
       }, 1000);
     },
@@ -62,8 +65,28 @@ function NoteEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
+      if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+    };
+  }, []);
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+    titleDebounceRef.current = setTimeout(() => {
+      if (newTitle.trim() && newTitle.trim() !== note.title) {
+        onUpdate(note.id, { title: newTitle.trim() });
+      }
+    }, 1000);
+  };
+
   const handleTitleBlur = () => {
-    if (title.trim() !== note.title) {
+    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+    if (title.trim() && title.trim() !== note.title) {
       onUpdate(note.id, { title: title.trim() });
     }
   };
@@ -132,7 +155,7 @@ function NoteEditor({
       <div className="flex-1 p-4 overflow-y-auto">
         <Input
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={handleTitleChange}
           onBlur={handleTitleBlur}
           placeholder="Note title..."
           className="text-xl font-bold border-0 p-0 mb-3 focus-visible:ring-0"
@@ -146,7 +169,14 @@ function NoteEditor({
       {/* Footer */}
       <div className="p-3 border-t border-gray-200 dark:border-gray-800">
         <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-          <span>Last edited {new Date(note.updatedAt).toLocaleString()}</span>
+          {isSaving ? (
+            <span className="flex items-center gap-1 text-primary">
+              <Loader2 className="size-3 animate-spin" />
+              Saving...
+            </span>
+          ) : (
+            <span>Last edited {new Date(note.updatedAt).toLocaleString()}</span>
+          )}
           <span>{charCount} characters</span>
         </div>
       </div>
@@ -326,7 +356,7 @@ export function Notes() {
         {/* Editor */}
         <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
           {selectedNote ? (
-            <NoteEditor key={selectedNote.id} note={selectedNote} onUpdate={handleUpdate} />
+            <NoteEditor key={selectedNote.id} note={selectedNote} onUpdate={handleUpdate} isSaving={updateMutation.isPending} />
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
               {workspaceId
