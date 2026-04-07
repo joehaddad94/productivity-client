@@ -63,7 +63,7 @@ export const analyticsApi = {
     }
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
-    return data as AnalyticsResult;
+    return (data as { analytics: AnalyticsResult }).analytics;
   },
 
   log: async (workspaceId: string, body: LogStatBody): Promise<DailyStat> => {
