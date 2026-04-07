@@ -31,7 +31,7 @@ export function useLogin() {
         setEmailSent(true);
         toast.success("Sign-in link sent! Check your email.");
       } catch (error) {
-        toast.error("Failed to send sign-in link");
+        toast.error(error instanceof Error ? error.message : "Could not send sign-in link. Please try again.");
       } finally {
         setIsLoading(false);
       }
