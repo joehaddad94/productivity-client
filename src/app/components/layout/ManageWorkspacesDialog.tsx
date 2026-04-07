@@ -307,7 +307,7 @@ function CreateForm({
     }
     const finalSlug = slug.trim() || slugFromName(trimmed).slice(0, SLUG_MAX);
     if (finalSlug && !validateSlug(finalSlug)) {
-      toast.error("Slug: lowercase letters, numbers, hyphens only (max 64)");
+      toast.error("Slug must contain only lowercase letters, numbers, and hyphens (max 64 characters)");
       return;
     }
     await onSubmit({
@@ -418,7 +418,7 @@ function EditForm({
     }
     const finalSlug = slug.trim();
     if (finalSlug && !validateSlug(finalSlug)) {
-      toast.error("Slug: lowercase letters, numbers, hyphens only (max 64)");
+      toast.error("Slug must contain only lowercase letters, numbers, and hyphens (max 64 characters)");
       return;
     }
     await onSubmit({

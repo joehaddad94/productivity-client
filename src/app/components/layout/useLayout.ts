@@ -21,7 +21,7 @@ export function useLayout() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { logout, user, isInitialized } = useAuth();
-  const { needsWorkspace, isFetched } = useWorkspace();
+  const { needsWorkspace, isFetched, hasWorkspaces, setCurrentWorkspaceId } = useWorkspace();
 
   // Auth routes (/, /login, /signup, /verify) and focus: no sidebar.
   // When pathname is unknown (null/empty), treat as auth so we don't show sidebar with wrong loader.
@@ -32,11 +32,16 @@ export function useLayout() {
     !isAuthOrFocusRoute(path) &&
     (path !== WORKSPACE_GATE_PATH || !!user);
 
+  // Only redirect to /workspace for the brief transient state where workspaces
+  // exist but none is selected (auto-resolved by WorkspaceContext's useEffect).
+  // When workspaces.length === 0, show an inline empty state in the content area
+  // instead — so the user stays within the app shell with the sidebar visible.
   const redirectingToWorkspace =
     showSidebar &&
     !!user &&
     isFetched &&
     needsWorkspace &&
+    hasWorkspaces &&
     path !== WORKSPACE_GATE_PATH;
 
   const redirectingToLogin =
@@ -62,7 +67,7 @@ export function useLayout() {
       router.push("/");
       toast.success("Logged out successfully!");
     } catch (error) {
-      toast.error("Failed to log out.");
+      toast.error(error instanceof Error ? error.message : "Could not log out. Please try again.");
     } finally {
       setIsLoggingOut(false);
     }
@@ -75,6 +80,9 @@ export function useLayout() {
   return {
     showSidebar,
     redirectingToWorkspace,
+    hasWorkspaces,
+    isFetched,
+    setCurrentWorkspaceId,
     sidebarOpen,
     toggleSidebar,
     closeSidebar,

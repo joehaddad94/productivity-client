@@ -61,10 +61,7 @@ export function useCreateProjectMutation(
     ...options,
     onSuccess: (data, variables, context, mutation) => {
       options?.onSuccess?.(data, variables, context, mutation);
-      queryClient.setQueryData(
-        PROJECTS_QUERY_KEY(workspaceId ?? ""),
-        (prev: Project[] | undefined) => (prev ? [data, ...prev] : [data])
-      );
+      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY(workspaceId ?? "") });
     },
   });
 }
@@ -83,15 +80,7 @@ export function useUpdateProjectMutation(
       projectsApi.update(workspaceId!, id, body),
     ...options,
     onSuccess: (data, variables, context, mutation) => {
-      queryClient.setQueryData(
-        PROJECT_QUERY_KEY(workspaceId ?? "", data.id),
-        data
-      );
-      queryClient.setQueryData(
-        PROJECTS_QUERY_KEY(workspaceId ?? ""),
-        (prev: Project[] | undefined) =>
-          prev ? prev.map((p) => (p.id === data.id ? data : p)) : [data]
-      );
+      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });

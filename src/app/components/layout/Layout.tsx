@@ -11,12 +11,16 @@ import { Badge } from "../ui/badge";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 import { PomodoroWidget } from "@/app/components/pomodoro";
+import { CreateFirstWorkspace } from "@/app/screens/workspace/CreateFirstWorkspace";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [previewMode, setPreviewMode] = useState<"auth" | "skeleton" | null>(null);
   const {
     showSidebar,
     redirectingToWorkspace,
+    hasWorkspaces,
+    isFetched,
+    setCurrentWorkspaceId,
     sidebarOpen,
     toggleSidebar,
     closeSidebar,
@@ -232,7 +236,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="flex-1 min-h-0 flex flex-col p-5">
           <div className="flex-1 min-h-0">
-            {redirectingToWorkspace ? (
+            {isFetched && !hasWorkspaces ? (
+              <div className="flex items-center justify-center h-full py-8">
+                <div className="w-full max-w-md">
+                  <CreateFirstWorkspace
+                    onSuccess={(workspace) => setCurrentWorkspaceId(workspace.id)}
+                  />
+                </div>
+              </div>
+            ) : redirectingToWorkspace ? (
               <ScreenSkeleton />
             ) : (
               children

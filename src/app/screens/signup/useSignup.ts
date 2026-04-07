@@ -32,7 +32,7 @@ export function useSignup() {
         setEmailSent(true);
         toast.success("Sign-in link sent! Check your email.");
       } catch (error) {
-        toast.error("Failed to create account");
+        toast.error(error instanceof Error ? error.message : "Could not create account. Please try again.");
       } finally {
         setIsLoading(false);
       }
