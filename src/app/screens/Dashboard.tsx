@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, TrendingUp, Flame, Plus, FileText, CalendarDays, Loader2 } from "lucide-react";
+import { CheckCircle2, TrendingUp, Flame, Plus, FileText, CalendarDays, Loader2, AlertTriangle } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { TaskCard } from "@/app/components/TaskCard";
 import { ProductivityWidget } from "@/app/components/ProductivityWidget";
@@ -50,6 +50,9 @@ export function Dashboard() {
   const todayStr = new Date().toISOString().split("T")[0];
   const todayTasks = tasks.filter(
     (t) => t.dueDate && t.dueDate.startsWith(todayStr)
+  );
+  const overdueTasks = tasks.filter(
+    (t) => t.dueDate && t.dueDate.split("T")[0] < todayStr && t.status !== "completed"
   );
   const pendingTasks = tasks.filter((t) => t.status !== "completed").slice(0, 5);
   const completedCount = tasks.filter((t) => t.status === "completed").length;
@@ -142,6 +145,30 @@ export function Dashboard() {
           );
         })}
       </div>
+
+      {/* Overdue Tasks */}
+      {overdueTasks.length > 0 && (
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-red-200 dark:border-red-900 border-l-4 border-l-red-500 shadow-sm p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="size-4 text-red-500" />
+              <h2 className="font-semibold text-red-600 dark:text-red-400">Overdue</h2>
+            </div>
+            <span className="text-sm font-medium text-red-500 bg-red-50 dark:bg-red-950 px-2 py-0.5 rounded-full">
+              {overdueTasks.length} task{overdueTasks.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {overdueTasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onToggle={handleToggleTask}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
