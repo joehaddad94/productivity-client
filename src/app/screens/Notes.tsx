@@ -11,14 +11,15 @@ import { Badge } from "@/app/components/ui/badge";
 import { Separator } from "@/app/components/ui/separator";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
-import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import {
   useNotesQuery,
   useCreateNoteMutation,
   useUpdateNoteMutation,
   useDeleteNoteMutation,
+  NOTES_QUERY_KEY,
 } from "@/app/hooks/useNotesApi";
 import { useDebounce } from "@/app/hooks/useDebounce";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -156,16 +157,21 @@ function NoteEditor({
 export function Notes() {
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
+  const queryClient = useQueryClient();
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [limit, setLimit] = useState(50);
+  const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  const { data: notes = [], isLoading, error } = useNotesQuery(workspaceId, {
+  const { data: page, isLoading, error } = useNotesQuery(workspaceId, {
     search: debouncedSearch || undefined,
+    limit,
   });
+  const notes = page?.notes ?? [];
+  const total = page?.total ?? 0;
 
   const createMutation = useCreateNoteMutation(workspaceId, {
     onSuccess: (note) => {
@@ -180,13 +186,10 @@ export function Notes() {
   });
 
   const deleteMutation = useDeleteNoteMutation(workspaceId, {
-    onSuccess: (_, id) => {
-      if (selectedNoteId === id) {
-        setSelectedNoteId(notes.find((n) => n.id !== id)?.id ?? null);
-      }
-      toast.success("Note deleted");
+    onError: (err) => {
+      toast.error(err.message);
+      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
     },
-    onError: (err) => toast.error(err.message),
   });
 
   // Auto-select first note
@@ -210,33 +213,38 @@ export function Notes() {
     [updateMutation]
   );
 
-  const handleDelete = (id: string) => {
-    setDeleteTarget(id);
-  };
+  const handleDelete = useCallback((id: string) => {
+    // Optimistically remove from all cached note queries for this workspace
+    queryClient.setQueriesData<{ notes: Note[]; total: number }>(
+      { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
+      (old) => old ? { notes: old.notes.filter((n) => n.id !== id), total: old.total - 1 } : old
+    );
+    if (selectedNoteId === id) {
+      setSelectedNoteId(notes.find((n) => n.id !== id)?.id ?? null);
+    }
 
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    deleteMutation.mutate(deleteTarget);
-    setDeleteTarget(null);
-  };
+    const timer = setTimeout(() => {
+      pendingDeletes.current.delete(id);
+      deleteMutation.mutate(id);
+    }, 5000);
+    pendingDeletes.current.set(id, timer);
 
-  const noteToCard = (note: Note): Note => ({
-    ...note,
-    preview: note.content
-      ? note.content.replace(/<[^>]+>/g, "").slice(0, 120)
-      : "",
-    lastEdited: new Date(note.updatedAt).toLocaleDateString(),
-  });
+    toast.success("Note deleted", {
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const t = pendingDeletes.current.get(id);
+          if (t !== undefined) clearTimeout(t);
+          pendingDeletes.current.delete(id);
+          queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
+        },
+      },
+    });
+  }, [queryClient, workspaceId, selectedNoteId, notes, deleteMutation]);
 
   return (
     <div className="w-full h-full flex flex-col min-h-0">
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
-        title="Delete note?"
-        description="This action cannot be undone."
-        onConfirm={confirmDelete}
-      />
       <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
         {/* Notes List */}
         <div className="lg:min-w-72 lg:w-80 xl:w-96 flex-shrink-0 space-y-3 flex flex-col">
@@ -286,7 +294,7 @@ export function Notes() {
                 notes.map((note) => (
                   <div key={note.id} className="relative group">
                     <NoteCard
-                      note={noteToCard(note)}
+                      note={note}
                       isActive={selectedNoteId === note.id}
                       onSelect={() => setSelectedNoteId(note.id)}
                     />
@@ -302,6 +310,14 @@ export function Notes() {
                     </button>
                   </div>
                 ))
+              )}
+              {notes.length < total && (
+                <button
+                  onClick={() => setLimit((l) => l + 50)}
+                  className="w-full text-xs text-center py-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                >
+                  Load more ({notes.length} / {total})
+                </button>
               )}
             </div>
           )}

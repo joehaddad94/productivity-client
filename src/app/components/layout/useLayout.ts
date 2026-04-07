@@ -62,7 +62,7 @@ export function useLayout() {
       router.push("/");
       toast.success("Logged out successfully!");
     } catch (error) {
-      toast.error("Failed to log out.");
+      toast.error(error instanceof Error ? error.message : "Could not log out. Please try again.");
     } finally {
       setIsLoggingOut(false);
     }

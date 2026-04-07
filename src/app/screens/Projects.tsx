@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Plus, Pencil, Trash2, Loader2, FolderOpen, FileText } from "lucide-react";
 import type { Project } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
@@ -9,13 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/ca
 import { Label } from "@/app/components/ui/label";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
-import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import {
   useProjectsQuery,
   useCreateProjectMutation,
   useUpdateProjectMutation,
   useDeleteProjectMutation,
+  PROJECTS_QUERY_KEY,
 } from "@/app/hooks/useProjectsApi";
+import { useQueryClient } from "@tanstack/react-query";
 
 function ProjectCard({
   project,
@@ -132,12 +133,16 @@ function ProjectForm({
 export function Projects() {
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
+  const queryClient = useQueryClient();
 
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [limit, setLimit] = useState(50);
+  const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const { data: projects = [], isLoading, error } = useProjectsQuery(workspaceId);
+  const { data: page, isLoading, error } = useProjectsQuery(workspaceId, { limit });
+  const projects = page?.projects ?? [];
+  const total = page?.total ?? 0;
 
   const createMutation = useCreateProjectMutation(workspaceId, {
     onSuccess: () => {
@@ -156,29 +161,40 @@ export function Projects() {
   });
 
   const deleteMutation = useDeleteProjectMutation(workspaceId, {
-    onSuccess: () => toast.success("Project deleted"),
-    onError: (err) => toast.error(err.message),
+    onError: (err) => {
+      toast.error(err.message);
+      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY(workspaceId ?? "") });
+    },
   });
 
-  const handleDelete = (id: string) => {
-    setDeleteTarget(id);
-  };
+  const handleDelete = useCallback((id: string) => {
+    queryClient.setQueriesData<{ projects: Project[]; total: number }>(
+      { queryKey: PROJECTS_QUERY_KEY(workspaceId ?? "") },
+      (old) => old ? { projects: old.projects.filter((p) => p.id !== id), total: old.total - 1 } : old
+    );
 
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    deleteMutation.mutate(deleteTarget);
-    setDeleteTarget(null);
-  };
+    const timer = setTimeout(() => {
+      pendingDeletes.current.delete(id);
+      deleteMutation.mutate(id);
+    }, 5000);
+    pendingDeletes.current.set(id, timer);
+
+    toast.success("Project deleted", {
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const t = pendingDeletes.current.get(id);
+          if (t !== undefined) clearTimeout(t);
+          pendingDeletes.current.delete(id);
+          queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY(workspaceId ?? "") });
+        },
+      },
+    });
+  }, [queryClient, workspaceId, deleteMutation]);
 
   return (
     <div className="w-full space-y-6">
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
-        title="Delete project?"
-        description="Notes linked to it will remain."
-        onConfirm={confirmDelete}
-      />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold mb-2">Projects</h1>
@@ -239,35 +255,49 @@ export function Projects() {
       )}
 
       {!isLoading && !error && projects.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map((project) => (
-            editing?.id === project.id ? (
-              <Card key={project.id} className="border-l-4 border-l-primary/30">
-                <CardHeader>
-                  <CardTitle className="text-sm">Edit Project</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <ProjectForm
-                    initialName={project.name}
-                    onSubmit={(name) =>
-                      updateMutation.mutate({ id: project.id, body: { name } })
-                    }
-                    onCancel={() => setEditing(null)}
-                    isPending={updateMutation.isPending}
-                    submitLabel="Save"
-                  />
-                </CardContent>
-              </Card>
-            ) : (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onEdit={setEditing}
-                onDelete={handleDelete}
-              />
-            )
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {projects.map((project) => (
+              editing?.id === project.id ? (
+                <Card key={project.id} className="border-l-4 border-l-primary/30">
+                  <CardHeader>
+                    <CardTitle className="text-sm">Edit Project</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <ProjectForm
+                      initialName={project.name}
+                      onSubmit={(name) =>
+                        updateMutation.mutate({ id: project.id, body: { name } })
+                      }
+                      onCancel={() => setEditing(null)}
+                      isPending={updateMutation.isPending}
+                      submitLabel="Save"
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onEdit={setEditing}
+                  onDelete={handleDelete}
+                />
+              )
+            ))}
+          </div>
+
+          {projects.length < total && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLimit((l) => l + 50)}
+              >
+                Load more ({projects.length} / {total})
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -13,6 +13,8 @@ import {
   type CreateTaskBody,
   type UpdateTaskBody,
   type ListTasksParams,
+  type TasksPage,
+  type BulkTaskBody,
 } from "@/lib/api/tasks-api";
 
 export const TASKS_QUERY_KEY = (workspaceId: string) =>
@@ -23,7 +25,7 @@ export const TASK_QUERY_KEY = (workspaceId: string, id: string) =>
 export function useTasksQuery(
   workspaceId: string | null | undefined,
   params?: ListTasksParams,
-  options?: Omit<UseQueryOptions<Task[]>, "queryKey" | "queryFn"> & {
+  options?: Omit<UseQueryOptions<TasksPage>, "queryKey" | "queryFn"> & {
     enabled?: boolean;
   }
 ) {
@@ -97,6 +99,36 @@ export function useDeleteTaskMutation(
       queryClient.removeQueries({ queryKey: TASK_QUERY_KEY(workspaceId ?? "", id) });
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(_, id, context, mutation);
+    },
+  });
+}
+
+export function useReorderTasksMutation(
+  workspaceId: string | null | undefined,
+  options?: UseMutationOptions<void, Error, string[]>
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => tasksApi.reorder(workspaceId!, ids),
+    ...options,
+    onSuccess: (_, ids, context, mutation) => {
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+      options?.onSuccess?.(_, ids, context, mutation);
+    },
+  });
+}
+
+export function useBulkTasksMutation(
+  workspaceId: string | null | undefined,
+  options?: UseMutationOptions<{ affected: number }, Error, BulkTaskBody>
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: BulkTaskBody) => tasksApi.bulk(workspaceId!, body),
+    ...options,
+    onSuccess: (data, variables, context, mutation) => {
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+      options?.onSuccess?.(data, variables, context, mutation);
     },
   });
 }
