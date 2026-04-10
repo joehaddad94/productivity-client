@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Bell, Moon, Sun, LogOut, Loader2, Sparkles, LayoutDashboard } from "lucide-react";
+import { Menu, X, Moon, Sun, LogOut, Loader2, Sparkles, LayoutDashboard } from "lucide-react";
+import { NotificationBell } from "@/app/components/notifications/NotificationBell";
 import { useLayout } from "./useLayout";
 import { NAV_ITEMS } from "./types";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { Button } from "../ui/button";
-import { Badge } from "../ui/badge";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 import { PomodoroWidget } from "@/app/components/pomodoro";
@@ -180,10 +180,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           >
             <LayoutDashboard className="size-4" />
           </button>
-          <button className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md relative">
-            <Bell className="size-4" />
-            <Badge className="absolute -top-0.5 -right-0.5 size-3.5 p-0 flex items-center justify-center text-[9px]" variant="destructive">3</Badge>
-          </button>
+          <NotificationBell />
           <button
             onClick={toggleTheme}
             className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
@@ -220,10 +217,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           >
             <LayoutDashboard className="size-4" />
           </button>
-            <button className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md relative">
-              <Bell className="size-4" />
-              <Badge className="absolute -top-0.5 -right-0.5 size-3.5 p-0 flex items-center justify-center text-[9px]" variant="destructive">3</Badge>
-            </button>
+            <NotificationBell />
             <button
               onClick={toggleTheme}
               className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"

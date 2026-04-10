@@ -13,6 +13,7 @@ import {
   CheckSquare,
   Square,
   FileText,
+  Timer,
 } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
@@ -681,6 +682,15 @@ export function TasksScreen() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {(selectedTask.focusMinutes ?? 0) > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800">
+                    <Timer className="size-3.5 text-violet-500 flex-shrink-0" />
+                    <span className="text-xs text-violet-700 dark:text-violet-300 font-medium">
+                      {selectedTask.focusMinutes} min focused via Pomodoro
+                    </span>
                   </div>
                 )}
 

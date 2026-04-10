@@ -158,6 +158,18 @@ export function NoteEditor({
                   <Unlink className="size-3" />
                 </button>
               </div>
+            ) : note.taskId ? (
+              <div className="flex items-center gap-1 text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                <Link2 className="size-3" />
+                <span className="max-w-28 truncate">Linked task</span>
+                <button
+                  onClick={() => onLinkTask(note.id, null)}
+                  className="hover:text-red-500 transition-colors"
+                  title="Unlink task"
+                >
+                  <Unlink className="size-3" />
+                </button>
+              </div>
             ) : (
               <button
                 onClick={() => setShowTaskPicker((v) => !v)}
