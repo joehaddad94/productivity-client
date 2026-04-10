@@ -61,6 +61,7 @@ export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
                   {typeof task.dueDate === "string" && task.dueDate.includes("T")
                     ? new Date(task.dueDate).toLocaleDateString()
                     : task.dueDate}
+                  {task.dueTime && <span className="ml-1">at {task.dueTime}</span>}
                 </span>
               </div>
             )}

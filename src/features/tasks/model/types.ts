@@ -4,6 +4,7 @@ export type TaskFormData = {
   title: string;
   priority?: "low" | "medium" | "high";
   dueDate?: string;
+  dueTime?: string;
 };
 
 export type PriorityFilter = "all" | "low" | "medium" | "high";

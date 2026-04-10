@@ -207,6 +207,7 @@ function TaskRow({
               <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                 <Calendar className="size-3" />
                 {new Date(task.dueDate).toLocaleDateString()}
+                {task.dueTime && <span>at {task.dueTime}</span>}
               </span>
             )}
             {task.priority && (
@@ -272,6 +273,7 @@ function CreateTaskForm({
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high" | "none">("none");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -283,10 +285,12 @@ function CreateTaskForm({
       title: title.trim(),
       priority: priority === "none" ? undefined : priority,
       dueDate: dueDate || undefined,
+      dueTime: dueTime || undefined,
     });
     setTitle("");
     setPriority("none");
     setDueDate("");
+    setDueTime("");
   };
 
   return (
@@ -303,7 +307,7 @@ function CreateTaskForm({
           className="mt-1"
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div>
           <Label className="text-xs font-medium">Priority</Label>
           <Select
@@ -329,6 +333,17 @@ function CreateTaskForm({
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
             disabled={isPending}
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="due-time" className="text-xs font-medium">Due Time</Label>
+          <Input
+            id="due-time"
+            type="time"
+            value={dueTime}
+            onChange={(e) => setDueTime(e.target.value)}
+            disabled={isPending || !dueDate}
             className="mt-1"
           />
         </div>
@@ -637,22 +652,37 @@ export function TasksScreen() {
                   </Select>
                 </div>
 
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Due Date</Label>
-                  <Input
-                    type="date"
-                    defaultValue={
-                      selectedTask.dueDate
-                        ? new Date(selectedTask.dueDate).toISOString().split("T")[0]
-                        : ""
-                    }
-                    onBlur={(e) => {
-                      updateMutation.mutate({
-                        id: selectedTask.id,
-                        body: { dueDate: e.target.value || undefined },
-                      });
-                    }}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Due Date</Label>
+                    <Input
+                      type="date"
+                      defaultValue={
+                        selectedTask.dueDate
+                          ? new Date(selectedTask.dueDate).toISOString().split("T")[0]
+                          : ""
+                      }
+                      onBlur={(e) => {
+                        updateMutation.mutate({
+                          id: selectedTask.id,
+                          body: { dueDate: e.target.value || undefined },
+                        });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Due Time</Label>
+                    <Input
+                      type="time"
+                      defaultValue={selectedTask.dueTime ?? ""}
+                      onBlur={(e) => {
+                        updateMutation.mutate({
+                          id: selectedTask.id,
+                          body: { dueTime: e.target.value || undefined },
+                        });
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {selectedTask.subtasks && selectedTask.subtasks.length > 0 && (
