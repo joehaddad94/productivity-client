@@ -1,7 +1,7 @@
 "use client";
 
-import { Signup } from "@/app/screens/signup";
+import { SignupScreen } from "@/features/auth/signup";
 
 export default function SignupPage() {
-  return <Signup />;
+  return <SignupScreen />;
 }

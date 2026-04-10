@@ -1,7 +1,7 @@
 "use client";
 
-import { Login } from "@/app/screens/login/Login";
+import { LoginScreen } from "@/features/auth/login";
 
 export default function LoginPage() {
-  return <Login />;
+  return <LoginScreen />;
 }
