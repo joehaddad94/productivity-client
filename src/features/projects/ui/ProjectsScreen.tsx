@@ -1,12 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus, Pencil, Trash2, Loader2, FolderOpen, FileText } from "lucide-react";
 import type { Project } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
-import { Label } from "@/app/components/ui/label";
+import { cn } from "@/app/components/ui/utils";
 import { toast } from "sonner";
 import { useProjectsScreen } from "../hooks/useProjectsScreen";
 
@@ -20,74 +18,75 @@ function ProjectCard({
   onDelete: (id: string) => void;
 }) {
   return (
-    <Card data-testid="project-card" className="border-l-4 border-l-primary/30 hover:shadow-md transition-all duration-200">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <div className="size-10 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center flex-shrink-0">
-              <FolderOpen className="size-5 text-primary" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-sm">{project.name}</h3>
-              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mt-1">
-                <FileText className="size-3" />
-                <span>{project._count?.notes ?? 0} notes</span>
-              </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Created {new Date(project.createdAt).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="Edit project" onClick={() => onEdit(project)}>
-              <Pencil className="size-3.5" />
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10" aria-label="Delete project" onClick={() => onDelete(project.id)}>
-              <Trash2 className="size-3.5" />
-            </Button>
-          </div>
+    <div
+      data-testid="project-card"
+      className="group flex flex-col gap-3 p-4 rounded-xl border border-border/60 bg-card hover:border-primary/30 transition-colors"
+    >
+      <div className="flex items-start justify-between">
+        <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+          <FolderOpen className="size-4 text-primary" />
         </div>
-      </CardContent>
-    </Card>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            aria-label="Edit project"
+            onClick={() => onEdit(project)}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Pencil className="size-3.5" />
+          </button>
+          <button
+            aria-label="Delete project"
+            onClick={() => onDelete(project.id)}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </div>
+      </div>
+      <div>
+        <p className="text-sm font-medium">{project.name}</p>
+        <div className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground">
+          <FileText className="size-3" />
+          {project._count?.notes ?? 0} notes
+        </div>
+      </div>
+    </div>
   );
 }
 
-function ProjectForm({
+function InlineEditForm({
   initialName,
   onSubmit,
   onCancel,
   isPending,
-  submitLabel,
 }: {
-  initialName?: string;
+  initialName: string;
   onSubmit: (name: string) => void;
   onCancel: () => void;
   isPending: boolean;
-  submitLabel: string;
 }) {
-  const [name, setName] = useState(initialName ?? "");
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      toast.error("Project name is required");
-      return;
-    }
-    onSubmit(name.trim());
-  };
+  const [name, setName] = useState(initialName);
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-      <div>
-        <Label htmlFor="project-name" className="text-xs font-medium">Project Name</Label>
-        <Input id="project-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="My Project" autoFocus disabled={isPending} className="mt-1" />
-      </div>
-      <div className="flex gap-2">
-        <Button type="submit" size="sm" disabled={isPending}>
-          {isPending ? <Loader2 className="size-3.5 animate-spin mr-1" /> : null}
-          {submitLabel}
+    <div className="p-4 rounded-xl border border-primary/30 bg-card">
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); if (name.trim()) onSubmit(name.trim()); }
+          if (e.key === "Escape") onCancel();
+        }}
+        className="w-full text-sm bg-transparent outline-none mb-3"
+        autoFocus
+        disabled={isPending}
+      />
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={() => { if (name.trim()) onSubmit(name.trim()); }} disabled={isPending || !name.trim()}>
+          {isPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
+          Save
         </Button>
-        <Button type="button" size="sm" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
       </div>
-    </form>
+    </div>
   );
 }
 
@@ -108,70 +107,92 @@ export function ProjectsScreen() {
     handleLoadMore,
   } = useProjectsScreen();
 
+  const [newName, setNewName] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleCreate() {
+    const name = newName.trim();
+    if (!name) { toast.error("Project name is required"); return; }
+    createMutation.mutate({ name }, { onSuccess: () => setNewName("") });
+  }
+
   return (
-    <div className="w-full space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Projects</h1>
-          <p className="text-gray-600 dark:text-gray-400">Organize your notes by project</p>
-        </div>
-        <Button onClick={() => { setShowCreate((p) => !p); setEditing(null); }} disabled={!workspaceId}>
-          <Plus className="size-4 mr-2" />
-          New Project
-        </Button>
+    <div className="max-w-5xl space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
+        {!showCreate && (
+          <Button size="sm" onClick={() => { setShowCreate(true); setTimeout(() => inputRef.current?.focus(), 50); }} disabled={!workspaceId}>
+            <Plus className="size-3.5" />
+            New project
+          </Button>
+        )}
       </div>
 
+      {/* Inline create */}
       {showCreate && (
-        <ProjectForm
-          onSubmit={(name) => createMutation.mutate({ name })}
-          onCancel={() => setShowCreate(false)}
-          isPending={createMutation.isPending}
-          submitLabel="Create Project"
-        />
+        <div className="flex items-center gap-2 p-3 rounded-xl border border-primary/30 bg-card">
+          <input
+            ref={inputRef}
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); handleCreate(); }
+              if (e.key === "Escape") { setShowCreate(false); setNewName(""); }
+            }}
+            placeholder="Project name…"
+            className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground/50"
+            disabled={createMutation.isPending}
+          />
+          <Button size="sm" onClick={handleCreate} disabled={createMutation.isPending || !newName.trim()}>
+            {createMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+            Create
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => { setShowCreate(false); setNewName(""); }}>Cancel</Button>
+        </div>
       )}
 
-      {isLoading && <div className="flex items-center justify-center py-12"><Loader2 className="size-6 animate-spin text-gray-400" /></div>}
-      {error && <p className="text-center py-8 text-red-500 text-sm">Failed to load projects</p>}
+      {isLoading && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      {error && <p className="text-sm text-destructive text-center py-8">Failed to load projects</p>}
 
       {!isLoading && !error && projects.length === 0 && !showCreate && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <FolderOpen className="size-12 text-gray-300 dark:text-gray-600 mb-3" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">No projects yet</p>
-            <Button size="sm" onClick={() => setShowCreate(true)} disabled={!workspaceId}>
-              <Plus className="size-3.5 mr-1.5" />
-              Create your first project
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-4">
+            <FolderOpen className="size-5 text-muted-foreground" />
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">No projects yet</p>
+          <Button size="sm" variant="outline" onClick={() => { setShowCreate(true); setTimeout(() => inputRef.current?.focus(), 50); }} disabled={!workspaceId}>
+            <Plus className="size-3.5" />
+            Create your first project
+          </Button>
+        </div>
       )}
 
       {!isLoading && !error && projects.length > 0 && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map((project) => (
+          <div className={cn("grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4")}>
+            {projects.map((project) =>
               editing?.id === project.id ? (
-                <Card key={project.id} className="border-l-4 border-l-primary/30">
-                  <CardHeader><CardTitle className="text-sm">Edit Project</CardTitle></CardHeader>
-                  <CardContent className="pt-0">
-                    <ProjectForm
-                      initialName={project.name}
-                      onSubmit={(name) => updateMutation.mutate({ id: project.id, body: { name } })}
-                      onCancel={() => setEditing(null)}
-                      isPending={updateMutation.isPending}
-                      submitLabel="Save"
-                    />
-                  </CardContent>
-                </Card>
+                <InlineEditForm
+                  key={project.id}
+                  initialName={project.name}
+                  onSubmit={(name) => updateMutation.mutate({ id: project.id, body: { name } })}
+                  onCancel={() => setEditing(null)}
+                  isPending={updateMutation.isPending}
+                />
               ) : (
                 <ProjectCard key={project.id} project={project} onEdit={setEditing} onDelete={handleDelete} />
-              )
-            ))}
+              ),
+            )}
           </div>
 
           {projects.length < total && (
             <div className="flex justify-center pt-2">
-              <Button variant="outline" size="sm" onClick={handleLoadMore}>
+              <Button variant="ghost" size="sm" onClick={handleLoadMore} className="text-muted-foreground">
                 Load more ({projects.length} / {total})
               </Button>
             </div>
