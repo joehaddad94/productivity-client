@@ -1,16 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, Bell, Palette, Lock, Monitor, Sun, Moon } from "lucide-react";
+import { User, Bell, Palette, Lock, Monitor, Sun, Moon, Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Label } from "@/app/components/ui/label";
 import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
 import { Separator } from "@/app/components/ui/separator";
+import { Switch } from "@/app/components/ui/switch";
 import { toast } from "sonner";
 import { useAuth } from "@/app/context/AuthContext";
 import { useUpdateMeMutation } from "@/app/hooks/useAuthApi";
+import { useNotificationSettingsQuery, useUpdateNotificationSettingsMutation } from "@/app/hooks/useNotificationsApi";
+import { notificationsApi } from "@/lib/api/notifications-api";
 
 export function Settings() {
   const { user } = useAuth();
@@ -21,6 +24,59 @@ export function Settings() {
 
   const { theme, setTheme } = useTheme();
   const [name, setName] = useState(user?.name ?? "");
+
+  // Notification settings
+  const { data: notifSettings } = useNotificationSettingsQuery();
+  const updateNotifSettings = useUpdateNotificationSettingsMutation();
+  const [pushLoading, setPushLoading] = useState(false);
+
+  async function handlePushToggle(enabled: boolean) {
+    if (!enabled) {
+      // Unsubscribe
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          await notificationsApi.deletePushSubscription(sub.endpoint);
+          await sub.unsubscribe();
+        }
+        updateNotifSettings.mutate({ push: false });
+      } catch {
+        toast.error("Failed to disable push notifications");
+      }
+      return;
+    }
+
+    // Request permission + subscribe
+    setPushLoading(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        toast.error("Notification permission denied. Enable it in your browser settings.");
+        return;
+      }
+      const vapidKey = await notificationsApi.getVapidPublicKey();
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+      const json = sub.toJSON();
+      const keys = json.keys as { p256dh: string; auth: string };
+      await notificationsApi.savePushSubscription({
+        endpoint: sub.endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+      });
+      updateNotifSettings.mutate({ push: true });
+      toast.success("Push notifications enabled");
+    } catch (err) {
+      toast.error("Failed to enable push notifications");
+      console.error(err);
+    } finally {
+      setPushLoading(false);
+    }
+  }
 
   // Keep form in sync if user data loads after mount
   useEffect(() => {
@@ -88,19 +144,87 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      {/* Notifications — UI only (placeholder) */}
+      {/* Notifications */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="size-5" />
             Notifications
           </CardTitle>
-          <CardDescription>Configure how you receive notifications</CardDescription>
+          <CardDescription>Choose how you want to be notified about tasks and reminders</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Notification preferences coming soon.
-          </p>
+        <CardContent className="space-y-5">
+          {/* In-app */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">In-app notifications</Label>
+              <p className="text-xs text-muted-foreground">Show a notification bell in the header</p>
+            </div>
+            <Switch
+              checked={notifSettings?.inApp ?? true}
+              onCheckedChange={(v) => updateNotifSettings.mutate({ inApp: v })}
+              disabled={updateNotifSettings.isPending}
+            />
+          </div>
+
+          <Separator />
+
+          {/* Email */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Email notifications</Label>
+              <p className="text-xs text-muted-foreground">Receive reminders by email at {user?.email}</p>
+            </div>
+            <Switch
+              checked={notifSettings?.email ?? false}
+              onCheckedChange={(v) => updateNotifSettings.mutate({ email: v })}
+              disabled={updateNotifSettings.isPending}
+            />
+          </div>
+
+          <Separator />
+
+          {/* Push */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Browser push notifications</Label>
+              <p className="text-xs text-muted-foreground">
+                Receive alerts even when the tab is in the background
+              </p>
+            </div>
+            {pushLoading ? (
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            ) : (
+              <Switch
+                checked={notifSettings?.push ?? false}
+                onCheckedChange={handlePushToggle}
+                disabled={updateNotifSettings.isPending || pushLoading}
+              />
+            )}
+          </div>
+
+          <Separator />
+
+          {/* What triggers notifications */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              You will be notified about
+            </Label>
+            <ul className="text-xs text-muted-foreground space-y-1 ml-1">
+              <li className="flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-primary flex-shrink-0" />
+                Daily agenda at 8:00 AM (tasks due today + overdue count)
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                Afternoon reminder at 2:00 PM for tasks due today
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-destructive flex-shrink-0" />
+                Daily overdue check at 9:00 AM
+              </li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
 
@@ -170,4 +294,11 @@ export function Settings() {
       </div>
     </div>
   );
+}
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }

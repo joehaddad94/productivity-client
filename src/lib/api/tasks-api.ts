@@ -141,6 +141,16 @@ export const tasksApi = {
     return data as { affected: number };
   },
 
+  logFocus: async (workspaceId: string, id: string, minutes: number): Promise<Task> => {
+    const res = await api(`/workspaces/${workspaceId}/tasks/${id}/log-focus`, {
+      method: "POST",
+      body: JSON.stringify({ minutes }),
+    });
+    const data = await parseJson(res);
+    if (!res.ok) throw new Error(getMessage(data));
+    return (data as { task: Task }).task;
+  },
+
   reorder: async (workspaceId: string, ids: string[]): Promise<void> => {
     const res = await api(`/workspaces/${workspaceId}/tasks/reorder`, {
       method: "POST",

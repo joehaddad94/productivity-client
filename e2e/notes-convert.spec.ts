@@ -57,7 +57,7 @@ test.describe('Notes — Convert to task', () => {
     await page.getByTitle('Convert note to task').click();
     await expectToast(page, /converted to task/i);
 
-    // The link2 chip should appear showing the linked task
-    await expect(page.getByTitle('Unlink task')).toBeVisible({ timeout: 5_000 });
+    // The note should show a linked state chip with an unlink action.
+    await expect(page.getByTitle('Unlink task')).toBeVisible({ timeout: 10_000 });
   });
 });

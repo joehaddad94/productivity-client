@@ -51,6 +51,7 @@ export interface Task {
   status: "pending" | "in_progress" | "completed";
   parentTaskId?: string | null;
   subtasks?: Task[];
+  focusMinutes?: number;
   sortOrder?: number;
   completedAt?: string | null;
   deletedAt?: string | null;
@@ -79,6 +80,27 @@ export interface DailyStat {
   tasksCompleted: number;
   focusMinutes: number;
   createdAt: string;
+}
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  taskId?: string | null;
+  type: 'due_today' | 'overdue' | 'daily_agenda';
+  title: string;
+  body: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface NotificationSettings {
+  id: string;
+  userId: string;
+  inApp: boolean;
+  email: boolean;
+  push: boolean;
+  dailyAgendaTime: string;
 }
 
 export interface AnalyticsResult {

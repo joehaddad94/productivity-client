@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { usePomodoroTimer, type SessionType } from "./usePomodoroTimer";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { useLogStatMutation } from "@/app/hooks/useAnalyticsApi";
-import { useTasksQuery } from "@/app/hooks/useTasksApi";
+import { useTasksQuery, useLogTaskFocusMutation } from "@/app/hooks/useTasksApi";
 import { cn } from "@/app/components/ui/utils";
 
 const SESSION_CONFIG: Record<
@@ -15,18 +15,18 @@ const SESSION_CONFIG: Record<
 > = {
   work: {
     label: "Focus",
-    gradient: "from-violet-600 to-purple-600",
-    glow: "shadow-violet-500/40",
+    gradient: "from-emerald-700 to-teal-600",
+    glow: "shadow-emerald-700/40",
   },
   short_break: {
     label: "Short Break",
-    gradient: "from-emerald-500 to-teal-500",
+    gradient: "from-emerald-500 to-teal-400",
     glow: "shadow-emerald-500/40",
   },
   long_break: {
     label: "Long Break",
-    gradient: "from-blue-500 to-cyan-500",
-    glow: "shadow-blue-500/40",
+    gradient: "from-teal-600 to-cyan-500",
+    glow: "shadow-teal-600/40",
   },
 };
 
@@ -50,6 +50,7 @@ export function PomodoroWidget() {
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
   const logStatMutation = useLogStatMutation(workspaceId);
+  const logTaskFocusMutation = useLogTaskFocusMutation(workspaceId);
 
   const { data: tasksPage } = useTasksQuery(workspaceId);
   const tasks = (tasksPage?.tasks ?? []).filter((t) => t.status !== "completed");
@@ -66,9 +67,12 @@ export function PomodoroWidget() {
       });
       if (type === "work" && focusMinutes > 0 && workspaceId) {
         logStatMutation.mutate({ focusMinutes });
+        if (linkedTaskId) {
+          logTaskFocusMutation.mutate({ id: linkedTaskId, minutes: focusMinutes });
+        }
       }
     },
-    [workspaceId, logStatMutation, linkedTask]
+    [workspaceId, logStatMutation, logTaskFocusMutation, linkedTask, linkedTaskId]
   );
 
   const { state, start, pause, reset, skip } = usePomodoroTimer(

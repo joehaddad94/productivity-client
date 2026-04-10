@@ -118,6 +118,26 @@ export function useReorderTasksMutation(
   });
 }
 
+export function useLogTaskFocusMutation(
+  workspaceId: string | null | undefined,
+  options?: UseMutationOptions<Task, Error, { id: string; minutes: number }>
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, minutes }: { id: string; minutes: number }) =>
+      tasksApi.logFocus(workspaceId!, id, minutes),
+    ...options,
+    onSuccess: (data, variables, context, mutation) => {
+      queryClient.setQueryData(
+        TASK_QUERY_KEY(workspaceId ?? "", data.id),
+        data
+      );
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+      options?.onSuccess?.(data, variables, context, mutation);
+    },
+  });
+}
+
 export function useBulkTasksMutation(
   workspaceId: string | null | undefined,
   options?: UseMutationOptions<{ affected: number }, Error, BulkTaskBody>
