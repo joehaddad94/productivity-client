@@ -1,22 +1,33 @@
 "use client";
 
-import {
-  CheckCircle2,
-  TrendingUp,
-  Flame,
-  Plus,
-  FileText,
-  CalendarDays,
-  Loader2,
-  AlertTriangle,
-} from "lucide-react";
-import type { Task } from "@/lib/types";
-import { TaskCard } from "@/app/components/TaskCard";
-import { ProductivityWidget } from "@/app/components/ProductivityWidget";
+import { useState } from "react";
+import { Plus, Flame, Clock, CheckCheck, ChevronDown, ChevronUp, Circle } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { TaskCard } from "@/app/components/TaskCard";
+import { cn } from "@/app/components/ui/utils";
 import { useDashboardScreen } from "../hooks/useDashboardScreen";
 
+function relativeDate(dateStr: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr + "T00:00:00");
+  const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  if (diff === -1) return "Yesterday";
+  if (diff < 0) return `${Math.abs(diff)} days ago`;
+  return `In ${diff} days`;
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
 export function DashboardScreen() {
+  const [overdueExpanded, setOverdueExpanded] = useState(false);
   const {
     workspaceId,
     newTaskTitle,
@@ -25,141 +36,186 @@ export function DashboardScreen() {
     createMutation,
     handleAddTask,
     handleToggleTask,
-    tasks,
     todayTasks,
     overdueTasks,
+    upcomingTasks,
     pendingTasks,
-    completedCount,
     totals,
   } = useDashboardScreen();
 
-  const stats = [
-    { label: "Tasks Completed", value: completedCount, change: `${totals.tasksCompleted} this month`, icon: CheckCircle2 },
-    { label: "Total Tasks", value: tasks.length, change: "In workspace", icon: FileText },
-    { label: "Focus Time", value: `${Math.round((totals.focusMinutes / 60) * 10) / 10}h`, change: "This month", icon: TrendingUp },
-    { label: "Streak", value: `${totals.streak} day${totals.streak !== 1 ? "s" : ""}`, change: "Keep it up!", icon: Flame },
-  ];
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
-        <p className="text-gray-500 dark:text-gray-400">
-          Welcome back! Here&apos;s your productivity overview.
-        </p>
-      </div>
-
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 dark:border-l-primary/40 shadow-sm p-4">
-        <h2 className="font-semibold mb-3">Quick Add Task</h2>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="What do you need to do?"
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
-            disabled={!workspaceId || createMutation.isPending}
-            className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-          />
-          <Button
-            onClick={handleAddTask}
-            disabled={!workspaceId || !newTaskTitle.trim() || createMutation.isPending}
-          >
-            {createMutation.isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Plus className="size-4 mr-2" />}
-            Add Task
-          </Button>
+    <div className="max-w-3xl space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{greeting()}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {todayTasks.length > 0
+              ? `You have ${todayTasks.length} task${todayTasks.length !== 1 ? "s" : ""} due today`
+              : "No tasks due today — enjoy the day"}
+          </p>
         </div>
+        <Button
+          onClick={() => {
+            const title = window.prompt("Task title:");
+            if (title?.trim()) {
+              setNewTaskTitle(title.trim());
+              setTimeout(() => handleAddTask(), 0);
+            }
+          }}
+          disabled={!workspaceId}
+          size="sm"
+        >
+          <Plus className="size-3.5" />
+          New task
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <div key={index} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/20 dark:border-l-primary/35 shadow-sm p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</span>
-                <Icon className="size-4 text-gray-400 dark:text-gray-500" />
-              </div>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stat.change}</div>
-            </div>
-          );
-        })}
+      {/* Quick add */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Add a task and press Enter…"
+          value={newTaskTitle}
+          onChange={(e) => setNewTaskTitle(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
+          disabled={!workspaceId || createMutation.isPending}
+          className="flex-1 h-9 px-3 text-sm bg-muted/40 border border-border/60 rounded-lg outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 placeholder:text-muted-foreground disabled:opacity-50 transition-colors"
+        />
+        <Button
+          onClick={handleAddTask}
+          disabled={!workspaceId || !newTaskTitle.trim() || createMutation.isPending}
+          size="sm"
+          variant="outline"
+        >
+          Add
+        </Button>
       </div>
 
-      {overdueTasks.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-red-200 dark:border-red-900 border-l-4 border-l-red-500 shadow-sm p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="size-4 text-red-500" />
-              <h2 className="font-semibold text-red-600 dark:text-red-400">Overdue</h2>
-            </div>
-            <span className="text-sm font-medium text-red-500 bg-red-50 dark:bg-red-950 px-2 py-0.5 rounded-full">
-              {overdueTasks.length} task{overdueTasks.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {overdueTasks.map((task) => (
-              <TaskCard key={task.id} task={task} onToggle={handleToggleTask} />
-            ))}
-          </div>
-        </div>
-      )}
-
+      {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 dark:border-l-primary/40 shadow-sm p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold">Pending Tasks</h2>
-            <span className="text-sm text-gray-500 dark:text-gray-400">{pendingTasks.length} remaining</span>
-          </div>
-          {tasksLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="size-5 animate-spin text-gray-400" />
+        {/* Left — task sections */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Today */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Today</h2>
+              <span className="text-xs text-muted-foreground">{todayTasks.length} tasks</span>
             </div>
-          ) : pendingTasks.length === 0 ? (
-            <p className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
-              {workspaceId ? "No pending tasks. Add one above!" : "Select a workspace to see tasks"}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {pendingTasks.map((task) => (
-                <TaskCard key={task.id} task={task} onToggle={handleToggleTask} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-4">
-          <ProductivityWidget
-            title="Tasks Completed"
-            value={totals.tasksCompleted}
-            icon={CheckCircle2}
-            trend="This month"
-            color="text-green-600 dark:text-green-400"
-          />
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 dark:border-l-primary/40 shadow-sm p-4">
-            <h2 className="font-semibold mb-4">Today&apos;s Due</h2>
-            {todayTasks.length === 0 ? (
-              <div className="flex items-start gap-3 text-sm text-gray-500 dark:text-gray-400">
-                <CalendarDays className="size-4 text-primary mt-0.5 flex-shrink-0" />
-                <span>No tasks due today</span>
+            {tasksLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => <div key={i} className="h-10 rounded-lg bg-muted animate-pulse" />)}
+              </div>
+            ) : todayTasks.length === 0 ? (
+              <div className="flex items-center gap-2 px-3 py-3 rounded-lg border border-border/40 text-sm text-muted-foreground">
+                <CheckCheck className="size-4 text-primary" />
+                Nothing due today
               </div>
             ) : (
-              <div className="space-y-2">
-                {todayTasks.slice(0, 3).map((task: Task) => (
-                  <div key={task.id} className="flex items-start gap-3">
-                    <CalendarDays className="size-4 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="text-sm font-medium">{task.title}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{task.priority ?? "no priority"}</div>
-                    </div>
-                  </div>
+              <div className="space-y-1.5">
+                {todayTasks.map((task) => (
+                  <TaskCard key={task.id} task={task} onToggle={handleToggleTask} />
                 ))}
               </div>
             )}
-          </div>
+          </section>
+
+          {/* Overdue */}
+          {overdueTasks.length > 0 && (
+            <section>
+              <button
+                className="flex items-center justify-between w-full mb-3 group"
+                onClick={() => setOverdueExpanded((v) => !v)}
+              >
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-red-500">
+                  Overdue · {overdueTasks.length}
+                </h2>
+                {overdueExpanded ? (
+                  <ChevronUp className="size-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="size-3.5 text-muted-foreground" />
+                )}
+              </button>
+              {overdueExpanded && (
+                <div className="space-y-1.5">
+                  {overdueTasks.map((task) => (
+                    <TaskCard key={task.id} task={task} onToggle={handleToggleTask} />
+                  ))}
+                </div>
+              )}
+              {!overdueExpanded && (
+                <div className="space-y-1.5">
+                  {overdueTasks.slice(0, 2).map((task) => (
+                    <TaskCard key={task.id} task={task} onToggle={handleToggleTask} />
+                  ))}
+                  {overdueTasks.length > 2 && (
+                    <button
+                      onClick={() => setOverdueExpanded(true)}
+                      className="text-xs text-muted-foreground hover:text-foreground pl-3"
+                    >
+                      +{overdueTasks.length - 2} more
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Upcoming */}
+          {upcomingTasks.length > 0 && (
+            <section>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Upcoming</h2>
+              <div className="space-y-1">
+                {upcomingTasks.map((task) => (
+                  <div key={task.id} className="flex items-center gap-3 py-1.5 px-1">
+                    <Circle className="size-3.5 text-muted-foreground/40 shrink-0" />
+                    <span className="flex-1 text-sm truncate">{task.title}</span>
+                    <span className="text-[11px] text-muted-foreground shrink-0">
+                      {task.dueDate ? relativeDate(task.dueDate.slice(0, 10)) : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Pending (no due date) */}
+          {pendingTasks.filter((t) => !t.dueDate).length > 0 && (
+            <section>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">No due date</h2>
+              <div className="space-y-1.5">
+                {pendingTasks.filter((t) => !t.dueDate).map((task) => (
+                  <TaskCard key={task.id} task={task} onToggle={handleToggleTask} />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Right — compact stats */}
+        <div className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stats</h2>
+          <StatRow icon={<CheckCheck className="size-3.5 text-primary" />} label="Completed" value={totals.tasksCompleted} suffix="this month" />
+          <StatRow icon={<Flame className="size-3.5 text-amber-500" />} label="Streak" value={totals.streak} suffix={`day${totals.streak !== 1 ? "s" : ""}`} />
+          <StatRow
+            icon={<Clock className="size-3.5 text-blue-500" />}
+            label="Focus time"
+            value={`${(totals.focusMinutes / 60).toFixed(1)}h`}
+            suffix="this month"
+          />
         </div>
       </div>
+    </div>
+  );
+}
+
+function StatRow({ icon, label, value, suffix }: { icon: React.ReactNode; label: string; value: string | number; suffix: string }) {
+  return (
+    <div className="flex items-center gap-2.5 py-2 border-b border-border/40 last:border-0">
+      <span className="shrink-0">{icon}</span>
+      <span className="flex-1 text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm font-medium">{value}</span>
+      <span className="text-[11px] text-muted-foreground">{suffix}</span>
     </div>
   );
 }

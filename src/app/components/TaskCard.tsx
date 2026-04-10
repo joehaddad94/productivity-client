@@ -1,8 +1,20 @@
-import { Calendar, Flag, RefreshCw } from "lucide-react";
+import { Calendar, RefreshCw } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
 import { Badge } from "./ui/badge";
 import { cn } from "./ui/utils";
+
+const PRIORITY_COLORS: Record<string, string> = {
+  low: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+  medium: "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400",
+  high: "bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400",
+};
+
+const PRIORITY_DOT: Record<string, string> = {
+  low: "bg-gray-400",
+  medium: "bg-amber-500",
+  high: "bg-red-500",
+};
 
 interface TaskCardProps {
   task: Task;
@@ -11,78 +23,51 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
-  const priorityColors = {
-    low: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-    medium: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
-    high: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-  };
-
   const isCompleted = task.status === "completed";
-  const isOverdue = !isCompleted && !!task.dueDate && task.dueDate.slice(0, 10) < new Date().toISOString().slice(0, 10);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isOverdue = !isCompleted && !!task.dueDate && task.dueDate.slice(0, 10) < todayStr;
 
   return (
     <div
       onClick={() => onSelect?.(task)}
       className={cn(
-        "group p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-sm",
-        isCompleted
-          ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 border-l-4 border-l-emerald-400 dark:border-l-emerald-500 hover:shadow-md"
-          : isOverdue
-          ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900 border-l-4 border-l-red-400 dark:border-l-red-500 hover:shadow-md"
-          : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 dark:border-l-primary/40 hover:shadow-md hover:border-primary/20 dark:hover:border-primary/30"
+        "group flex items-start gap-3 px-3 py-2.5 rounded-lg border border-border/50 bg-card hover:border-border transition-colors cursor-pointer",
+        isCompleted && "opacity-60",
+        onSelect && "hover:bg-muted/40",
       )}
     >
-      <div className="flex items-start gap-3">
-        <Checkbox
-          checked={isCompleted}
-          onCheckedChange={() => onToggle(task.id)}
-          className="mt-0.5"
-          onClick={(e) => e.stopPropagation()}
-        />
-        <div className="flex-1 min-w-0">
-          <h3
-            className={cn(
-              "font-medium mb-2",
-              isCompleted && "line-through text-emerald-700 dark:text-emerald-400"
-            )}
-          >
-            {task.title}
-          </h3>
-          <div className="flex flex-wrap items-center gap-2">
-            {task.dueDate && (
-              <div className={cn(
-                "flex items-center gap-1 text-xs",
-                isOverdue
-                  ? "text-red-600 dark:text-red-400 font-medium"
-                  : "text-gray-500 dark:text-gray-400"
-              )}>
-                <Calendar className="size-3" />
-                <span>
-                  {typeof task.dueDate === "string" && task.dueDate.includes("T")
-                    ? new Date(task.dueDate).toLocaleDateString()
-                    : task.dueDate}
-                  {task.dueTime && <span className="ml-1">at {task.dueTime}</span>}
-                </span>
-              </div>
-            )}
-            {task.priority && (
-              <Badge variant="secondary" className={cn("text-xs", priorityColors[task.priority])}>
-                <Flag className="size-3 mr-1" />
-                {task.priority}
-              </Badge>
-            )}
-            {task.recurrenceRule && (
-              <Badge variant="outline" className="text-xs gap-1">
-                <RefreshCw className="size-3" />
-                {task.recurrenceRule.charAt(0) + task.recurrenceRule.slice(1).toLowerCase()}
-              </Badge>
-            )}
-            {task.status && (
-              <Badge variant="outline" className="text-xs">
-                {task.status}
-              </Badge>
-            )}
-          </div>
+      <Checkbox
+        checked={isCompleted}
+        onCheckedChange={() => onToggle(task.id)}
+        className="mt-0.5 shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      />
+      <div className="flex-1 min-w-0">
+        <p className={cn("text-sm font-medium leading-snug", isCompleted && "line-through text-muted-foreground")}>
+          {task.title}
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+          {task.priority && (
+            <span className="flex items-center gap-1">
+              <span className={cn("size-1.5 rounded-full shrink-0", PRIORITY_DOT[task.priority])} />
+              <span className={cn("text-[11px] font-medium", PRIORITY_COLORS[task.priority].split(" ").slice(2).join(" "))}>
+                {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+              </span>
+            </span>
+          )}
+          {task.dueDate && (
+            <span className={cn("flex items-center gap-1 text-[11px]", isOverdue ? "text-red-500 font-medium" : "text-muted-foreground")}>
+              <Calendar className="size-3" />
+              {task.dueDate.slice(0, 10)}
+              {task.dueTime && <span>· {task.dueTime}</span>}
+            </span>
+          )}
+          {task.recurrenceRule && (
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <RefreshCw className="size-3" />
+              {task.recurrenceRule.charAt(0) + task.recurrenceRule.slice(1).toLowerCase()}
+            </span>
+          )}
         </div>
       </div>
     </div>

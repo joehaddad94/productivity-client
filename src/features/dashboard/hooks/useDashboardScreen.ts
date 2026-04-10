@@ -51,6 +51,11 @@ export function useDashboardScreen() {
   const completedCount = tasks.filter((t) => t.status === "completed").length;
   const totals = analytics?.totals ?? { tasksCompleted: 0, focusMinutes: 0, streak: 0 };
 
+  const upcomingTasks = tasks
+    .filter((t) => t.dueDate && t.dueDate.slice(0, 10) > todayStr && t.status !== "completed")
+    .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))
+    .slice(0, 5);
+
   return {
     workspaceId,
     newTaskTitle,
@@ -62,6 +67,7 @@ export function useDashboardScreen() {
     tasks,
     todayTasks,
     overdueTasks,
+    upcomingTasks,
     pendingTasks,
     completedCount,
     totals,
