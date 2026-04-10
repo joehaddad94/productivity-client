@@ -67,6 +67,7 @@ export type CreateTaskBody = {
   priority?: "low" | "medium" | "high";
   status?: "pending" | "in_progress" | "completed";
   parentTaskId?: string;
+  recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY";
 };
 
 export type UpdateTaskBody = Partial<CreateTaskBody>;

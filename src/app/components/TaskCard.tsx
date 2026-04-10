@@ -1,4 +1,4 @@
-import { Calendar, Flag } from "lucide-react";
+import { Calendar, Flag, RefreshCw } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
 import { Badge } from "./ui/badge";
@@ -69,6 +69,12 @@ export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
               <Badge variant="secondary" className={cn("text-xs", priorityColors[task.priority])}>
                 <Flag className="size-3 mr-1" />
                 {task.priority}
+              </Badge>
+            )}
+            {task.recurrenceRule && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <RefreshCw className="size-3" />
+                {task.recurrenceRule.charAt(0) + task.recurrenceRule.slice(1).toLowerCase()}
               </Badge>
             )}
             {task.status && (

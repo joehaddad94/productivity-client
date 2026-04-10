@@ -54,6 +54,8 @@ export interface Task {
   subtasks?: Task[];
   focusMinutes?: number;
   sortOrder?: number;
+  recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY" | null;
+  recurrenceParentId?: string | null;
   completedAt?: string | null;
   deletedAt?: string | null;
   createdAt: string;

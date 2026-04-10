@@ -5,6 +5,7 @@ export type TaskFormData = {
   priority?: "low" | "medium" | "high";
   dueDate?: string;
   dueTime?: string;
+  recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY";
 };
 
 export type PriorityFilter = "all" | "low" | "medium" | "high";
