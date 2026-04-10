@@ -1,9 +1,10 @@
 "use client";
 
-import { Loader2, Plus, Tag, Trash2 } from "lucide-react";
+import { Plus, Trash2, FileText } from "lucide-react";
 import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
+import { cn } from "@/app/components/ui/utils";
 import { useNotesScreen } from "../hooks/useNotesScreen";
 import { NoteEditor } from "./NoteEditor";
 
@@ -35,123 +36,126 @@ export function NotesScreen() {
   } = useNotesScreen();
 
   return (
-    <div className="w-full h-full flex flex-col min-h-0">
-      <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
-        <div className="lg:min-w-72 lg:w-80 xl:w-96 flex-shrink-0 space-y-3 flex flex-col">
-          <div className="flex justify-between items-center">
-            <h1 className="text-xl font-bold">Notes</h1>
-            <Button
-              size="sm"
-              onClick={handleCreateNote}
-              disabled={createIsPending || !workspaceId}
-            >
-              {createIsPending ? (
-                <Loader2 className="size-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <Plus className="size-3.5 mr-1.5" />
-              )}
-              New
-            </Button>
-          </div>
+    <div className="flex flex-col lg:flex-row gap-0 h-[calc(100vh-5rem)] -m-5 lg:-m-6">
+      {/* Sidebar */}
+      <div className="lg:w-64 xl:w-72 flex-shrink-0 flex flex-col border-r border-border/60 bg-[var(--sidebar-bg)]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+          <h1 className="text-sm font-semibold">Notes</h1>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={handleCreateNote}
+            disabled={createIsPending || !workspaceId}
+            title="New note"
+          >
+            <Plus className="size-4" />
+          </Button>
+        </div>
 
+        {/* Search */}
+        <div className="px-3 py-2 border-b border-border/40">
           <SearchInput
-            type="search"
-            placeholder="Search notes..."
+            placeholder="Search…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search notes"
+            className="h-7 text-xs"
           />
+        </div>
 
-          {allTags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {allTags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                  className={`text-[10px] flex items-center gap-1 px-2 py-0.5 rounded-full border transition-colors ${
-                    selectedTag === tag
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-primary hover:text-primary"
-                  }`}
-                >
-                  <Tag className="size-2.5" />
-                  {tag}
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Tag filters */}
+        {allTags.length > 0 && (
+          <div className="flex flex-wrap gap-1 px-3 py-2 border-b border-border/40">
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                className={cn(
+                  "text-[10px] px-2 py-0.5 rounded-full transition-colors",
+                  selectedTag === tag
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
 
+        {/* Note list */}
+        <div className="flex-1 overflow-y-auto py-1">
           {isLoading && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="size-5 animate-spin text-gray-400" />
+            <div className="space-y-1 px-3 py-2">
+              {[1, 2, 3, 4].map((i) => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}
             </div>
           )}
+          {error && <p className="text-xs text-destructive text-center py-4">Failed to load</p>}
+          {!isLoading && !error && notes.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+              <FileText className="size-8 text-muted-foreground/30 mb-3" />
+              <p className="text-xs text-muted-foreground">No notes yet</p>
+              <Button variant="ghost" size="sm" className="mt-2 text-xs" onClick={handleCreateNote} disabled={!workspaceId}>
+                <Plus className="size-3" /> Create one
+              </Button>
+            </div>
+          )}
+          {!isLoading && !error && notes.map((note) => (
+            <div key={note.id} className="relative group px-2">
+              <NoteCard
+                note={note}
+                isActive={selectedNoteId === note.id}
+                onSelect={() => setSelectedNoteId(note.id)}
+              />
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDelete(note.id); }}
+                className="absolute top-3 right-4 opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all"
+                title="Delete note"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
+          ))}
+          {!isLoading && notes.length < total && (
+            <button
+              onClick={handleLoadMore}
+              className="w-full text-[11px] text-center py-2 text-muted-foreground hover:text-foreground"
+            >
+              Load more ({notes.length} / {total})
+            </button>
+          )}
+        </div>
+      </div>
 
-          {error && (
-            <p className="text-sm text-red-500 text-center py-4">
-              Failed to load notes
+      {/* Editor pane */}
+      <div className="flex-1 flex flex-col min-w-0 bg-background">
+        {selectedNote ? (
+          <NoteEditor
+            key={selectedNote.id}
+            note={selectedNote}
+            onUpdate={handleUpdate}
+            onTagsChange={handleTagsChange}
+            onLinkTask={handleLinkTask}
+            onConvertToTask={handleConvertToTask}
+            isSaving={updateIsPending}
+            tasks={allTasks}
+          />
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
+            <FileText className="size-10 text-muted-foreground/20 mb-4" />
+            <p className="text-sm text-muted-foreground">
+              {workspaceId ? "Select a note or create a new one" : "Select a workspace to view notes"}
             </p>
-          )}
-
-          {!isLoading && !error && (
-            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1.5">
-              {notes.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-                  No notes yet. Create one!
-                </p>
-              ) : (
-                notes.map((note) => (
-                  <div key={note.id} className="relative group">
-                    <NoteCard
-                      note={note}
-                      isActive={selectedNoteId === note.id}
-                      onSelect={() => setSelectedNoteId(note.id)}
-                    />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(note.id);
-                      }}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950 text-red-400 transition-opacity"
-                      title="Delete note"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </div>
-                ))
-              )}
-              {notes.length < total && (
-                <button
-                  onClick={handleLoadMore}
-                  className="w-full text-xs text-center py-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                >
-                  Load more ({notes.length} / {total})
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-          {selectedNote ? (
-            <NoteEditor
-              key={selectedNote.id}
-              note={selectedNote}
-              onUpdate={handleUpdate}
-              onTagsChange={handleTagsChange}
-              onLinkTask={handleLinkTask}
-              onConvertToTask={handleConvertToTask}
-              isSaving={updateIsPending}
-              tasks={allTasks}
-            />
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
-              {workspaceId
-                ? "Select a note to start editing"
-                : "Select a workspace to view notes"}
-            </div>
-          )}
-        </div>
+            {workspaceId && (
+              <Button variant="outline" size="sm" className="mt-4" onClick={handleCreateNote} disabled={createIsPending}>
+                <Plus className="size-3.5" />
+                New note
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

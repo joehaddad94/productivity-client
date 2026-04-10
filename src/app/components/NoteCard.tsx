@@ -1,6 +1,4 @@
-import { Clock, Tag } from "lucide-react";
 import type { Note } from "@/lib/types";
-import { Badge } from "./ui/badge";
 import { cn } from "./ui/utils";
 
 interface NoteCardProps {
@@ -9,35 +7,46 @@ interface NoteCardProps {
   onSelect: (note: Note) => void;
 }
 
+function relativeDate(dateStr: string): string {
+  const now = new Date();
+  const d = new Date(dateStr);
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / 86_400_000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export function NoteCard({ note, isActive, onSelect }: NoteCardProps) {
+  const preview = note.content?.replace(/<[^>]+>/g, "").trim().slice(0, 80) ?? "";
+
   return (
     <div
       onClick={() => onSelect(note)}
       className={cn(
-        "p-3 rounded-lg border cursor-pointer transition-all duration-200 shadow-sm",
+        "px-3 py-2.5 rounded-lg cursor-pointer transition-colors",
         isActive
-          ? "bg-primary/10 dark:bg-primary/20 border-primary/30 dark:border-primary/40 border-l-4 border-l-primary shadow-md"
-          : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/20 dark:border-l-primary/35 hover:border-primary/15 dark:hover:border-primary/25 hover:shadow-md"
+          ? "bg-muted"
+          : "hover:bg-muted/50",
       )}
     >
-      <h3 className="font-medium text-sm mb-1.5 truncate">{note.title}</h3>
-      <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
-        {note.content?.replace(/<[^>]+>/g, "").slice(0, 120) ?? ""}
-      </p>
-      <div className="flex items-center justify-between">
-        <div className="flex flex-wrap gap-1">
-          {note.tags?.map((tag) => (
-            <Badge key={tag} variant="secondary" className="text-[10px]">
-              <Tag className="size-2 mr-0.5" />
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium truncate leading-snug">{note.title || "Untitled"}</p>
+        <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">{relativeDate(note.updatedAt)}</span>
+      </div>
+      {preview && (
+        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{preview}</p>
+      )}
+      {note.tags && note.tags.length > 0 && (
+        <div className="flex gap-1 mt-1.5 flex-wrap">
+          {note.tags.slice(0, 3).map((tag) => (
+            <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
               {tag}
-            </Badge>
+            </span>
           ))}
         </div>
-        <div className="flex items-center gap-0.5 text-[10px] text-gray-500 dark:text-gray-400">
-          <Clock className="size-2.5" />
-          <span>{new Date(note.updatedAt).toLocaleDateString()}</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

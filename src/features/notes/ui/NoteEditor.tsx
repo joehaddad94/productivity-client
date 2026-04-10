@@ -10,18 +10,14 @@ import {
   ListOrdered,
   Loader2,
   Plus,
-  Tag,
-  SquareCheckBig,
   Unlink,
   X,
 } from "lucide-react";
 import { useEditor, EditorContent } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
-import { Badge } from "@/app/components/ui/badge";
-import { Separator } from "@/app/components/ui/separator";
+import { cn } from "@/app/components/ui/utils";
 import type { NoteEditorProps } from "../model/types";
 
 export function NoteEditor({
@@ -46,7 +42,7 @@ export function NoteEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit,
-      Placeholder.configure({ placeholder: "Start writing..." }),
+      Placeholder.configure({ placeholder: "Start writing…" }),
     ],
     content: note.content ?? "",
     onUpdate: ({ editor }) => {
@@ -94,134 +90,28 @@ export function NoteEditor({
     }
   };
 
-  const charCount = editor?.getText().length ?? 0;
-
   return (
-    <>
-      <div className="p-3 border-b border-gray-200 dark:border-gray-800">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1">
-            <Button
-              variant={editor?.isActive("bold") ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => editor?.chain().focus().toggleBold().run()}
-              title="Bold"
-            >
-              <Bold className="size-3.5" />
-            </Button>
-            <Button
-              variant={editor?.isActive("italic") ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => editor?.chain().focus().toggleItalic().run()}
-              title="Italic"
-            >
-              <Italic className="size-3.5" />
-            </Button>
-            <Separator orientation="vertical" className="h-5" />
-            <Button
-              variant={editor?.isActive("bulletList") ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => editor?.chain().focus().toggleBulletList().run()}
-              title="Bullet List"
-            >
-              <List className="size-3.5" />
-            </Button>
-            <Button
-              variant={editor?.isActive("orderedList") ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-              title="Ordered List"
-            >
-              <ListOrdered className="size-3.5" />
-            </Button>
-          </div>
-          <div className="relative flex items-center gap-2">
-            {!note.taskId && (
-              <button
-                onClick={() => onConvertToTask(note.id)}
-                className="text-[10px] text-gray-400 hover:text-primary flex items-center gap-0.5 transition-colors"
-                title="Convert note to task"
-              >
-                <SquareCheckBig className="size-3" />
-                To task
-              </button>
-            )}
-            {linkedTask ? (
-              <div className="flex items-center gap-1 text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                <Link2 className="size-3" />
-                <span className="max-w-28 truncate">{linkedTask.title}</span>
-                <button
-                  onClick={() => onLinkTask(note.id, null)}
-                  className="hover:text-red-500 transition-colors"
-                  title="Unlink task"
-                >
-                  <Unlink className="size-3" />
-                </button>
-              </div>
-            ) : note.taskId ? (
-              <div className="flex items-center gap-1 text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                <Link2 className="size-3" />
-                <span className="max-w-28 truncate">Linked task</span>
-                <button
-                  onClick={() => onLinkTask(note.id, null)}
-                  className="hover:text-red-500 transition-colors"
-                  title="Unlink task"
-                >
-                  <Unlink className="size-3" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowTaskPicker((v) => !v)}
-                className="text-[10px] text-gray-400 hover:text-primary flex items-center gap-0.5 transition-colors"
-                title="Link to a task"
-              >
-                <LinkIcon className="size-3" />
-                Link task
-              </button>
-            )}
-            {showTaskPicker && (
-              <div className="absolute right-0 top-6 z-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg w-56 max-h-48 overflow-y-auto">
-                {tasks.length === 0 ? (
-                  <p className="text-xs text-gray-500 p-3">No tasks in workspace</p>
-                ) : (
-                  tasks.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        onLinkTask(note.id, t.id);
-                        setShowTaskPicker(false);
-                      }}
-                      className="w-full text-left text-xs px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 truncate"
-                    >
-                      {t.title}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-1.5 items-center">
+    <div className="flex flex-col h-full">
+      {/* Fixed toolbar */}
+      <div className="flex items-center justify-between gap-3 px-5 py-2.5 border-b border-border/40 shrink-0">
+        {/* Tags */}
+        <div className="flex flex-wrap gap-1.5 items-center flex-1 min-w-0">
           {note.tags?.map((tag) => (
-            <Badge
+            <span
               key={tag}
-              variant="secondary"
-              className="text-[10px] gap-1 pr-1 cursor-default"
+              className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
             >
-              <Tag className="size-2.5" />
               {tag}
               <button
                 onClick={() =>
                   onTagsChange(note.id, (note.tags ?? []).filter((t) => t !== tag))
                 }
-                className="ml-0.5 hover:text-red-500 transition-colors"
+                className="hover:text-destructive transition-colors"
                 title={`Remove tag "${tag}"`}
               >
                 <X className="size-2.5" />
               </button>
-            </Badge>
+            </span>
           ))}
           {isAddingTag ? (
             <input
@@ -261,7 +151,7 @@ export function NoteEditor({
                 setIsAddingTag(true);
                 setTimeout(() => tagInputRef.current?.focus(), 0);
               }}
-              className="text-[10px] text-gray-400 hover:text-primary flex items-center gap-0.5 transition-colors"
+              className="text-[10px] text-muted-foreground/60 hover:text-primary flex items-center gap-0.5 transition-colors"
               title="Add tag"
             >
               <Plus className="size-3" />
@@ -269,35 +159,149 @@ export function NoteEditor({
             </button>
           )}
         </div>
+
+        {/* Link task + convert */}
+        <div className="relative flex items-center gap-2 shrink-0">
+          {!note.taskId && (
+            <button
+              onClick={() => onConvertToTask(note.id)}
+              className="text-[10px] text-muted-foreground/60 hover:text-primary flex items-center gap-0.5 transition-colors"
+              title="Convert note to task"
+            >
+              To task
+            </button>
+          )}
+          {linkedTask || note.taskId ? (
+            <div className="flex items-center gap-1 text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+              <Link2 className="size-3" />
+              <span className="max-w-28 truncate">
+                {linkedTask ? linkedTask.title : "Linked task"}
+              </span>
+              <button
+                onClick={() => onLinkTask(note.id, null)}
+                className="hover:text-destructive transition-colors"
+                title="Unlink task"
+              >
+                <Unlink className="size-3" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowTaskPicker((v) => !v)}
+              className="text-[10px] text-muted-foreground/60 hover:text-primary flex items-center gap-0.5 transition-colors"
+              title="Link to a task"
+            >
+              <LinkIcon className="size-3" />
+              Link task
+            </button>
+          )}
+          {showTaskPicker && (
+            <div className="absolute right-0 top-6 z-10 bg-background border border-border/60 rounded-lg shadow-md w-56 max-h-48 overflow-y-auto">
+              {tasks.length === 0 ? (
+                <p className="text-xs text-muted-foreground p-3">No tasks in workspace</p>
+              ) : (
+                tasks.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      onLinkTask(note.id, t.id);
+                      setShowTaskPicker(false);
+                    }}
+                    className="w-full text-left text-xs px-3 py-2 hover:bg-muted/50 truncate transition-colors"
+                  >
+                    {t.title}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="flex-1 p-4 overflow-y-auto">
-        <Input
+      {/* Editor area */}
+      <div className="flex-1 overflow-y-auto px-6 py-5">
+        <input
           value={title}
           onChange={handleTitleChange}
           onBlur={handleTitleBlur}
-          placeholder="Note title..."
-          className="text-xl font-bold border-0 p-0 mb-3 focus-visible:ring-0"
+          placeholder="Untitled"
+          className="w-full text-2xl font-semibold bg-transparent outline-none placeholder:text-muted-foreground/30 mb-4 leading-tight"
         />
+
+        {editor && (
+          <BubbleMenu
+            editor={editor}
+            className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-background border border-border/60 shadow-md"
+          >
+            <button
+              onClick={() => editor.chain().focus().toggleBold().run()}
+              className={cn(
+                "p-1.5 rounded-md text-xs font-bold transition-colors",
+                editor.isActive("bold")
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+              )}
+              title="Bold (⌘B)"
+            >
+              <Bold className="size-3.5" />
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+              className={cn(
+                "p-1.5 rounded-md transition-colors",
+                editor.isActive("italic")
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+              )}
+              title="Italic (⌘I)"
+            >
+              <Italic className="size-3.5" />
+            </button>
+            <div className="w-px h-4 bg-border/60 mx-0.5" />
+            <button
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+              className={cn(
+                "p-1.5 rounded-md transition-colors",
+                editor.isActive("bulletList")
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+              )}
+              title="Bullet list"
+            >
+              <List className="size-3.5" />
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              className={cn(
+                "p-1.5 rounded-md transition-colors",
+                editor.isActive("orderedList")
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+              )}
+              title="Ordered list"
+            >
+              <ListOrdered className="size-3.5" />
+            </button>
+          </BubbleMenu>
+        )}
+
         <EditorContent
           editor={editor}
-          className="prose prose-sm dark:prose-invert max-w-none min-h-[320px] focus:outline-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[320px]"
+          className="prose prose-sm dark:prose-invert max-w-none focus:outline-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[300px] [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground/40 [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0"
         />
       </div>
 
-      <div className="p-3 border-t border-gray-200 dark:border-gray-800">
-        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-          {isSaving ? (
-            <span className="flex items-center gap-1 text-primary">
-              <Loader2 className="size-3 animate-spin" />
-              Saving...
-            </span>
-          ) : (
-            <span>Last edited {new Date(note.updatedAt).toLocaleString()}</span>
-          )}
-          <span>{charCount} characters</span>
-        </div>
+      {/* Footer */}
+      <div className="px-6 py-2.5 border-t border-border/40 shrink-0">
+        {isSaving ? (
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="size-3 animate-spin" />
+            Saving…
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground/50">Saved</span>
+        )}
       </div>
-    </>
+    </div>
   );
 }
