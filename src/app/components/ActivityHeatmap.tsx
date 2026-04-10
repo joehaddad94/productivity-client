@@ -1,49 +1,58 @@
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
-// Generate sample activity data for the last 12 weeks
-function generateActivityData() {
-  const weeks = 12;
-  const daysPerWeek = 7;
-  const data: { date: string; count: number }[] = [];
-  
-  const today = new Date();
-  for (let week = weeks - 1; week >= 0; week--) {
-    for (let day = 0; day < daysPerWeek; day++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - (week * 7 + (6 - day)));
-      const count = Math.floor(Math.random() * 12);
-      data.push({
-        date: date.toISOString().split('T')[0],
-        count,
-      });
-    }
-  }
-  
-  return data;
+interface ActivityDay {
+  date: string;
+  count: number;
 }
 
-export function ActivityHeatmap() {
-  const activityData = generateActivityData();
-  
-  // Group by weeks
-  const weeks: { date: string; count: number }[][] = [];
-  for (let i = 0; i < activityData.length; i += 7) {
-    weeks.push(activityData.slice(i, i + 7));
+interface ActivityHeatmapProps {
+  data?: ActivityDay[];
+}
+
+const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKS = 16;
+
+function buildGrid(data: ActivityDay[]): ActivityDay[][] {
+  const byDate = new Map(data.map((d) => [d.date, d.count]));
+  const today = new Date();
+  // Align to last Sunday
+  const dayOfWeek = today.getDay();
+  const endSunday = new Date(today);
+  endSunday.setDate(today.getDate() - dayOfWeek);
+
+  const weeks: ActivityDay[][] = [];
+  for (let w = WEEKS - 1; w >= 0; w--) {
+    const week: ActivityDay[] = [];
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(endSunday);
+      date.setDate(endSunday.getDate() - w * 7 + d);
+      const iso = date.toISOString().split("T")[0];
+      week.push({ date: iso, count: byDate.get(iso) ?? 0 });
+    }
+    weeks.push(week);
   }
+  return weeks;
+}
 
-  const getColor = (count: number) => {
-    if (count === 0) return "bg-gray-100 dark:bg-gray-800";
-    if (count <= 3) return "bg-green-200 dark:bg-green-900";
-    if (count <= 6) return "bg-green-400 dark:bg-green-700";
-    if (count <= 9) return "bg-green-600 dark:bg-green-500";
-    return "bg-green-700 dark:bg-green-400";
-  };
+function getColor(count: number) {
+  if (count === 0) return "bg-gray-100 dark:bg-gray-800";
+  if (count <= 2) return "bg-green-200 dark:bg-green-900";
+  if (count <= 5) return "bg-green-400 dark:bg-green-700";
+  if (count <= 8) return "bg-green-600 dark:bg-green-500";
+  return "bg-green-700 dark:bg-green-400";
+}
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
+  const weeks = buildGrid(data ?? []);
 
   return (
     <Card>
@@ -51,28 +60,45 @@ export function ActivityHeatmap() {
         <CardTitle className="text-sm">Activity Overview</CardTitle>
       </CardHeader>
       <CardContent>
-        <TooltipProvider>
-          <div className="flex gap-1 overflow-x-auto pb-2">
-            {weeks.map((week, weekIdx) => (
-              <div key={weekIdx} className="flex flex-col gap-1">
-                {week.map((day, dayIdx) => (
-                  <Tooltip key={dayIdx}>
-                    <TooltipTrigger asChild>
-                      <div
-                        className={`size-3 rounded-sm ${getColor(day.count)} transition-all hover:ring-2 hover:ring-gray-400 dark:hover:ring-gray-500 cursor-pointer`}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">
-                        {day.count} tasks on {formatDate(day.date)}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
+        <div className="flex gap-1 overflow-x-auto pb-2">
+          {/* Day labels */}
+          <div className="flex flex-col gap-1 mr-1 pt-0">
+            {DAYS_OF_WEEK.map((day, i) => (
+              <div
+                key={day}
+                className={`size-3 flex items-center text-[8px] text-gray-400 dark:text-gray-600 leading-none ${
+                  i % 2 === 0 ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                {day}
               </div>
             ))}
           </div>
-        </TooltipProvider>
+
+          <TooltipProvider>
+            <div className="flex gap-1">
+              {weeks.map((week, weekIdx) => (
+                <div key={weekIdx} className="flex flex-col gap-1">
+                  {week.map((day, dayIdx) => (
+                    <Tooltip key={dayIdx}>
+                      <TooltipTrigger asChild>
+                        <div
+                          className={`size-3 rounded-sm ${getColor(day.count)} transition-all hover:ring-2 hover:ring-gray-400 dark:hover:ring-gray-500 cursor-pointer`}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">
+                          {day.count} task{day.count !== 1 ? "s" : ""} on {formatDate(day.date)}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </TooltipProvider>
+        </div>
+
         <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 dark:text-gray-400">
           <span>Less</span>
           <div className="flex gap-1">
