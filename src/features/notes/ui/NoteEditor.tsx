@@ -227,7 +227,7 @@ export function NoteEditor({
                 setTagInput("");
                 setIsAddingTag(false);
               }}
-              placeholder="tag name..."
+              placeholder="tag name…"
               className="text-[11px] px-2 py-0.5 rounded-full border border-primary/40 bg-primary/5 focus:outline-none focus:border-primary w-24"
               autoFocus
             />
