@@ -47,12 +47,15 @@ export interface Task {
   title: string;
   description?: string | null;
   dueDate?: string | null;
+  dueTime?: string | null;
   priority?: "low" | "medium" | "high" | null;
   status: "pending" | "in_progress" | "completed";
   parentTaskId?: string | null;
   subtasks?: Task[];
   focusMinutes?: number;
   sortOrder?: number;
+  recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY" | null;
+  recurrenceParentId?: string | null;
   completedAt?: string | null;
   deletedAt?: string | null;
   createdAt: string;

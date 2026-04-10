@@ -14,6 +14,7 @@ import {
   Square,
   FileText,
   Timer,
+  RefreshCw,
 } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
@@ -207,6 +208,7 @@ function TaskRow({
               <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                 <Calendar className="size-3" />
                 {new Date(task.dueDate).toLocaleDateString()}
+                {task.dueTime && <span>at {task.dueTime}</span>}
               </span>
             )}
             {task.priority && (
@@ -216,6 +218,12 @@ function TaskRow({
               >
                 <Flag className="size-3 mr-1" />
                 {task.priority}
+              </Badge>
+            )}
+            {task.recurrenceRule && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <RefreshCw className="size-3" />
+                {task.recurrenceRule.charAt(0) + task.recurrenceRule.slice(1).toLowerCase()}
               </Badge>
             )}
             {hasSubtasks && (
@@ -272,6 +280,8 @@ function CreateTaskForm({
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high" | "none">("none");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
+  const [recurrenceRule, setRecurrenceRule] = useState<"DAILY" | "WEEKLY" | "MONTHLY" | "none">("none");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -283,10 +293,14 @@ function CreateTaskForm({
       title: title.trim(),
       priority: priority === "none" ? undefined : priority,
       dueDate: dueDate || undefined,
+      dueTime: dueTime || undefined,
+      recurrenceRule: recurrenceRule === "none" ? undefined : recurrenceRule,
     });
     setTitle("");
     setPriority("none");
     setDueDate("");
+    setDueTime("");
+    setRecurrenceRule("none");
   };
 
   return (
@@ -303,7 +317,7 @@ function CreateTaskForm({
           className="mt-1"
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div>
           <Label className="text-xs font-medium">Priority</Label>
           <Select
@@ -332,6 +346,34 @@ function CreateTaskForm({
             className="mt-1"
           />
         </div>
+        <div>
+          <Label htmlFor="due-time" className="text-xs font-medium">Due Time</Label>
+          <Input
+            id="due-time"
+            type="time"
+            value={dueTime}
+            onChange={(e) => setDueTime(e.target.value)}
+            disabled={isPending || !dueDate}
+            className="mt-1"
+          />
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs font-medium">Repeat</Label>
+        <Select
+          value={recurrenceRule}
+          onValueChange={(v) => setRecurrenceRule(v as typeof recurrenceRule)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="No repeat" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No repeat</SelectItem>
+            <SelectItem value="DAILY">Daily</SelectItem>
+            <SelectItem value="WEEKLY">Weekly</SelectItem>
+            <SelectItem value="MONTHLY">Monthly</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={isPending}>
@@ -637,22 +679,65 @@ export function TasksScreen() {
                   </Select>
                 </div>
 
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Due Date</Label>
+                    <Input
+                      type="date"
+                      defaultValue={
+                        selectedTask.dueDate
+                          ? new Date(selectedTask.dueDate).toISOString().split("T")[0]
+                          : ""
+                      }
+                      onBlur={(e) => {
+                        updateMutation.mutate({
+                          id: selectedTask.id,
+                          body: { dueDate: e.target.value || undefined },
+                        });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Due Time</Label>
+                    <Input
+                      type="time"
+                      defaultValue={selectedTask.dueTime ?? ""}
+                      onBlur={(e) => {
+                        updateMutation.mutate({
+                          id: selectedTask.id,
+                          body: { dueTime: e.target.value || undefined },
+                        });
+                      }}
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <Label className="text-sm font-medium mb-2 block">Due Date</Label>
-                  <Input
-                    type="date"
-                    defaultValue={
-                      selectedTask.dueDate
-                        ? new Date(selectedTask.dueDate).toISOString().split("T")[0]
-                        : ""
-                    }
-                    onBlur={(e) => {
+                  <Label className="text-sm font-medium mb-2 block">Repeat</Label>
+                  <Select
+                    defaultValue={selectedTask.recurrenceRule ?? "none"}
+                    onValueChange={(v) => {
                       updateMutation.mutate({
                         id: selectedTask.id,
-                        body: { dueDate: e.target.value || undefined },
+                        body: {
+                          recurrenceRule:
+                            v === "none"
+                              ? undefined
+                              : (v as Exclude<Task["recurrenceRule"], null | undefined>),
+                        },
                       });
                     }}
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="No repeat" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No repeat</SelectItem>
+                      <SelectItem value="DAILY">Daily</SelectItem>
+                      <SelectItem value="WEEKLY">Weekly</SelectItem>
+                      <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {selectedTask.subtasks && selectedTask.subtasks.length > 0 && (

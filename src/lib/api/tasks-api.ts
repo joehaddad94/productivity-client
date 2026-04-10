@@ -63,9 +63,11 @@ export type CreateTaskBody = {
   title: string;
   description?: string;
   dueDate?: string;
+  dueTime?: string;
   priority?: "low" | "medium" | "high";
   status?: "pending" | "in_progress" | "completed";
   parentTaskId?: string;
+  recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY";
 };
 
 export type UpdateTaskBody = Partial<CreateTaskBody>;
