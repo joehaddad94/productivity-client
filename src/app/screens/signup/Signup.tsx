@@ -1,54 +1,9 @@
 "use client";
 
-import { CheckCircle2, Mail, User, Loader2, Send, ListTodo, Flag, Zap, Shield } from "lucide-react";
+import { CheckCircle2, Mail, User, Loader2, Send } from "lucide-react";
 import { useSignup } from "./useSignup";
 import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
-import { Label } from "@/app/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
-import {
-  AuthScreenWrap,
-  CheckEmailCard,
-  AuthTipBox,
-  AuthFormLink,
-  AUTH_INPUT_CLASS,
-  AUTH_LABEL_CLASS,
-} from "@/app/components/auth";
-
-const FEATURES = [
-  {
-    icon: ListTodo,
-    iconClass: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400",
-    cardClass:
-      "border-emerald-200/70 dark:border-gray-700 shadow-sm shadow-emerald-200/30 dark:shadow-none hover:shadow-md hover:shadow-emerald-200/40 dark:hover:border-emerald-800/50",
-    title: "Track tasks",
-    desc: "Lists and due dates",
-  },
-  {
-    icon: Flag,
-    iconClass: "bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400",
-    cardClass:
-      "border-teal-200/70 dark:border-gray-700 shadow-sm shadow-teal-200/30 dark:shadow-none hover:shadow-md hover:shadow-teal-200/40 dark:hover:border-teal-800/50",
-    title: "Set priorities",
-    desc: "Focus on what matters",
-  },
-  {
-    icon: Zap,
-    iconClass: "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400",
-    cardClass:
-      "border-amber-200/70 dark:border-gray-700 shadow-sm shadow-amber-200/30 dark:shadow-none hover:shadow-md hover:shadow-amber-200/40 dark:hover:border-amber-800/50",
-    title: "Simple & fast",
-    desc: "Clean, minimal interface",
-  },
-  {
-    icon: Shield,
-    iconClass: "bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400",
-    cardClass:
-      "border-sky-200/70 dark:border-gray-700 shadow-sm shadow-sky-200/30 dark:shadow-none hover:shadow-md hover:shadow-sky-200/40 dark:hover:border-sky-800/50",
-    title: "Your data",
-    desc: "Stay in control",
-  },
-] as const;
+import { AuthScreenWrap, CheckEmailCard, AuthFormLink } from "@/app/components/auth";
 
 const SIGNUP_ALTERNATE_LINK = { href: "/login", prompt: "Already have an account?", label: "Sign in" } as const;
 
@@ -82,123 +37,82 @@ export function Signup() {
 
   return (
     <AuthScreenWrap>
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-        {/* Left - Branding */}
-        <div className="hidden lg:block space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="size-12 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center">
-              <CheckCircle2 className="size-7 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold">Tasky</h1>
+      <div className="w-full max-w-sm">
+        {/* Logo + title */}
+        <div className="flex flex-col items-center gap-3 mb-8">
+          <div className="size-10 rounded-xl bg-primary flex items-center justify-center">
+            <CheckCircle2 className="size-5 text-white" />
           </div>
-
-          <div className="space-y-4">
-            <h2 className="text-4xl font-bold leading-tight">
-              Start your
-              <br />
-              productivity journey
-            </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-400">
-              Organize tasks, track progress, and get things done. Sign up with just your email - no
-              password required.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 pt-8">
-            {FEATURES.map(({ icon: Icon, iconClass, cardClass, title, desc }) => (
-              <div
-                key={title}
-                className={`group p-4 rounded-xl bg-white/90 dark:bg-gray-900 border transition-all duration-200 ${cardClass}`}
-              >
-                <div
-                  className={`size-9 rounded-lg flex items-center justify-center mb-3 ${iconClass}`}
-                >
-                  <Icon className="size-4" />
-                </div>
-                <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-0.5">
-                  {title}
-                </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">{desc}</div>
-              </div>
-            ))}
+          <div className="text-center">
+            <h1 className="text-xl font-semibold">Create your account</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Get started with Tasky — free forever</p>
           </div>
         </div>
 
-        {/* Right - Form */}
-        <Card className="w-full max-w-md mx-auto">
-          <CardHeader className="space-y-1 pb-2">
-            <CardTitle className="text-2xl">Create an account</CardTitle>
-            <CardDescription>Enter your details to get started</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="name" className={AUTH_LABEL_CLASS}>
-                  Full Name
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className={AUTH_INPUT_CLASS}
-                    disabled={isLoading}
-                  />
-                </div>
+        {/* Card */}
+        <div className="bg-background rounded-2xl border border-border/60 shadow-sm p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="name" className="text-xs font-medium text-muted-foreground">
+                Full name
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/60 pointer-events-none" />
+                <input
+                  id="name"
+                  type="text"
+                  placeholder="Joe Haddad"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full h-9 pl-9 pr-3 text-sm bg-transparent border border-border/60 rounded-lg outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-colors placeholder:text-muted-foreground/40"
+                  disabled={isLoading}
+                  autoFocus
+                />
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email" className={AUTH_LABEL_CLASS}>
-                  Email address
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="john@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={AUTH_INPUT_CLASS}
-                    disabled={isLoading}
-                  />
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 pt-0.5">
-                  We'll send you a sign-in link
-                </p>
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-xs font-medium text-muted-foreground">
+                Email address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/60 pointer-events-none" />
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full h-9 pl-9 pr-3 text-sm bg-transparent border border-border/60 rounded-lg outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-colors placeholder:text-muted-foreground/40"
+                  disabled={isLoading}
+                />
               </div>
+            </div>
 
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                By signing up you'll receive a sign-in link at this email. We only use it for
-                account access—no marketing.
-              </p>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <><Loader2 className="size-3.5 mr-2 animate-spin" />Creating account…</>
+              ) : (
+                <><Send className="size-3.5 mr-2" />Create account</>
+              )}
+            </Button>
+          </form>
 
-              <Button type="submit" className="w-full h-11 text-sm font-medium" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="size-4 mr-2 animate-spin" />
-                    Creating account...
-                  </>
-                ) : (
-                  <>
-                    <Send className="size-4 mr-2" />
-                    Create account
-                  </>
-                )}
-              </Button>
+          <p className="text-[11px] text-muted-foreground/60 text-center">
+            By signing up you agree to receive a sign-in link at this email. No marketing.
+          </p>
 
-              <AuthFormLink prompt="Already have an account?" href="/login" label="Sign in" />
-            </form>
+          <AuthFormLink prompt="Already have an account?" href="/login" label="Sign in" />
+        </div>
 
-            <AuthTipBox title="Passwordless signup:">
-              We'll send a secure sign-in link to your email. Click it to activate your account
-              instantly.
-            </AuthTipBox>
-          </CardContent>
-        </Card>
+        {/* Features below card */}
+        <div className="mt-6 flex items-center justify-center gap-6 text-xs text-muted-foreground">
+          <span>Track tasks</span>
+          <span className="size-1 rounded-full bg-border" />
+          <span>Focus timer</span>
+          <span className="size-1 rounded-full bg-border" />
+          <span>Analytics</span>
+        </div>
       </div>
     </AuthScreenWrap>
   );
