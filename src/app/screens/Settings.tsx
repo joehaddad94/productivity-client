@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, Bell, Palette, Lock } from "lucide-react";
+import { User, Bell, Palette, Lock, Monitor, Sun, Moon } from "lucide-react";
+import { useTheme } from "next-themes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Label } from "@/app/components/ui/label";
 import { Input } from "@/app/components/ui/input";
@@ -18,6 +19,7 @@ export function Settings() {
     onError: (err) => toast.error(err.message),
   });
 
+  const { theme, setTheme } = useTheme();
   const [name, setName] = useState(user?.name ?? "");
 
   // Keep form in sync if user data loads after mount
@@ -102,7 +104,7 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      {/* Appearance — UI only (placeholder) */}
+      {/* Appearance */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -112,9 +114,31 @@ export function Settings() {
           <CardDescription>Customize the look and feel</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Theme and language preferences coming soon.
-          </p>
+          <div className="space-y-2">
+            <Label>Theme</Label>
+            <div className="flex gap-2">
+              {(
+                [
+                  { value: "light", label: "Light", icon: Sun },
+                  { value: "dark", label: "Dark", icon: Moon },
+                  { value: "system", label: "System", icon: Monitor },
+                ] as const
+              ).map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  onClick={() => setTheme(value)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium border transition-colors ${
+                    theme === value
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-gray-200 dark:border-gray-700 hover:border-primary hover:text-primary"
+                  }`}
+                >
+                  <Icon className="size-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
