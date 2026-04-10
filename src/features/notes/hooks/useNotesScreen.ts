@@ -11,7 +11,7 @@ import {
   useNotesQuery,
   useUpdateNoteMutation,
 } from "@/app/hooks/useNotesApi";
-import { useTasksQuery } from "@/app/hooks/useTasksApi";
+import { useCreateTaskMutation, useTasksQuery } from "@/app/hooks/useTasksApi";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import type { Note } from "@/lib/types";
 import type { NoteUpdateChanges, UseNotesScreenResult } from "../model/types";
@@ -104,6 +104,28 @@ export function useNotesScreen(): UseNotesScreenResult {
     [updateMutation]
   );
 
+  const createTaskMutation = useCreateTaskMutation(workspaceId);
+
+  const handleConvertToTask = useCallback(
+    (noteId: string) => {
+      const note = notes.find((n) => n.id === noteId);
+      if (!note || !workspaceId) return;
+      createTaskMutation.mutate(
+        { title: note.title },
+        {
+          onSuccess: (task) => {
+            updateMutation.mutate({ id: noteId, body: { taskId: task.id } });
+            toast.success("Converted to task", {
+              description: `"${task.title}" added to your tasks`,
+            });
+          },
+          onError: (err) => toast.error(err.message),
+        }
+      );
+    },
+    [notes, workspaceId, createTaskMutation, updateMutation]
+  );
+
   const handleDelete = useCallback(
     (id: string) => {
       queryClient.setQueriesData<NoteListCache>(
@@ -167,6 +189,7 @@ export function useNotesScreen(): UseNotesScreenResult {
     handleUpdate,
     handleTagsChange,
     handleLinkTask,
+    handleConvertToTask,
     handleDelete,
     handleLoadMore,
   };

@@ -30,6 +30,7 @@ export function NotesScreen() {
     handleUpdate,
     handleTagsChange,
     handleLinkTask,
+    handleConvertToTask,
     handleLoadMore,
   } = useNotesScreen();
 
@@ -139,6 +140,7 @@ export function NotesScreen() {
               onUpdate={handleUpdate}
               onTagsChange={handleTagsChange}
               onLinkTask={handleLinkTask}
+              onConvertToTask={handleConvertToTask}
               isSaving={updateIsPending}
               tasks={allTasks}
             />

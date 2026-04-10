@@ -7,6 +7,7 @@ export interface NoteEditorProps {
   onUpdate: (id: string, changes: NoteUpdateChanges) => void;
   onTagsChange: (id: string, tags: string[]) => void;
   onLinkTask: (id: string, taskId: string | null) => void;
+  onConvertToTask: (id: string) => void;
   isSaving: boolean;
   tasks: Task[];
 }
@@ -32,6 +33,7 @@ export interface UseNotesScreenResult {
   handleUpdate: (id: string, changes: NoteUpdateChanges) => void;
   handleTagsChange: (id: string, tags: string[]) => void;
   handleLinkTask: (id: string, taskId: string | null) => void;
+  handleConvertToTask: (id: string) => void;
   handleDelete: (id: string) => void;
   handleLoadMore: () => void;
 }

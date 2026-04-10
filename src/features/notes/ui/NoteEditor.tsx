@@ -11,6 +11,7 @@ import {
   Loader2,
   Plus,
   Tag,
+  SquareCheckBig,
   Unlink,
   X,
 } from "lucide-react";
@@ -28,6 +29,7 @@ export function NoteEditor({
   onUpdate,
   onTagsChange,
   onLinkTask,
+  onConvertToTask,
   isSaving,
   tasks,
 }: NoteEditorProps) {
@@ -133,7 +135,17 @@ export function NoteEditor({
               <ListOrdered className="size-3.5" />
             </Button>
           </div>
-          <div className="relative flex items-center gap-1">
+          <div className="relative flex items-center gap-2">
+            {!note.taskId && (
+              <button
+                onClick={() => onConvertToTask(note.id)}
+                className="text-[10px] text-gray-400 hover:text-primary flex items-center gap-0.5 transition-colors"
+                title="Convert note to task"
+              >
+                <SquareCheckBig className="size-3" />
+                To task
+              </button>
+            )}
             {linkedTask ? (
               <div className="flex items-center gap-1 text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                 <Link2 className="size-3" />
