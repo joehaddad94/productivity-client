@@ -1,7 +1,7 @@
 "use client";
 
-import { Calendar } from "@/app/screens/Calendar";
+import { CalendarScreen } from "@/features/calendar";
 
 export default function CalendarPage() {
-  return <Calendar />;
+  return <CalendarScreen />;
 }
