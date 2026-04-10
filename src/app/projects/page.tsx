@@ -1,7 +1,7 @@
 "use client";
 
-import { Projects } from "@/app/screens/Projects";
+import { ProjectsScreen } from "@/features/projects";
 
 export default function ProjectsPage() {
-  return <Projects />;
+  return <ProjectsScreen />;
 }
