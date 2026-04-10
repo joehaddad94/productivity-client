@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Moon, Sun, LogOut, Loader2, Sparkles, LayoutDashboard } from "lucide-react";
+import { Menu, X, Moon, Sun, LogOut, Loader2 } from "lucide-react";
 import { NotificationBell } from "@/app/components/notifications/NotificationBell";
 import { useLayout } from "./useLayout";
 import { NAV_ITEMS } from "./types";
@@ -12,6 +12,7 @@ import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 import { PomodoroWidget } from "@/app/components/pomodoro";
 import { CreateFirstWorkspace } from "@/app/screens/workspace/CreateFirstWorkspace";
+import { cn } from "../ui/utils";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [previewMode, setPreviewMode] = useState<"auth" | "skeleton" | null>(null);
@@ -34,17 +35,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const initials =
     user?.name?.trim()
-      ? user.name
-          .trim()
-          .split(/\s+/)
-          .map((w) => w[0])
-          .join("")
-          .slice(0, 2)
-          .toUpperCase() || user?.email?.slice(0, 2).toUpperCase() || "?"
-      : user?.email?.slice(0, 2).toUpperCase() || "?";
+      ? user.name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+      : user?.email?.slice(0, 2).toUpperCase() ?? "?";
 
   const previewOverlay = previewMode ? (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-[var(--page-bg)]">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-background">
       {previewMode === "auth" ? (
         <div className="absolute inset-0">
           <ScreenLoader variant="auth" message="Checking authentication…" />
@@ -57,7 +52,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <Button
         variant="secondary"
         size="sm"
-        className="absolute top-4 right-4 z-[101] shadow-lg"
+        className="absolute top-4 right-4 z-[101]"
         onClick={() => setPreviewMode(null)}
       >
         Close preview
@@ -65,85 +60,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
     </div>
   ) : null;
 
-  // Single layout: left column (sidebar or page-bg placeholder) + main always lg:ml-56.
-  // Content area width never changes → no shrink or green flash when route changes.
-  const leftColumn = showSidebar ? (
-    <aside
-      className={`
-        fixed top-0 left-0 h-full w-56 bg-[var(--sidebar-bg)] border-r border-gray-200 dark:border-gray-800 z-40
-        transition-transform duration-300 lg:translate-x-0
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-      `}
-    >
-      <div className="h-full flex flex-col">
-        <div className="h-12 flex items-center px-4 border-b border-gray-200 dark:border-gray-800">
-          <h1 className="font-bold text-base">Tasky</h1>
-        </div>
-        <div className="px-2.5 py-2 border-b border-gray-200 dark:border-gray-800">
-          <WorkspaceSwitcher />
-        </div>
-        <nav className="flex-1 py-3 px-2 space-y-0.5">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const isActive = item.path === "/dashboard" ? pathname === "/dashboard" : pathname?.startsWith(item.path) ?? false;
-            return (
-              <Link
-                key={item.path}
-                href={item.path}
-                onClick={closeSidebar}
-                className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors ${
-                  isActive
-                    ? "bg-[var(--nav-active-bg)] text-primary"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-[var(--nav-hover)]"
-                }`}
-              >
-                <Icon className="size-4" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="p-2.5 border-t border-gray-200 dark:border-gray-800">
-          <div className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-[var(--nav-hover)] cursor-pointer">
-            <div className="size-7 rounded-full bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center text-white text-xs font-medium">
-              {initials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium truncate">{user?.name ?? "User"}</div>
-              <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{user?.email ?? ""}</div>
-            </div>
-          </div>
-          <Button
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            size="sm"
-            className="mt-1.5 w-full"
-            variant="destructive"
-          >
-            {isLoggingOut ? (
-              <>
-                <Loader2 className="size-4 mr-2 animate-spin" />
-                Logging out...
-              </>
-            ) : (
-              <>
-                <LogOut className="size-4 mr-2" />
-                Logout
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-    </aside>
-  ) : (
-    <div className="hidden lg:block fixed top-0 left-0 h-full w-56 bg-[var(--page-bg)] z-0" aria-hidden />
-  );
-
-  // Auth routes: full screen (no sidebar, no left column, full-width main). Auth loader only here.
+  // Auth routes: full screen
   if (!showSidebar) {
     return (
       <>
-        <div className="min-h-screen bg-[var(--page-bg)]">
+        <div className="min-h-screen bg-background">
           <main className="min-h-screen flex flex-col">
             <div className="flex-1 min-h-0">{children}</div>
           </main>
@@ -153,37 +74,97 @@ export function Layout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // App routes: sidebar + main (skeleton and content always with navbars).
+  const sidebarContent = (
+    <div className="h-full flex flex-col">
+      {/* Logo */}
+      <div className="h-12 flex items-center px-4">
+        <span className="text-sm font-semibold tracking-tight">Tasky</span>
+      </div>
+
+      {/* Workspace switcher */}
+      <div className="px-2 pb-2">
+        <WorkspaceSwitcher />
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-2 space-y-0.5 overflow-y-auto">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const isActive =
+            item.path === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname?.startsWith(item.path) ?? false;
+          return (
+            <Link
+              key={item.path}
+              href={item.path}
+              onClick={closeSidebar}
+              className={cn(
+                "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors",
+                isActive
+                  ? "bg-[var(--nav-active-bg)] text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground hover:bg-[var(--nav-hover)]",
+              )}
+            >
+              <Icon className={cn("size-[18px] shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* User + logout */}
+      <div className="p-2 border-t border-border/40">
+        <div className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md mb-1">
+          <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-semibold shrink-0">
+            {initials}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-medium truncate">{user?.name ?? user?.email ?? "User"}</div>
+          </div>
+          <button
+            onClick={toggleTheme}
+            className="p-1 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Sun className="size-3.5 hidden dark:block" aria-hidden />
+            <Moon className="size-3.5 block dark:hidden" aria-hidden />
+          </button>
+          <NotificationBell />
+        </div>
+        <Button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          size="sm"
+          variant="ghost"
+          className="w-full text-muted-foreground hover:text-destructive justify-start gap-2"
+        >
+          {isLoggingOut ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <LogOut className="size-3.5" />
+          )}
+          {isLoggingOut ? "Logging out…" : "Log out"}
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-[var(--page-bg)]">
-      {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-12 bg-[var(--header-bg)] border-b border-gray-200 dark:border-gray-800 z-50 flex items-center justify-between px-3">
+    <div className="min-h-screen bg-background">
+      {/* Mobile header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-12 bg-background border-b border-border/60 z-50 flex items-center justify-between px-3">
         <button
           onClick={toggleSidebar}
-          className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
+          className="p-1.5 hover:bg-muted rounded-md text-muted-foreground"
         >
           {sidebarOpen ? <X className="size-4" /> : <Menu className="size-4" />}
         </button>
-        <h1 className="font-semibold text-sm">Tasky</h1>
+        <span className="font-semibold text-sm">Tasky</span>
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setPreviewMode("auth")}
-            className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
-            title="Preview auth loading screen"
-          >
-            <Sparkles className="size-4" />
-          </button>
-          <button
-            onClick={() => setPreviewMode("skeleton")}
-            className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
-            title="Preview skeleton loading"
-          >
-            <LayoutDashboard className="size-4" />
-          </button>
           <NotificationBell />
           <button
             onClick={toggleTheme}
-            className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
+            className="p-1.5 hover:bg-muted rounded-md text-muted-foreground"
           >
             <Sun className="size-4 hidden dark:block" aria-hidden />
             <Moon className="size-4 block dark:hidden" aria-hidden />
@@ -191,64 +172,50 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {leftColumn}
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex fixed top-0 left-0 h-full w-56 flex-col bg-[var(--sidebar-bg)] border-r border-border/60 z-40">
+        {sidebarContent}
+      </aside>
 
+      {/* Mobile sidebar */}
+      <aside
+        className={cn(
+          "lg:hidden fixed top-0 left-0 h-full w-56 flex flex-col bg-[var(--sidebar-bg)] border-r border-border/60 z-50",
+          "transition-transform duration-200",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          className="lg:hidden fixed inset-0 bg-black/40 z-40"
           onClick={closeSidebar}
         />
       )}
 
-      <main className="lg:ml-56 min-h-screen flex flex-col pt-12">
-        <div className="hidden lg:flex fixed top-0 right-0 lg:left-56 h-12 flex-shrink-0 items-center justify-end px-4 bg-[var(--header-bg)] border-b border-gray-200 dark:border-gray-800 z-30">
-          <div className="flex items-center gap-1">
-          <button
-            onClick={() => setPreviewMode("auth")}
-            className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
-            title="Preview auth loading screen"
-          >
-            <Sparkles className="size-4" />
-          </button>
-          <button
-            onClick={() => setPreviewMode("skeleton")}
-            className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
-            title="Preview skeleton loading"
-          >
-            <LayoutDashboard className="size-4" />
-          </button>
-            <NotificationBell />
-            <button
-              onClick={toggleTheme}
-              className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md"
-            >
-              <Sun className="size-4 hidden dark:block" aria-hidden />
-              <Moon className="size-4 block dark:hidden" aria-hidden />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 min-h-0 flex flex-col p-5">
-          <div className="flex-1 min-h-0">
-            {isFetched && !hasWorkspaces ? (
-              <div className="flex items-center justify-center h-full py-8">
-                <div className="w-full max-w-md">
-                  <CreateFirstWorkspace
-                    onSuccess={(workspace) => setCurrentWorkspaceId(workspace.id)}
-                  />
-                </div>
+      {/* Main content */}
+      <main className="lg:ml-56 min-h-screen flex flex-col pt-12 lg:pt-0">
+        <div className="flex-1 p-5 lg:p-6">
+          {isFetched && !hasWorkspaces ? (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="w-full max-w-md">
+                <CreateFirstWorkspace
+                  onSuccess={(workspace) => setCurrentWorkspaceId(workspace.id)}
+                />
               </div>
-            ) : redirectingToWorkspace ? (
-              <ScreenSkeleton />
-            ) : (
-              children
-            )}
-          </div>
+            </div>
+          ) : redirectingToWorkspace ? (
+            <ScreenSkeleton />
+          ) : (
+            children
+          )}
         </div>
       </main>
 
       <PomodoroWidget />
-
       {previewOverlay}
     </div>
   );

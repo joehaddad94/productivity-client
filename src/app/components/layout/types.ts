@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { FileText, Building2, CheckSquare, FolderOpen, BarChart2, CalendarDays, Settings } from "lucide-react";
+import { FileText, Building2, SquareCheck, FolderOpen, BarChart2, CalendarDays, Settings, LayoutDashboard } from "lucide-react";
 
 export interface NavItem {
   path: string;
@@ -8,9 +8,9 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { path: "/dashboard", label: "Dashboard", icon: BarChart2 },
+  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/tasks", label: "Tasks", icon: SquareCheck },
   { path: "/notes", label: "Notes", icon: FileText },
-  { path: "/tasks", label: "Tasks", icon: CheckSquare },
   { path: "/projects", label: "Projects", icon: FolderOpen },
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/analytics", label: "Analytics", icon: BarChart2 },
