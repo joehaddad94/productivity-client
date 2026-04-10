@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import type { Task } from "@/lib/types";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { useTasksQuery } from "@/app/hooks/useTasksApi";
+import { useCalendarEventsQuery } from "@/app/hooks/useCalendarConnectionsApi";
+import type { ExternalCalendarEvent } from "@/lib/api/calendar-connections-api";
 
 export const PRIORITY_DOT: Record<string, string> = {
   high: "bg-red-400",
@@ -38,6 +40,22 @@ export function useCalendarScreen() {
 
   const { data: page } = useTasksQuery(workspaceId, { limit: 200 });
   const allTasks = page?.tasks ?? [];
+
+  // External calendar events: fetch current visible month + neighbours
+  const rangeStart = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-01`;
+  const lastDay = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const rangeEnd = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${lastDay}`;
+  const { data: externalEvents = [] } = useCalendarEventsQuery(rangeStart, rangeEnd);
+
+  const externalByDate = useMemo(() => {
+    const map = new Map<string, ExternalCalendarEvent[]>();
+    for (const ev of externalEvents) {
+      const key = ev.start.slice(0, 10);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(ev);
+    }
+    return map;
+  }, [externalEvents]);
 
   const tasksByDate = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -78,6 +96,7 @@ export function useCalendarScreen() {
   while (cells.length % 7 !== 0) cells.push(null);
 
   const selectedTasks = tasksByDate.get(selectedDate) ?? [];
+  const selectedExternalEvents = externalByDate.get(selectedDate) ?? [];
   const upcomingTasks = allTasks
     .filter((t) => t.dueDate && t.status !== "completed" && t.dueDate.slice(0, 10) > todayYMD)
     .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))
@@ -96,7 +115,9 @@ export function useCalendarScreen() {
     todayYMD,
     cells,
     tasksByDate,
+    externalByDate,
     selectedTasks,
+    selectedExternalEvents,
     upcomingTasks,
   };
 }
