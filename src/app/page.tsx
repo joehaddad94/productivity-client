@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Login } from "@/app/screens/login/Login";
+import { LoginScreen } from "@/features/auth/login";
 import { useAuth } from "@/app/context/AuthContext";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 
@@ -25,5 +25,5 @@ export default function HomePage() {
     return <ScreenLoader variant="auth" message="Checking authentication…" />;
   }
 
-  return <Login />;
+  return <LoginScreen />;
 }

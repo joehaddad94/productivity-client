@@ -1,89 +1,43 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCircle2, TrendingUp, Flame, Plus, FileText, CalendarDays, Loader2, AlertTriangle } from "lucide-react";
+import {
+  CheckCircle2,
+  TrendingUp,
+  Flame,
+  Plus,
+  FileText,
+  CalendarDays,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
 import type { Task } from "@/lib/types";
 import { TaskCard } from "@/app/components/TaskCard";
 import { ProductivityWidget } from "@/app/components/ProductivityWidget";
 import { Button } from "@/app/components/ui/button";
-import { toast } from "sonner";
-import { useWorkspace } from "@/app/context/WorkspaceContext";
-import { useTasksQuery, useCreateTaskMutation, useUpdateTaskMutation } from "@/app/hooks/useTasksApi";
-import { useAnalyticsQuery } from "@/app/hooks/useAnalyticsApi";
+import { useDashboardScreen } from "../hooks/useDashboardScreen";
 
-export function Dashboard() {
-  const { currentWorkspace } = useWorkspace();
-  const workspaceId = currentWorkspace?.id ?? null;
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-
-  const { data: tasksPage, isLoading: tasksLoading } = useTasksQuery(workspaceId);
-  const tasks = tasksPage?.tasks ?? [];
-
-  const { data: analytics } = useAnalyticsQuery(workspaceId, {
-    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    to: new Date().toISOString().split("T")[0],
-  });
-
-  const createMutation = useCreateTaskMutation(workspaceId, {
-    onSuccess: () => toast.success("Task added"),
-    onError: (err) => toast.error(err.message),
-  });
-
-  const updateMutation = useUpdateTaskMutation(workspaceId, {
-    onSuccess: () => toast.success("Task updated"),
-    onError: (err) => toast.error(err.message),
-  });
-
-  const handleToggleTask = (id: string) => {
-    const task = tasks.find((t) => t.id === id);
-    if (!task) return;
-    const newStatus = task.status === "completed" ? "pending" : "completed";
-    updateMutation.mutate({ id, body: { status: newStatus } });
-  };
-
-  const handleAddTask = () => {
-    if (!newTaskTitle.trim() || !workspaceId) return;
-    createMutation.mutate({ title: newTaskTitle.trim() });
-    setNewTaskTitle("");
-  };
-
-  const todayStr = new Date().toISOString().split("T")[0];
-  const todayTasks = tasks.filter(
-    (t) => t.dueDate && t.dueDate.startsWith(todayStr)
-  );
-  const overdueTasks = tasks.filter(
-    (t) => t.dueDate && t.dueDate.split("T")[0] < todayStr && t.status !== "completed"
-  );
-  const pendingTasks = tasks.filter((t) => t.status !== "completed").slice(0, 5);
-  const completedCount = tasks.filter((t) => t.status === "completed").length;
-
-  const totals = analytics?.totals ?? { tasksCompleted: 0, focusMinutes: 0, streak: 0 };
+export function DashboardScreen() {
+  const {
+    workspaceId,
+    newTaskTitle,
+    setNewTaskTitle,
+    tasksLoading,
+    createMutation,
+    handleAddTask,
+    handleToggleTask,
+    tasks,
+    todayTasks,
+    overdueTasks,
+    pendingTasks,
+    completedCount,
+    totals,
+  } = useDashboardScreen();
 
   const stats = [
-    {
-      label: "Tasks Completed",
-      value: completedCount,
-      change: `${totals.tasksCompleted} this month`,
-      icon: CheckCircle2,
-    },
-    {
-      label: "Total Tasks",
-      value: tasks.length,
-      change: "In workspace",
-      icon: FileText,
-    },
-    {
-      label: "Focus Time",
-      value: `${Math.round(totals.focusMinutes / 60 * 10) / 10}h`,
-      change: "This month",
-      icon: TrendingUp,
-    },
-    {
-      label: "Streak",
-      value: `${totals.streak} day${totals.streak !== 1 ? "s" : ""}`,
-      change: "Keep it up!",
-      icon: Flame,
-    },
+    { label: "Tasks Completed", value: completedCount, change: `${totals.tasksCompleted} this month`, icon: CheckCircle2 },
+    { label: "Total Tasks", value: tasks.length, change: "In workspace", icon: FileText },
+    { label: "Focus Time", value: `${Math.round((totals.focusMinutes / 60) * 10) / 10}h`, change: "This month", icon: TrendingUp },
+    { label: "Streak", value: `${totals.streak} day${totals.streak !== 1 ? "s" : ""}`, change: "Keep it up!", icon: Flame },
   ];
 
   return (
@@ -95,7 +49,6 @@ export function Dashboard() {
         </p>
       </div>
 
-      {/* Quick Add */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 dark:border-l-primary/40 shadow-sm p-4">
         <h2 className="font-semibold mb-3">Quick Add Task</h2>
         <div className="flex gap-2">
@@ -112,41 +65,28 @@ export function Dashboard() {
             onClick={handleAddTask}
             disabled={!workspaceId || !newTaskTitle.trim() || createMutation.isPending}
           >
-            {createMutation.isPending ? (
-              <Loader2 className="size-4 mr-2 animate-spin" />
-            ) : (
-              <Plus className="size-4 mr-2" />
-            )}
+            {createMutation.isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Plus className="size-4 mr-2" />}
             Add Task
           </Button>
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <div
-              key={index}
-              className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/20 dark:border-l-primary/35 shadow-sm p-4"
-            >
+            <div key={index} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/20 dark:border-l-primary/35 shadow-sm p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {stat.label}
-                </span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</span>
                 <Icon className="size-4 text-gray-400 dark:text-gray-500" />
               </div>
               <div className="text-2xl font-bold">{stat.value}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {stat.change}
-              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stat.change}</div>
             </div>
           );
         })}
       </div>
 
-      {/* Overdue Tasks */}
       {overdueTasks.length > 0 && (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-red-200 dark:border-red-900 border-l-4 border-l-red-500 shadow-sm p-4">
           <div className="flex items-center justify-between mb-4">
@@ -160,51 +100,35 @@ export function Dashboard() {
           </div>
           <div className="space-y-2">
             {overdueTasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onToggle={handleToggleTask}
-              />
+              <TaskCard key={task.id} task={task} onToggle={handleToggleTask} />
             ))}
           </div>
         </div>
       )}
 
-      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Pending Tasks */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 dark:border-l-primary/40 shadow-sm p-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold">Pending Tasks</h2>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {pendingTasks.length} remaining
-            </span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{pendingTasks.length} remaining</span>
           </div>
-
           {tasksLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="size-5 animate-spin text-gray-400" />
             </div>
           ) : pendingTasks.length === 0 ? (
             <p className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
-              {workspaceId
-                ? "No pending tasks. Add one above!"
-                : "Select a workspace to see tasks"}
+              {workspaceId ? "No pending tasks. Add one above!" : "Select a workspace to see tasks"}
             </p>
           ) : (
             <div className="space-y-2">
               {pendingTasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onToggle={handleToggleTask}
-                />
+                <TaskCard key={task.id} task={task} onToggle={handleToggleTask} />
               ))}
             </div>
           )}
         </div>
 
-        {/* Overview */}
         <div className="space-y-4">
           <ProductivityWidget
             title="Tasks Completed"
@@ -227,9 +151,7 @@ export function Dashboard() {
                     <CalendarDays className="size-4 text-primary mt-0.5 flex-shrink-0" />
                     <div>
                       <div className="text-sm font-medium">{task.title}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {task.priority ?? "no priority"}
-                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{task.priority ?? "no priority"}</div>
                     </div>
                   </div>
                 ))}

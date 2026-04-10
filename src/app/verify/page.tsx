@@ -1,12 +1,12 @@
 "use client";
 
 import { Suspense } from "react";
-import { VerifyMagicLink } from "@/app/screens/VerifyMagicLink";
+import { VerifyMagicLinkScreen } from "@/features/auth/verify";
 
 export default function VerifyPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
-      <VerifyMagicLink />
+      <VerifyMagicLinkScreen />
     </Suspense>
   );
 }

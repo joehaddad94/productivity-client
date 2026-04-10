@@ -1,7 +1,7 @@
 "use client";
 
-import { Settings } from "@/app/screens/Settings";
+import { SettingsScreen } from "@/features/settings";
 
 export default function SettingsPage() {
-  return <Settings />;
+  return <SettingsScreen />;
 }

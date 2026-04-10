@@ -1,7 +1,7 @@
 "use client";
 
-import { Analytics } from "@/app/screens/Analytics";
+import { AnalyticsScreen } from "@/features/analytics";
 
 export default function AnalyticsPage() {
-  return <Analytics />;
+  return <AnalyticsScreen />;
 }

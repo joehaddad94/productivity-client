@@ -1,7 +1,19 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { Plus, X, ChevronDown, ChevronRight, Loader2, Trash2, Flag, Calendar, CheckSquare, Square, FileText } from "lucide-react";
+import { useState } from "react";
+import {
+  Plus,
+  X,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Trash2,
+  Flag,
+  Calendar,
+  CheckSquare,
+  Square,
+  FileText,
+} from "lucide-react";
 import type { Task } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
@@ -19,20 +31,10 @@ import {
 import { Badge } from "@/app/components/ui/badge";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { toast } from "sonner";
-import { useWorkspace } from "@/app/context/WorkspaceContext";
-import {
-  useTasksQuery,
-  useCreateTaskMutation,
-  useUpdateTaskMutation,
-  useDeleteTaskMutation,
-  useBulkTasksMutation,
-  useReorderTasksMutation,
-  TASKS_QUERY_KEY,
-} from "@/app/hooks/useTasksApi";
 import { cn } from "@/app/components/ui/utils";
-import { useDebounce } from "@/app/hooks/useDebounce";
-import { useQueryClient } from "@tanstack/react-query";
 import { useNotesQuery, useCreateNoteMutation } from "@/app/hooks/useNotesApi";
+import { useTasksScreen } from "../hooks/useTasksScreen";
+import { PRIORITY_COLORS, type TaskFormData } from "../model/types";
 
 function LinkedNotesSection({
   workspaceId,
@@ -101,12 +103,6 @@ function LinkedNotesSection({
     </div>
   );
 }
-
-const PRIORITY_COLORS = {
-  low: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-  medium: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
-  high: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-};
 
 function TaskRow({
   task,
@@ -268,7 +264,7 @@ function CreateTaskForm({
   onCancel,
   isPending,
 }: {
-  onSubmit: (data: { title: string; priority?: "low" | "medium" | "high"; dueDate?: string }) => void;
+  onSubmit: (data: TaskFormData) => void;
   onCancel: () => void;
   isPending: boolean;
 }) {
@@ -349,201 +345,55 @@ function CreateTaskForm({
   );
 }
 
-export function Tasks() {
-  const { currentWorkspace } = useWorkspace();
-  const workspaceId = currentWorkspace?.id ?? null;
-  const queryClient = useQueryClient();
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterPriority, setFilterPriority] = useState("all");
-  const [showCreate, setShowCreate] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [showDetail, setShowDetail] = useState(false);
-  const [limit, setLimit] = useState(50);
-  // Track expanded subtask rows persistently across re-renders
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  // Bulk selection
-  const [isSelectMode, setIsSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  // Drag-and-drop reorder
-  const draggedId = useRef<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-  // Pending deletes: id -> setTimeout handle
-  const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-
-  const debouncedSearch = useDebounce(searchQuery, 300);
-
-  const { data: page, isLoading, error } = useTasksQuery(workspaceId, {
-    search: debouncedSearch || undefined,
-    priority: filterPriority === "all" ? undefined : filterPriority || undefined,
-    limit,
-  });
-  const tasks = page?.tasks ?? [];
-  const total = page?.total ?? 0;
-
-  const createMutation = useCreateTaskMutation(workspaceId, {
-    onSuccess: () => {
-      setShowCreate(false);
-      toast.success("Task created");
-    },
-    onError: (err) => toast.error(err.message),
-  });
-
-  const updateMutation = useUpdateTaskMutation(workspaceId, {
-    onError: (err) => toast.error(err.message),
-  });
-
-  const deleteMutation = useDeleteTaskMutation(workspaceId, {
-    onError: (err) => {
-      toast.error(err.message);
-      // Restore on error
-      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
-    },
-  });
-
-  const bulkMutation = useBulkTasksMutation(workspaceId, {
-    onError: (err) => toast.error(err.message),
-  });
-
-  const reorderMutation = useReorderTasksMutation(workspaceId, {
-    onError: (err) => toast.error(err.message),
-  });
-
-  const handleDragStart = useCallback((id: string) => {
-    draggedId.current = id;
-  }, []);
-
-  const handleDragOver = useCallback((id: string) => {
-    if (draggedId.current && draggedId.current !== id) {
-      setDragOverId(id);
-    }
-  }, []);
-
-  const handleDrop = useCallback((dropTargetId: string) => {
-    const srcId = draggedId.current;
-    draggedId.current = null;
-    setDragOverId(null);
-    if (!srcId || srcId === dropTargetId) return;
-
-    // Reorder in the current flat task list (top-level only)
-    const allTopLevel = tasks.filter((t) => !t.parentTaskId);
-    const srcIdx = allTopLevel.findIndex((t) => t.id === srcId);
-    const dstIdx = allTopLevel.findIndex((t) => t.id === dropTargetId);
-    if (srcIdx === -1 || dstIdx === -1) return;
-
-    const reordered = [...allTopLevel];
-    const [moved] = reordered.splice(srcIdx, 1);
-    reordered.splice(dstIdx, 0, moved);
-
-    // Optimistic cache update
-    queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
-      { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
-      (old) => old ? { ...old, tasks: reordered } : old
-    );
-
-    reorderMutation.mutate(reordered.map((t) => t.id));
-  }, [tasks, queryClient, workspaceId, reorderMutation]);
-
-  const handleBulkComplete = () => {
-    const ids = Array.from(selectedIds);
-    bulkMutation.mutate(
-      { action: "complete", ids },
-      {
-        onSuccess: ({ affected }) => {
-          toast.success(`${affected} task${affected !== 1 ? "s" : ""} completed`);
-          setSelectedIds(new Set());
-          setIsSelectMode(false);
-        },
-      }
-    );
-  };
-
-  const handleBulkDelete = () => {
-    const ids = Array.from(selectedIds);
-    bulkMutation.mutate(
-      { action: "delete", ids },
-      {
-        onSuccess: ({ affected }) => {
-          toast.success(`${affected} task${affected !== 1 ? "s" : ""} deleted`);
-          setSelectedIds(new Set());
-          setIsSelectMode(false);
-          if (selectedTask && ids.includes(selectedTask.id)) setShowDetail(false);
-        },
-      }
-    );
-  };
-
-  const handleToggleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const handleToggle = (id: string, completed: boolean) => {
-    updateMutation.mutate({
-      id,
-      body: { status: completed ? "completed" : "pending" },
-    });
-  };
-
-  const handleToggleExpand = useCallback((id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const handleDelete = useCallback((id: string) => {
-    // Optimistically remove from all cached task queries for this workspace
-    queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
-      { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
-      (old) => old ? { tasks: old.tasks.filter((t) => t.id !== id), total: old.total - 1 } : old
-    );
-    if (selectedTask?.id === id) setShowDetail(false);
-
-    const timer = setTimeout(() => {
-      pendingDeletes.current.delete(id);
-      deleteMutation.mutate(id);
-    }, 5000);
-    pendingDeletes.current.set(id, timer);
-
-    toast.success("Task deleted", {
-      duration: 5000,
-      action: {
-        label: "Undo",
-        onClick: () => {
-          const t = pendingDeletes.current.get(id);
-          if (t !== undefined) clearTimeout(t);
-          pendingDeletes.current.delete(id);
-          queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
-        },
-      },
-    });
-  }, [queryClient, workspaceId, selectedTask, deleteMutation]);
-
-  const handleSelectTask = (task: Task) => {
-    setSelectedTask(task);
-    setShowDetail(true);
-  };
-
-  const pendingTasks = tasks.filter((t) => t.status === "pending");
-  const inProgressTasks = tasks.filter((t) => t.status === "in_progress");
-  const completedTasks = tasks.filter((t) => t.status === "completed");
-
-  const isFiltered = debouncedSearch || filterPriority !== "all";
+export function TasksScreen() {
+  const {
+    workspaceId,
+    searchQuery,
+    setSearchQuery,
+    filterPriority,
+    setFilterPriority,
+    showCreate,
+    setShowCreate,
+    selectedTask,
+    showDetail,
+    setShowDetail,
+    tasks,
+    total,
+    pendingTasks,
+    inProgressTasks,
+    completedTasks,
+    isLoading,
+    error,
+    isFiltered,
+    expandedIds,
+    isSelectMode,
+    setIsSelectMode,
+    selectedIds,
+    setSelectedIds,
+    dragOverId,
+    createMutation,
+    updateMutation,
+    deleteMutation,
+    bulkMutation,
+    handleCreate,
+    handleDragStart,
+    handleDragOver,
+    handleDrop,
+    handleBulkComplete,
+    handleBulkDelete,
+    handleToggleSelect,
+    handleToggle,
+    handleToggleExpand,
+    handleDelete,
+    handleSelectTask,
+    handleLoadMore,
+  } = useTasksScreen();
 
   const TaskList = ({ items, tab }: { items: Task[]; tab: string }) => (
     <div className="space-y-2 mt-4">
       {items.length === 0 ? (
         <p className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
-          {isFiltered
-            ? `No ${tab} tasks match your filters`
-            : `No ${tab} tasks`}
+          {isFiltered ? `No ${tab} tasks match your filters` : `No ${tab} tasks`}
         </p>
       ) : (
         items.map((task) => (
@@ -571,7 +421,6 @@ export function Tasks() {
   return (
     <div className="w-full">
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Main Content */}
         <div className="flex-1 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -628,13 +477,12 @@ export function Tasks() {
 
           {showCreate && (
             <CreateTaskForm
-              onSubmit={(data) => createMutation.mutate(data)}
+              onSubmit={handleCreate}
               onCancel={() => setShowCreate(false)}
               isPending={createMutation.isPending}
             />
           )}
 
-          {/* Search + Filter */}
           <div className="flex gap-3">
             <SearchInput
               type="search"
@@ -644,7 +492,7 @@ export function Tasks() {
               aria-label="Search tasks"
               className="flex-1"
             />
-            <Select value={filterPriority} onValueChange={setFilterPriority}>
+            <Select value={filterPriority} onValueChange={(v) => setFilterPriority(v as typeof filterPriority)}>
               <SelectTrigger className="w-36">
                 <SelectValue placeholder="Priority" />
               </SelectTrigger>
@@ -704,29 +552,20 @@ export function Tasks() {
 
           {!isLoading && tasks.length < total && (
             <div className="flex justify-center pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setLimit((l) => l + 50)}
-              >
+              <Button variant="outline" size="sm" onClick={handleLoadMore}>
                 Load more ({tasks.length} / {total})
               </Button>
             </div>
           )}
         </div>
 
-        {/* Detail Panel */}
         {showDetail && selectedTask && (
           <div className="lg:w-96 fixed lg:relative inset-0 lg:inset-auto z-50 lg:z-0 bg-white dark:bg-gray-900 lg:bg-transparent">
             <Card className="h-full lg:sticky lg:top-6 border-0 lg:border rounded-none lg:rounded-xl">
               <CardHeader className="border-b border-gray-200 dark:border-gray-800">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">Task Details</CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowDetail(false)}
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => setShowDetail(false)}>
                     <X className="size-4" />
                   </Button>
                 </div>

@@ -1,7 +1,7 @@
 "use client";
 
-import { FocusMode } from "@/app/screens/FocusMode";
+import { FocusScreen } from "@/features/focus";
 
 export default function FocusPage() {
-  return <FocusMode />;
+  return <FocusScreen />;
 }

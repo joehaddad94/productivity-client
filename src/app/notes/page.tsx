@@ -1,7 +1,7 @@
 "use client";
 
-import { Notes } from "@/app/screens/Notes";
+import { NotesScreen } from "@/features/notes";
 
 export default function NotesPage() {
-  return <Notes />;
+  return <NotesScreen />;
 }

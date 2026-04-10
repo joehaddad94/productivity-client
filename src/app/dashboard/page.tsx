@@ -1,7 +1,7 @@
 "use client";
 
-import { Dashboard } from "@/app/screens/Dashboard";
+import { DashboardScreen } from "@/features/dashboard";
 
 export default function DashboardPage() {
-  return <Dashboard />;
+  return <DashboardScreen />;
 }
