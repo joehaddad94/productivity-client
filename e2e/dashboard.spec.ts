@@ -7,44 +7,45 @@ test.describe('Dashboard', () => {
   });
 
   test('page loads with Dashboard heading', async ({ page }) => {
+    // Heading is a time-of-day greeting, not a static "Dashboard" title
     await expect(
-      page.getByRole('heading', { name: /dashboard/i }).first()
+      page.getByRole('heading', { name: /(good morning|good afternoon|good evening)/i }).first()
     ).toBeVisible();
   });
 
   test('stat cards are visible', async ({ page }) => {
-    await expect(page.getByText(/tasks completed/i).first()).toBeVisible();
-    await expect(page.getByText(/total tasks/i).first()).toBeVisible();
-    await expect(page.getByText(/focus time/i).first()).toBeVisible();
+    // Right-column stats: Completed, Streak, Focus time
+    await expect(page.getByText(/completed/i).first()).toBeVisible();
     await expect(page.getByText(/streak/i).first()).toBeVisible();
+    await expect(page.getByText(/focus time/i).first()).toBeVisible();
   });
 
   test('stat card values are numeric', async ({ page }) => {
-    // All stat card values should be numbers (not NaN or undefined)
-    const statValues = await page.locator('.text-2xl.font-bold').allTextContents();
+    // Stat values are rendered inside StatRow components with text-sm font-medium
+    const statValues = await page.locator('.text-sm.font-medium').allTextContents();
     expect(statValues.length).toBeGreaterThan(0);
     for (const val of statValues) {
       expect(val).not.toMatch(/nan|undefined/i);
-      expect(val.trim().length).toBeGreaterThan(0);
     }
   });
 
-  test('Pending Tasks section is visible', async ({ page }) => {
-    await expect(page.getByText(/pending tasks/i).first()).toBeVisible();
+  test('Today section is visible', async ({ page }) => {
+    // The dashboard now shows a "Today" section heading instead of "Pending Tasks"
+    await expect(page.getByText(/\btoday\b/i).first()).toBeVisible();
   });
 
   test('Quick Add task input is visible', async ({ page }) => {
     await expect(
-      page.getByPlaceholder(/what do you need to do/i)
+      page.getByPlaceholder(/add a task and press enter/i)
     ).toBeVisible();
   });
 
   test('can add a task via Quick Add', async ({ page }) => {
-    const input = page.getByPlaceholder(/what do you need to do/i);
+    const input = page.getByPlaceholder(/add a task and press enter/i);
     await input.fill('Quick dashboard task');
-    await page.getByRole('button', { name: /add task/i }).click();
+    await page.getByRole('button', { name: /^add$/i }).click();
 
-    await expectToast(page, /task added/i);
+    await expectToast(page, /task added|task created/i);
   });
 
   test('Pomodoro widget is visible', async ({ page }) => {

@@ -4,10 +4,13 @@ import { goto } from './helpers';
 test.describe('Settings — Theme toggle', () => {
   test.beforeEach(async ({ page }) => {
     await goto(page, '/settings');
+    // Settings now uses tab navigation — click the Appearance tab to reveal theme controls
+    await page.locator('nav').getByRole('button', { name: 'Appearance' }).first().click();
+    await page.waitForTimeout(300);
   });
 
   test('Appearance section is visible', async ({ page }) => {
-    await expect(page.getByText('Appearance')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
     await expect(page.getByText('Customize the look and feel')).toBeVisible();
   });
 

@@ -141,13 +141,14 @@ function TaskRow({
             <span className={cn("flex items-center gap-1 text-[11px]", isOverdue ? "text-red-500" : "text-muted-foreground")}>
               <Calendar className="size-3" />
               {task.dueDate.slice(0, 10)}
+              {task.dueTime && <span>at {task.dueTime}</span>}
             </span>
           )}
           {task.recurrenceRule && (
-            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <RefreshCw className="size-3" />
+            <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-normal gap-0.5">
+              <RefreshCw className="size-2.5" />
               {task.recurrenceRule.charAt(0) + task.recurrenceRule.slice(1).toLowerCase()}
-            </span>
+            </Badge>
           )}
           {hasSubtasks && (
             <span className="text-[11px] text-muted-foreground">

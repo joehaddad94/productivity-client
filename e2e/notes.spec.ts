@@ -23,8 +23,8 @@ test.describe('Notes', () => {
     await page.getByRole('button', { name: /new/i }).click();
     await expectToast(page, /note created/i);
 
-    // Edit the title input in the editor panel
-    const titleInput = page.locator('input[placeholder="Note title..."]').first();
+    // Edit the title input in the editor panel (placeholder is "Untitled" after revamp)
+    const titleInput = page.locator('input[placeholder="Untitled"]').first();
     await titleInput.clear();
     await titleInput.fill('My Test Note');
     await titleInput.blur();
@@ -43,12 +43,16 @@ test.describe('Notes', () => {
     await editor.click();
     await editor.type('Hello bold world');
 
-    // Select all text and make it bold
+    // Select all text — the floating BubbleMenu should appear
     await page.keyboard.press('Control+a');
-    await page.getByRole('button', { name: /bold/i }).click();
+    await page.waitForTimeout(300);
 
-    // Bold button should become active (variant changes to secondary)
-    await expect(page.getByRole('button', { name: /bold/i })).toBeVisible();
+    // BubbleMenu should now be visible with Bold button
+    await expect(page.getByRole('button', { name: /bold/i }).first()).toBeVisible({ timeout: 3_000 });
+    await page.getByRole('button', { name: /bold/i }).first().click();
+
+    // Bold button should remain visible (BubbleMenu still open)
+    await expect(page.getByRole('button', { name: /bold/i }).first()).toBeVisible();
   });
 
   test('delete a note', async ({ page }) => {
@@ -57,7 +61,7 @@ test.describe('Notes', () => {
     await expectToast(page, /note created/i);
 
     // Wait for the refetch to settle
-    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(800);
 
     // Get the bounding box of the first note card wrapper
     const wrapper = page.locator('.relative.group').first();
@@ -115,7 +119,8 @@ test.describe('Notes', () => {
   });
 
   test('search filters notes', async ({ page }) => {
-    const searchInput = page.getByPlaceholder(/search notes/i);
+    // Search input has aria-label="Search notes" (placeholder is just "Search…")
+    const searchInput = page.getByLabel('Search notes');
     await searchInput.fill('zzznomatch999');
     await page.waitForTimeout(600);
 

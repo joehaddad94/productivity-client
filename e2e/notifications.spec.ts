@@ -53,13 +53,17 @@ test.describe('Notifications', () => {
 test.describe('Notification Settings', () => {
   test.beforeEach(async ({ page }) => {
     await goto(page, '/settings');
+    // Settings now uses tab navigation — click the Notifications tab to reveal its content.
+    // Must scope to the settings <nav> to avoid matching the notification bell in the header.
+    await page.locator('nav').getByRole('button', { name: 'Notifications' }).first().click();
+    await page.waitForTimeout(300);
   });
 
   test('notification settings section is visible', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Notifications' }).first()).toBeVisible();
     await expect(page.getByText('In-app notifications').first()).toBeVisible();
     await expect(page.getByText('Email notifications').first()).toBeVisible();
-    await expect(page.getByText('Browser push notifications').first()).toBeVisible();
+    await expect(page.getByText('Browser push').first()).toBeVisible();
   });
 
   test('in-app toggle is on by default', async ({ page }) => {

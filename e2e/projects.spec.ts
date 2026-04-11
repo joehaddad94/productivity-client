@@ -15,7 +15,8 @@ test.describe('Projects', () => {
   test('create a project', async ({ page }) => {
     await page.getByRole('button', { name: /new project/i }).first().click();
 
-    const nameInput = page.getByLabel('Project Name').first();
+    // Inline create form — input has aria-label="Project name"
+    const nameInput = page.getByLabel(/project name/i).first();
     await nameInput.fill('E2E Project');
 
     await page.getByRole('button', { name: /create project/i }).first().click();
@@ -27,7 +28,7 @@ test.describe('Projects', () => {
   test('edit a project', async ({ page }) => {
     // Create first
     await page.getByRole('button', { name: /new project/i }).first().click();
-    await page.getByLabel('Project Name').first().fill('Project to Edit');
+    await page.getByLabel(/project name/i).first().fill('Project to Edit');
     await page.getByRole('button', { name: /create project/i }).first().click();
     await expectToast(page, /project created/i);
 
@@ -35,9 +36,12 @@ test.describe('Projects', () => {
     await page.waitForTimeout(600);
 
     const card = page.locator('[data-testid="project-card"]').filter({ hasText: 'Project to Edit' }).first();
-    await card.getByRole('button', { name: /edit project/i }).first().click();
+    // Edit button is opacity-0 until hover — hover first, then force-click
+    await card.hover();
+    await card.getByRole('button', { name: /edit project/i }).first().click({ force: true });
 
-    const editInput = page.getByLabel('Project Name').first();
+    // InlineEditForm appears in place of the card
+    const editInput = page.getByLabel(/project name/i).first();
     await editInput.clear();
     await editInput.fill('Renamed Project');
     await page.getByRole('button', { name: /^save$/i }).first().click();
@@ -51,18 +55,19 @@ test.describe('Projects', () => {
 
     // Create first
     await page.getByRole('button', { name: /new project/i }).first().click();
-    await page.getByLabel('Project Name').first().fill(uniqueName);
+    await page.getByLabel(/project name/i).first().fill(uniqueName);
     await page.getByRole('button', { name: /create project/i }).first().click();
     await expectToast(page, /project created/i);
 
-    // Wait for the new card to appear in the list (cache key mismatch means it may take a moment)
+    // Wait for the new card to appear in the list
     const card = page.locator('[data-testid="project-card"]').filter({ hasText: uniqueName }).first();
     await expect(card).toBeVisible({ timeout: 8_000 });
 
-    await card.getByRole('button', { name: /delete project/i }).first().click();
+    // Delete button is opacity-0 until hover
+    await card.hover();
+    await card.getByRole('button', { name: /delete project/i }).first().click({ force: true });
 
     await expectToast(page, /project deleted/i);
-    // Card should be removed optimistically
     await expect(
       page.locator('[data-testid="project-card"]').filter({ hasText: uniqueName })
     ).not.toBeVisible({ timeout: 5_000 });
@@ -70,7 +75,7 @@ test.describe('Projects', () => {
 
   test('project shows note count', async ({ page }) => {
     await page.getByRole('button', { name: /new project/i }).first().click();
-    await page.getByLabel('Project Name').first().fill('Count Project');
+    await page.getByLabel(/project name/i).first().fill('Count Project');
     await page.getByRole('button', { name: /create project/i }).first().click();
     await expectToast(page, /project created/i);
 
@@ -84,7 +89,7 @@ test.describe('Projects', () => {
 
     // Create a project via UI
     await page.getByRole('button', { name: /new project/i }).first().click();
-    await page.getByLabel('Project Name').first().fill(projectName);
+    await page.getByLabel(/project name/i).first().fill(projectName);
     await page.getByRole('button', { name: /create project/i }).first().click();
     await expectToast(page, /project created/i);
 
@@ -105,7 +110,8 @@ test.describe('Projects', () => {
 
     // Reload to pick up updated count
     await page.reload();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(400);
 
     const card = page.locator('[data-testid="project-card"]').filter({ hasText: projectName }).first();
     await expect(card.getByText(/1 notes?/i)).toBeVisible({ timeout: 5_000 });
@@ -113,9 +119,10 @@ test.describe('Projects', () => {
 
   test('empty project name shows validation error', async ({ page }) => {
     await page.getByRole('button', { name: /new project/i }).first().click();
-    // Submit without filling the name
-    await page.getByRole('button', { name: /create project/i }).first().click();
 
-    await expectToast(page, /project name is required/i);
+    // The Create project button is disabled when the name field is empty
+    await expect(
+      page.getByRole('button', { name: /create project/i }).first()
+    ).toBeDisabled();
   });
 });

@@ -56,7 +56,7 @@ export function TaskDrawer({
     setIsDirty(false);
   }, [task?.id, open]);
 
-  const { data: notesPage } = useNotesQuery(workspaceId, task ? { taskId: task.id, limit: 10 } : undefined);
+  const { data: notesPage } = useNotesQuery(workspaceId, task ? { taskId: task.id, limit: 10 } : undefined, { enabled: !!task && open });
   const notes = notesPage?.notes ?? [];
 
   const createNoteMutation = useCreateNoteMutation(workspaceId, {

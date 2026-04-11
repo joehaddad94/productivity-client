@@ -75,6 +75,7 @@ function InlineEditForm({
           if (e.key === "Enter") { e.preventDefault(); if (name.trim()) onSubmit(name.trim()); }
           if (e.key === "Escape") onCancel();
         }}
+        aria-label="Project name"
         className="w-full text-sm bg-transparent outline-none mb-3"
         autoFocus
         disabled={isPending}
@@ -140,13 +141,14 @@ export function ProjectsScreen() {
               if (e.key === "Enter") { e.preventDefault(); handleCreate(); }
               if (e.key === "Escape") { setShowCreate(false); setNewName(""); }
             }}
+            aria-label="Project name"
             placeholder="Project name…"
             className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground/50"
             disabled={createMutation.isPending}
           />
           <Button size="sm" onClick={handleCreate} disabled={createMutation.isPending || !newName.trim()}>
             {createMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
-            Create
+            Create project
           </Button>
           <Button size="sm" variant="ghost" onClick={() => { setShowCreate(false); setNewName(""); }}>Cancel</Button>
         </div>
