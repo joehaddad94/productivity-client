@@ -23,8 +23,9 @@ test.describe('Notes', () => {
     await page.getByRole('button', { name: /new/i }).click();
     await expectToast(page, /note created/i);
 
-    // Edit the title input in the editor panel (placeholder is "Untitled" after revamp)
+    // Wait for the editor panel to render (notes list must refetch before selectedNote resolves)
     const titleInput = page.locator('input[placeholder="Untitled"]').first();
+    await expect(titleInput).toBeVisible({ timeout: 8_000 });
     await titleInput.clear();
     await titleInput.fill('My Test Note');
     await titleInput.blur();
@@ -38,8 +39,9 @@ test.describe('Notes', () => {
     await page.getByRole('button', { name: /new/i }).click();
     await expectToast(page, /note created/i);
 
-    // Click into the Tiptap editor and type
+    // Wait for the editor panel to render (notes list must refetch before selectedNote resolves)
     const editor = page.locator('.ProseMirror').first();
+    await expect(editor).toBeVisible({ timeout: 15_000 });
     await editor.click();
     await editor.type('Hello bold world');
 

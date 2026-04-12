@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   Plus,
   ChevronDown,
@@ -255,6 +256,7 @@ export function TasksScreen() {
     updateMutation.mutate({ id, body }, {
       onSuccess: (updated) => {
         if (updated) setDrawerTask(updated);
+        toast.success("Task updated");
       },
     });
   }

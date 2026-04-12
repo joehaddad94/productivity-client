@@ -13,8 +13,14 @@ export async function waitForReady(page: Page) {
   await page.waitForFunction(() => !document.querySelector('[data-testid="screen-loader"]'), {
     timeout: 15_000,
   }).catch(() => {});
-  // Brief buffer for React Query initial fetches to complete
-  await page.waitForTimeout(400);
+  // Wait for the tasks loading skeleton (4 animate-pulse rows) to disappear.
+  // With 200+ tasks in the workspace the initial API response can take >400 ms.
+  await page.waitForFunction(
+    () => document.querySelectorAll('.animate-pulse').length === 0,
+    { timeout: 15_000 },
+  ).catch(() => {});
+  // Small buffer for React to commit the new state
+  await page.waitForTimeout(200);
 }
 
 /** Navigate to a route and wait for it to settle. */
@@ -25,6 +31,7 @@ export async function goto(page: Page, path: string) {
 
 /** Assert a toast notification appears with the given text. */
 export async function expectToast(page: Page, text: string | RegExp) {
+  // 10 s — the local API can be slow when the workspace has many tasks queued for invalidation
   await expect(page.locator('[data-sonner-toast]').filter({ hasText: text }))
-    .toBeVisible({ timeout: 5_000 });
+    .toBeVisible({ timeout: 10_000 });
 }

@@ -59,6 +59,8 @@ test.describe('Tasks', () => {
     await page.getByRole('button', { name: /create task/i }).first().click();
     await expectToast(page, /task created/i);
 
+    // Search to find the task reliably regardless of list size
+    await page.getByLabel('Search tasks').fill(uniqueTitle);
     const taskRow = page.locator('[data-testid="task-row"]').filter({ hasText: uniqueTitle }).first();
     await expect(taskRow).toBeVisible({ timeout: 8_000 });
 
@@ -90,7 +92,13 @@ test.describe('Tasks', () => {
 
     await page.getByRole('button', { name: /create task/i }).first().click();
     await expectToast(page, /task created/i);
-    await expect(page.getByText(uniqueTitle).first()).toBeVisible({ timeout: 5_000 });
+
+    // Search to reliably find the new task before applying filters
+    await page.getByLabel('Search tasks').fill(uniqueTitle);
+    await expect(
+      page.locator('[data-testid="task-row"]').filter({ hasText: uniqueTitle }).first()
+    ).toBeVisible({ timeout: 8_000 });
+    await page.getByLabel('Search tasks').fill('');
 
     // Apply "High" filter via the Radix Select in the toolbar
     await page.getByRole('combobox').first().click();
@@ -112,7 +120,8 @@ test.describe('Tasks', () => {
     await page.getByRole('button', { name: /create task/i }).first().click();
     await expectToast(page, /task created/i);
 
-    // Wait for the row to appear, then click it
+    // Search to find the task reliably regardless of list size
+    await page.getByLabel('Search tasks').fill(uniqueTitle);
     const taskRow = page.locator('[data-testid="task-row"]').filter({ hasText: uniqueTitle }).first();
     await expect(taskRow).toBeVisible({ timeout: 8_000 });
     await taskRow.locator('span.truncate').first().click();
@@ -131,7 +140,8 @@ test.describe('Tasks', () => {
     await page.getByRole('button', { name: /create task/i }).first().click();
     await expectToast(page, /task created/i);
 
-    // Wait for task row then click to open drawer
+    // Search to find the task reliably regardless of list size
+    await page.getByLabel('Search tasks').fill(uniqueTitle);
     const linkTaskRow = page.locator('[data-testid="task-row"]').filter({ hasText: uniqueTitle }).first();
     await expect(linkTaskRow).toBeVisible({ timeout: 8_000 });
     await linkTaskRow.locator('span.truncate').first().click();

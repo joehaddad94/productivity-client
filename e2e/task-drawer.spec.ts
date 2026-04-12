@@ -15,13 +15,15 @@ test.describe('Task Drawer', () => {
     await page.getByPlaceholder(/task title/i).first().fill(title);
     await page.getByRole('button', { name: /create task/i }).first().click();
     await expectToast(page, /task created/i);
-    // Wait for the task row to appear in the list before proceeding
+    // Use search to find the task reliably, bypassing list-size/sort limits
+    await page.getByLabel('Search tasks').fill(title);
     await expect(
       page.locator('[data-testid="task-row"]').filter({ hasText: title }).first()
     ).toBeVisible({ timeout: 8_000 });
   }
 
   async function openDrawer(page: import('@playwright/test').Page, title: string) {
+    // createTask already filled the search input so the row is in view — just click it.
     const row = page.locator('[data-testid="task-row"]').filter({ hasText: title }).first();
     // Title is in a <span class="truncate"> — click it to open the drawer
     await row.locator('span.truncate').first().click();
@@ -54,8 +56,11 @@ test.describe('Task Drawer', () => {
     await createTask(page, title);
     await openDrawer(page, title);
 
-    // Modify the title in the drawer
-    const textarea = page.locator('textarea').filter({ hasText: title }).first();
+    // Wait for the drawer to populate the task title, then interact.
+    // IMPORTANT: filter({ hasText }) must only be used for assertions — after clear() the
+    // value becomes empty and the filter no longer resolves, causing fill() to time out.
+    await expect(page.locator('textarea').filter({ hasText: title }).first()).toBeVisible({ timeout: 5_000 });
+    const textarea = page.locator('textarea').first(); // stable selector, not filter-based
     await textarea.clear();
     await textarea.fill('UNSAVED CHANGE');
 
@@ -74,7 +79,8 @@ test.describe('Task Drawer', () => {
     await createTask(page, title);
     await openDrawer(page, title);
 
-    const textarea = page.locator('textarea').filter({ hasText: title }).first();
+    await expect(page.locator('textarea').filter({ hasText: title }).first()).toBeVisible({ timeout: 5_000 });
+    const textarea = page.locator('textarea').first(); // stable after clear()
     await textarea.clear();
     await textarea.fill(newTitle);
 
@@ -85,7 +91,11 @@ test.describe('Task Drawer', () => {
     await page.getByRole('button', { name: /close/i }).first().click();
     await page.waitForTimeout(300);
 
-    await expect(page.getByText(newTitle).first()).toBeVisible({ timeout: 5_000 });
+    // Update search to find the renamed task
+    await page.getByLabel('Search tasks').fill(newTitle);
+    await expect(
+      page.locator('[data-testid="task-row"]').filter({ hasText: newTitle }).first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('Save changes button is disabled until a field is changed', async ({ page }) => {
@@ -133,8 +143,10 @@ test.describe('Task Drawer', () => {
     await createTask(page, title);
     await openDrawer(page, title);
 
-    // Change status to In Progress via Radix Select
-    const statusTrigger = page.getByRole('combobox').first();
+    // Change status to In Progress via Radix Select.
+    // The toolbar priority filter is the first combobox on the page; the Status combobox
+    // in the drawer shows "Pending" initially — filter by that text to target it precisely.
+    const statusTrigger = page.getByRole('combobox').filter({ hasText: /pending/i }).first();
     await statusTrigger.click();
     await page.getByRole('option', { name: /in progress/i }).click();
 

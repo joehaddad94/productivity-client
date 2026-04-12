@@ -33,7 +33,10 @@ test.describe('Tasks — due time', () => {
 
     await expectToast(page, /task created/i);
 
+    // Use search to reliably find the row — the unfiltered list may not have updated yet
+    await page.getByLabel('Search tasks').fill(title);
     const taskRow = page.locator('[data-testid="task-row"]').filter({ hasText: title }).first();
+    await expect(taskRow).toBeVisible({ timeout: 8_000 });
     await expect(taskRow.getByText(/at 09:30/i)).toBeVisible({ timeout: 5_000 });
   });
 
@@ -45,6 +48,7 @@ test.describe('Tasks — due time', () => {
     await page.getByRole('button', { name: /create task/i }).first().click();
     await expectToast(page, /task created/i);
 
+    await page.getByLabel('Search tasks').fill(title);
     const detailRow = page.locator('[data-testid="task-row"]').filter({ hasText: title }).first();
     await expect(detailRow).toBeVisible({ timeout: 8_000 });
     await detailRow.locator('span.truncate').first().click();
@@ -80,7 +84,9 @@ test.describe('Tasks — recurring tasks', () => {
     await page.getByRole('button', { name: /create task/i }).first().click();
     await expectToast(page, /task created/i);
 
+    await page.getByLabel('Search tasks').fill(title);
     const taskRow = page.locator('[data-testid="task-row"]').filter({ hasText: title }).first();
+    await expect(taskRow).toBeVisible({ timeout: 8_000 });
     await expect(taskRow.locator('[data-slot="badge"]').filter({ hasText: /weekly/i })).toBeVisible({ timeout: 5_000 });
   });
 
@@ -92,6 +98,7 @@ test.describe('Tasks — recurring tasks', () => {
     await page.getByRole('button', { name: /create task/i }).first().click();
     await expectToast(page, /task created/i);
 
+    await page.getByLabel('Search tasks').fill(title);
     const detailRow = page.locator('[data-testid="task-row"]').filter({ hasText: title }).first();
     await expect(detailRow).toBeVisible({ timeout: 8_000 });
     await detailRow.locator('span.truncate').first().click();
