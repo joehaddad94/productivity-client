@@ -23,7 +23,7 @@ function mapUser(u: AuthUser): User {
 
 interface AuthContextType {
   user: User | null;
-  sendMagicLink: (email: string) => Promise<void>;
+  sendMagicLink: (email: string) => Promise<{ message?: string; magicLink?: string }>;
   verifyMagicLink: (token: string) => Promise<void>;
   signup: (name: string, email: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sendMagicLink = useCallback(
     async (email: string) => {
-      await loginMutation.mutateAsync(email);
+      return await loginMutation.mutateAsync(email);
     },
     [loginMutation]
   );

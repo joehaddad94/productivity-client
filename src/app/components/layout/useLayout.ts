@@ -64,7 +64,7 @@ export function useLayout() {
     setIsLoggingOut(true);
     try {
       await logout();
-      router.push("/");
+      router.replace("/login");
       toast.success("Logged out successfully!");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not log out. Please try again.");

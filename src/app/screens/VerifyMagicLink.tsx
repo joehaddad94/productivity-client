@@ -1,64 +1,69 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { XCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { useAuth } from "@/app/context/AuthContext";
+import { ScreenLoader } from "@/app/components/ScreenLoader";
 
 export function VerifyMagicLink() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { verifyMagicLink } = useAuth();
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "error">("loading");
+  const attemptedTokenRef = useRef<string | null>(null);
   const token = searchParams.get("token");
 
   useEffect(() => {
-    const verify = async () => {
-      if (!token) {
-        setStatus("error");
-        return;
-      }
+    if (!token) {
+      setStatus("error");
+      router.replace("/login");
+      return;
+    }
+    if (attemptedTokenRef.current === token) {
+      return;
+    }
+    attemptedTokenRef.current = token;
 
+    const verify = async () => {
       try {
         await verifyMagicLink(token);
-        setStatus("success");
-        router.replace("/workspace");
-      } catch (error) {
+        const destination = "/dashboard";
+        router.replace(destination);
+        // Fallback for cases where client navigation does not resolve after successful verification.
+        if (typeof window !== "undefined") {
+          window.setTimeout(() => {
+            window.location.replace(destination);
+          }, 250);
+        }
+      } catch {
         setStatus("error");
+        const destination = "/login";
+        router.replace(destination);
+        if (typeof window !== "undefined") {
+          window.setTimeout(() => {
+            window.location.replace(destination);
+          }, 250);
+        }
       }
     };
 
     verify();
   }, [token, verifyMagicLink, router]);
 
+  if (status === "loading") {
+    return (
+      <ScreenLoader
+        variant="auth"
+        message="Please wait while we verify your link..."
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50/50 via-white to-emerald-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
       <Card className="w-full max-w-md mx-auto">
         <CardHeader className="text-center space-y-4">
-          {status === "loading" && (
-            <>
-              <div className="size-16 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center mx-auto">
-                <Loader2 className="size-8 text-primary animate-spin" />
-              </div>
-              <CardTitle className="text-2xl">Verifying your link</CardTitle>
-              <CardDescription className="text-base">
-                Please wait while we verify your link...
-              </CardDescription>
-            </>
-          )}
-
-          {status === "success" && (
-            <>
-              <div className="size-16 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="size-8 text-green-600 dark:text-green-400" />
-              </div>
-              <CardTitle className="text-2xl">Welcome back!</CardTitle>
-              <CardDescription className="text-base">
-                You've been successfully signed in. Redirecting...
-              </CardDescription>
-            </>
-          )}
-
           {status === "error" && (
             <>
               <div className="size-16 rounded-full bg-red-100 dark:bg-red-950 flex items-center justify-center mx-auto">

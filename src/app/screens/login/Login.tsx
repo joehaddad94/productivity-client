@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, Mail, Loader2, Send } from "lucide-react";
+import { CheckCircle2, Mail, Loader2, Send, AlertCircle } from "lucide-react";
+import Link from "next/link";
 import { useLogin } from "./useLogin";
 import { Button } from "@/app/components/ui/button";
 import { AuthScreenWrap, CheckEmailCard, AuthFormLink } from "@/app/components/auth";
@@ -8,7 +9,8 @@ import { AuthScreenWrap, CheckEmailCard, AuthFormLink } from "@/app/components/a
 const LOGIN_ALTERNATE_LINK = { href: "/signup", prompt: "Don't have an account?", label: "Sign up" } as const;
 
 export function Login() {
-  const { email, setEmail, isLoading, emailSent, handleSubmit, useDifferentEmail, onResend } = useLogin();
+  const { email, setEmail, isLoading, emailSent, formError, magicLink, handleSubmit, useDifferentEmail, onResend } =
+    useLogin();
 
   if (emailSent) {
     return (
@@ -16,6 +18,7 @@ export function Login() {
         <CheckEmailCard
           email={email}
           message="Click the link in the email to sign in to your account. The link will expire in 15 minutes."
+          magicLink={magicLink ?? undefined}
           onUseDifferentEmail={useDifferentEmail}
           onResend={onResend}
           isLoading={isLoading}
@@ -60,6 +63,31 @@ export function Login() {
                 />
               </div>
             </div>
+
+            {formError && (
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+              >
+                <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+                <p className="leading-relaxed">
+                  {formError.includes("No account found") ? (
+                    <>
+                      No account found for this email.{" "}
+                      <Link
+                        href="/signup"
+                        className="font-medium underline underline-offset-2 hover:opacity-90"
+                      >
+                        Sign up first
+                      </Link>
+                      .
+                    </>
+                  ) : (
+                    formError
+                  )}
+                </p>
+              </div>
+            )}
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (

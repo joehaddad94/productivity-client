@@ -5,10 +5,12 @@ import Link from "next/link";
 import { Inbox, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
+import { toast } from "sonner";
 
 type CheckEmailCardProps = {
   email: string;
   message: string;
+  magicLink?: string;
   onUseDifferentEmail: () => void;
   onResend: () => void;
   isLoading: boolean;
@@ -18,11 +20,22 @@ type CheckEmailCardProps = {
 function CheckEmailCardComponent({
   email,
   message,
+  magicLink,
   onUseDifferentEmail,
   onResend,
   isLoading,
   alternateLink,
 }: CheckEmailCardProps) {
+  const copyLink = async () => {
+    if (!magicLink) return;
+    try {
+      await navigator.clipboard.writeText(magicLink);
+      toast.success("Sign-in link copied");
+    } catch {
+      toast.error("Could not copy the link");
+    }
+  };
+
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="text-center space-y-4">
@@ -40,6 +53,18 @@ function CheckEmailCardComponent({
         </div>
 
         <div className="space-y-3">
+          {magicLink && (
+            <>
+              <Button asChild className="w-full">
+                <a href={magicLink} target="_blank" rel="noreferrer">
+                  Open sign-in link
+                </a>
+              </Button>
+              <Button variant="secondary" className="w-full" onClick={copyLink}>
+                Copy sign-in link
+              </Button>
+            </>
+          )}
           <Button variant="outline" className="w-full" onClick={onUseDifferentEmail}>
             Use a different email
           </Button>

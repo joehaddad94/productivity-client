@@ -28,7 +28,7 @@ export function WorkspaceGateScreen() {
       return;
     }
     if (!isFetched || needsWorkspace) return;
-    router.replace("/notes");
+    router.replace("/dashboard");
   }, [isInitialized, isAuthenticated, isFetched, needsWorkspace, router]);
 
   if (!isInitialized || !isAuthenticated) {
@@ -55,11 +55,11 @@ export function WorkspaceGateScreen() {
             <CreateFirstWorkspace
               onSuccess={(workspace: Workspace) => {
                 setCurrentWorkspaceId(workspace.id);
-                router.replace("/notes");
+                router.replace("/dashboard");
               }}
             />
           ) : (
-            <ScreenLoader variant="auth" message="Taking you to Notes…" />
+            <ScreenLoader variant="auth" message="Taking you to Dashboard…" />
           )}
         </div>
       </AuthScreenWrap>
