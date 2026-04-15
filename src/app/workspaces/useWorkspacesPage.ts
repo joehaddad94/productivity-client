@@ -37,7 +37,8 @@ export function useWorkspacesPage() {
   }, [workspaces, searchQuery]);
 
   const createMutation = useCreateWorkspaceMutation({
-    onSuccess: () => {
+    onSuccess: (workspace) => {
+      setCurrentWorkspaceId(workspace.id);
       refetchWorkspaces();
     },
   });
