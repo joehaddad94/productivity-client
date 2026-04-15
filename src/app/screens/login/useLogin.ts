@@ -10,18 +10,24 @@ export function useLogin() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleSubmit = useCallback(
     async (e: { preventDefault(): void }) => {
       e.preventDefault();
+      setFormError(null);
 
       if (!email) {
-        toast.error("Please enter your email address");
+        const message = "Please enter your email address";
+        setFormError(message);
+        toast.error(message);
         return;
       }
 
       if (!EMAIL_REGEX.test(email)) {
-        toast.error("Please enter a valid email address");
+        const message = "Please enter a valid email address";
+        setFormError(message);
+        toast.error(message);
         return;
       }
 
@@ -31,7 +37,12 @@ export function useLogin() {
         setEmailSent(true);
         toast.success("Sign-in link sent! Check your email.");
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not send sign-in link. Please try again.");
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Could not send sign-in link. Please try again.";
+        setFormError(message);
+        toast.error(message);
       } finally {
         setIsLoading(false);
       }
@@ -50,6 +61,7 @@ export function useLogin() {
     setEmail,
     isLoading,
     emailSent,
+    formError,
     handleSubmit,
     useDifferentEmail,
     onResend,
