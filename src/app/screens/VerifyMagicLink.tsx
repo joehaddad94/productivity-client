@@ -17,6 +17,7 @@ export function VerifyMagicLink() {
   useEffect(() => {
     if (!token) {
       setStatus("error");
+      router.replace("/login");
       return;
     }
     if (attemptedTokenRef.current === token) {
@@ -24,23 +25,31 @@ export function VerifyMagicLink() {
     }
     attemptedTokenRef.current = token;
 
-    let cancelled = false;
     const verify = async () => {
       try {
         await verifyMagicLink(token);
-        if (cancelled) return;
         setStatus("success");
-        router.replace("/workspace");
+        const destination = "/workspace";
+        router.replace(destination);
+        // Fallback for cases where client navigation does not resolve after successful verification.
+        if (typeof window !== "undefined") {
+          window.setTimeout(() => {
+            window.location.replace(destination);
+          }, 250);
+        }
       } catch {
-        if (cancelled) return;
         setStatus("error");
+        const destination = "/login";
+        router.replace(destination);
+        if (typeof window !== "undefined") {
+          window.setTimeout(() => {
+            window.location.replace(destination);
+          }, 250);
+        }
       }
     };
 
     verify();
-    return () => {
-      cancelled = true;
-    };
   }, [token, verifyMagicLink, router]);
 
   if (status === "loading") {
