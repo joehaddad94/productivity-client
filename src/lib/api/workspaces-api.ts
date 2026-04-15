@@ -68,13 +68,43 @@ export type UpdateWorkspaceBody = {
 
 export type ListWorkspacesResponse = { workspaces: Workspace[] };
 
+function isWorkspace(value: unknown): value is Workspace {
+  if (!value || typeof value !== "object") return false;
+  const ws = value as Partial<Workspace>;
+  return (
+    typeof ws.id === "string" &&
+    ws.id.length > 0 &&
+    typeof ws.name === "string"
+  );
+}
+
+function parseWorkspace(data: unknown): Workspace {
+  if (isWorkspace(data)) return data;
+  if (data && typeof data === "object") {
+    const nested = (data as Record<string, unknown>).workspace;
+    if (isWorkspace(nested)) return nested;
+  }
+  throw new Error("Invalid workspace response from server");
+}
+
+function parseWorkspaceList(data: unknown): Workspace[] {
+  if (Array.isArray(data)) {
+    return data.filter(isWorkspace);
+  }
+  if (data && typeof data === "object") {
+    const raw = (data as Record<string, unknown>).workspaces;
+    if (Array.isArray(raw)) return raw.filter(isWorkspace);
+  }
+  return [];
+}
+
 export const workspacesApi = {
   list: async (): Promise<Workspace[]> => {
     const res = await api("/workspaces");
     if (res.status === 401) return [];
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
-    return (data as ListWorkspacesResponse).workspaces ?? [];
+    return parseWorkspaceList(data);
   },
 
   get: async (id: string): Promise<Workspace | null> => {
@@ -82,7 +112,7 @@ export const workspacesApi = {
     if (res.status === 404) return null;
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
-    return data as Workspace;
+    return parseWorkspace(data);
   },
 
   create: async (body: CreateWorkspaceBody): Promise<Workspace> => {
@@ -92,7 +122,7 @@ export const workspacesApi = {
     });
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
-    return data as Workspace;
+    return parseWorkspace(data);
   },
 
   update: async (id: string, body: UpdateWorkspaceBody): Promise<Workspace> => {
@@ -102,7 +132,7 @@ export const workspacesApi = {
     });
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
-    return data as Workspace;
+    return parseWorkspace(data);
   },
 
   delete: async (id: string): Promise<void> => {

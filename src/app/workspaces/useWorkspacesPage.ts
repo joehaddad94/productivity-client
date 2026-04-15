@@ -72,7 +72,8 @@ export function useWorkspacesPage() {
   }) => {
     setShowCreate(false);
     try {
-      await createMutation.mutateAsync(data);
+      const workspace = await createMutation.mutateAsync(data);
+      setCurrentWorkspaceId(workspace.id);
       toast.success("Workspace created");
     } catch (err) {
       setShowCreate(true);
