@@ -17,6 +17,15 @@ import {
 export const WORKSPACES_QUERY_KEY = ["workspaces"] as const;
 export const WORKSPACE_QUERY_KEY = (id: string) => ["workspaces", id] as const;
 
+function upsertWorkspace(list: Workspace[] | undefined, next: Workspace): Workspace[] {
+  if (!list || list.length === 0) return [next];
+  const existingIndex = list.findIndex((w) => w.id === next.id);
+  if (existingIndex === -1) return [...list, next];
+  const copy = [...list];
+  copy[existingIndex] = next;
+  return copy;
+}
+
 export function useWorkspacesQuery(
   options?: Omit<
     UseQueryOptions<Workspace[]>,
@@ -53,10 +62,15 @@ export function useCreateWorkspaceMutation(
     mutationFn: (body: CreateWorkspaceBody) => workspacesApi.create(body),
     ...options,
     onSuccess: (data, variables, context, mutation) => {
+      if (!data?.id) {
+        queryClient.invalidateQueries({ queryKey: WORKSPACES_QUERY_KEY });
+        options?.onSuccess?.(data, variables, context, mutation);
+        return;
+      }
       // Update cache before firing the caller's onSuccess so that WorkspaceContext
       // already sees the new workspace when any navigation triggered by onSuccess occurs.
       queryClient.setQueryData(WORKSPACES_QUERY_KEY, (prev: Workspace[] | undefined) =>
-        prev ? [...prev, data] : [data]
+        upsertWorkspace(prev, data)
       );
       queryClient.setQueryData(WORKSPACE_QUERY_KEY(data.id), data);
       options?.onSuccess?.(data, variables, context, mutation);
@@ -77,9 +91,14 @@ export function useUpdateWorkspaceMutation(
       workspacesApi.update(id, body),
     ...options,
     onSuccess: (data, variables, context, mutation) => {
+      if (!data?.id) {
+        queryClient.invalidateQueries({ queryKey: WORKSPACES_QUERY_KEY });
+        options?.onSuccess?.(data, variables, context, mutation);
+        return;
+      }
       queryClient.setQueryData(WORKSPACE_QUERY_KEY(data.id), data);
       queryClient.setQueryData(WORKSPACES_QUERY_KEY, (prev: Workspace[] | undefined) =>
-        prev ? prev.map((w) => (w.id === data.id ? data : w)) : [data]
+        upsertWorkspace(prev, data)
       );
       options?.onSuccess?.(data, variables, context, mutation);
     },

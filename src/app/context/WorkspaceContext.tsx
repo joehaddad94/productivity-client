@@ -62,10 +62,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     enabled: isAuthenticated,
   });
 
-  const currentWorkspace = useMemo(
-    () => workspaces.find((w) => w.id === currentId) ?? null,
-    [workspaces, currentId]
-  );
+  const currentWorkspace = useMemo(() => {
+    if (workspaces.length === 0) return null;
+    return workspaces.find((w) => w.id === currentId) ?? workspaces[0] ?? null;
+  }, [workspaces, currentId]);
 
   const setCurrentWorkspaceId = useCallback((id: string | null) => {
     setCurrentId(id);
@@ -78,14 +78,29 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       writeStoredId(null);
       return;
     }
-    if (!isFetched || workspaces.length === 0) return;
+    if (!isFetched) return;
+    if (workspaces.length === 0) {
+      if (currentId !== null) {
+        setCurrentId(null);
+      }
+      writeStoredId(null);
+      return;
+    }
+
     const stored = readStoredId();
-    const valid = stored && workspaces.some((w) => w.id === stored);
-    if (!valid) {
-      setCurrentId(workspaces[0].id);
-      writeStoredId(workspaces[0].id);
-    } else if (currentId !== stored) {
-      setCurrentId(stored);
+    const validCurrent = !!currentId && workspaces.some((w) => w.id === currentId);
+    const validStored = !!stored && workspaces.some((w) => w.id === stored);
+    const nextId = validCurrent
+      ? currentId
+      : validStored
+        ? stored
+        : workspaces[0].id;
+
+    if (nextId !== currentId) {
+      setCurrentId(nextId);
+    }
+    if (stored !== nextId) {
+      writeStoredId(nextId);
     }
   }, [isAuthenticated, isInitialized, isFetched, workspaces, currentId]);
 
