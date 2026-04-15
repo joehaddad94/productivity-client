@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { cn } from "@/app/components/ui/utils";
+import { LoadingDots } from "@/app/components/LoadingDots";
 
 const AUTH_BG_CLASS =
   "min-h-screen flex items-center justify-center p-4 relative overflow-hidden";
@@ -151,9 +152,19 @@ export function ScreenLoader({
             </div>
           </div>
           {message && (
-            <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs text-center font-medium">
-              {message}
-            </p>
+            <div className="flex flex-col items-center gap-2 max-w-sm text-center">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500/80 dark:text-gray-400/80 font-semibold">
+                Hang tight
+              </p>
+              <p className="text-sm md:text-base text-gray-700 dark:text-gray-200 font-medium leading-relaxed">
+                {message}
+              </p>
+              <LoadingDots
+                className="pt-1"
+                colors={LOADER_COLORS.slice(0, 3)}
+                aria-hidden
+              />
+            </div>
           )}
         </div>
       </div>
