@@ -11,6 +11,7 @@ export function useLogin() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [magicLink, setMagicLink] = useState<string | null>(null);
 
   const handleSubmit = useCallback(
     async (e: { preventDefault(): void }) => {
@@ -33,7 +34,8 @@ export function useLogin() {
 
       setIsLoading(true);
       try {
-        await sendMagicLink(email);
+        const result = await sendMagicLink(email);
+        setMagicLink(result.magicLink ?? null);
         setEmailSent(true);
         toast.success("Sign-in link sent! Check your email.");
       } catch (error) {
@@ -50,7 +52,10 @@ export function useLogin() {
     [email, sendMagicLink]
   );
 
-  const useDifferentEmail = useCallback(() => setEmailSent(false), []);
+  const useDifferentEmail = useCallback(() => {
+    setEmailSent(false);
+    setMagicLink(null);
+  }, []);
 
   const onResend = useCallback(() => {
     handleSubmit({ preventDefault: () => {} });
@@ -62,6 +67,7 @@ export function useLogin() {
     isLoading,
     emailSent,
     formError,
+    magicLink,
     handleSubmit,
     useDifferentEmail,
     onResend,

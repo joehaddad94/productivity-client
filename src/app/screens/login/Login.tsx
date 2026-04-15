@@ -9,7 +9,7 @@ import { AuthScreenWrap, CheckEmailCard, AuthFormLink } from "@/app/components/a
 const LOGIN_ALTERNATE_LINK = { href: "/signup", prompt: "Don't have an account?", label: "Sign up" } as const;
 
 export function Login() {
-  const { email, setEmail, isLoading, emailSent, formError, handleSubmit, useDifferentEmail, onResend } =
+  const { email, setEmail, isLoading, emailSent, formError, magicLink, handleSubmit, useDifferentEmail, onResend } =
     useLogin();
 
   if (emailSent) {
@@ -18,6 +18,7 @@ export function Login() {
         <CheckEmailCard
           email={email}
           message="Click the link in the email to sign in to your account. The link will expire in 15 minutes."
+          magicLink={magicLink ?? undefined}
           onUseDifferentEmail={useDifferentEmail}
           onResend={onResend}
           isLoading={isLoading}
