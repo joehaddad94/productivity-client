@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Mail, Loader2, Send } from "lucide-react";
+import { CheckCircle2, Mail, Loader2, Send, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useLogin } from "./useLogin";
 import { Button } from "@/app/components/ui/button";
@@ -64,19 +64,28 @@ export function Login() {
             </div>
 
             {formError && (
-              <p className="text-xs text-destructive" role="alert">
-                {formError.includes("No account found") ? (
-                  <>
-                    No account found for this email.{" "}
-                    <Link href="/signup" className="underline underline-offset-2">
-                      Sign up first
-                    </Link>
-                    .
-                  </>
-                ) : (
-                  formError
-                )}
-              </p>
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+              >
+                <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+                <p className="leading-relaxed">
+                  {formError.includes("No account found") ? (
+                    <>
+                      No account found for this email.{" "}
+                      <Link
+                        href="/signup"
+                        className="font-medium underline underline-offset-2 hover:opacity-90"
+                      >
+                        Sign up first
+                      </Link>
+                      .
+                    </>
+                  ) : (
+                    formError
+                  )}
+                </p>
+              </div>
             )}
 
             <Button type="submit" className="w-full" disabled={isLoading}>
