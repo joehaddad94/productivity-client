@@ -25,8 +25,10 @@ export function NoteEditor({
   onUpdate,
   onTagsChange,
   onLinkTask,
+  onOpenTaskPicker,
   onConvertToTask,
   isSaving,
+  tasksLoading = false,
   tasks,
 }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
@@ -58,7 +60,7 @@ export function NoteEditor({
     if (editor && note.content !== undefined) {
       const current = editor.getHTML();
       if (current !== (note.content ?? "")) {
-        editor.commands.setContent(note.content ?? "", false);
+        editor.commands.setContent(note.content ?? "");
       }
     }
     setTitle(note.title);
@@ -190,7 +192,10 @@ export function NoteEditor({
             </div>
           ) : (
             <button
-              onClick={() => setShowTaskPicker((v) => !v)}
+              onClick={() => {
+                onOpenTaskPicker?.();
+                setShowTaskPicker((v) => !v);
+              }}
               className="text-[10px] text-muted-foreground/60 hover:text-primary flex items-center gap-0.5 transition-colors"
               title="Link to a task"
             >
@@ -200,7 +205,9 @@ export function NoteEditor({
           )}
           {showTaskPicker && (
             <div className="absolute right-0 top-6 z-10 bg-background border border-border/60 rounded-lg shadow-md w-56 max-h-48 overflow-y-auto">
-              {tasks.length === 0 ? (
+              {tasksLoading ? (
+                <p className="text-xs text-muted-foreground p-3">Loading tasks...</p>
+              ) : tasks.length === 0 ? (
                 <p className="text-xs text-muted-foreground p-3">No tasks in workspace</p>
               ) : (
                 tasks.map((t) => (
