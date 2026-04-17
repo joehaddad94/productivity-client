@@ -10,31 +10,44 @@ import {
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { createRoot, type Root } from "react-dom/client";
+import { flushSync } from "react-dom";
+import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 
 /**
- * Global navigation state + an imperative DOM overlay.
+ * Global navigation state + an imperative, route-aware skeleton overlay.
  *
- * The overlay is managed OUTSIDE React's render pipeline so it can appear on
- * the same frame as the click. React 18's concurrent renderer batches state
- * updates triggered inside a Next.js router transition, so a React-managed
- * overlay never beats the navigation to the screen — it appears only when
- * the new route has already committed, defeating the point.
+ * The overlay is managed OUTSIDE the main React tree for two reasons:
  *
- * Instead we:
- *   1. Create a fixed skeleton DOM node once, lazily, on the client.
- *   2. Show it imperatively on any internal click or programmatic router.push
- *      / router.replace. The DOM mutation is synchronous — the user sees the
- *      overlay on the very next paint.
- *   3. Hide it when both (a) the URL has caught up with the navigation target
- *      and (b) the new route's main content has no remaining skeleton nodes
- *      (per-screen `role="status"` fallbacks). We observe (b) via a
- *      MutationObserver on <main>, so we hide the overlay the instant the
- *      real UI is ready — not before, not after.
+ *  1. React 18 concurrent rendering batches our `setState` into Next.js's
+ *     router transition, so a React-state-driven overlay can never beat the
+ *     navigation to paint. By attaching a DOM element directly on click we
+ *     paint on the next frame, ~50ms after click in practice.
  *
- * Covers every navigation without per-page changes:
+ *  2. We still want the overlay to use the real `<ScreenSkeleton>` component
+ *     so there's no markup duplication and so each variant looks identical to
+ *     the per-screen fallback it's covering. We do that by mounting a
+ *     SEPARATE React root inside the overlay element — that root is
+ *     independent of Next.js's router, so it isn't caught in the transition.
+ *     `flushSync` guarantees the skeleton paints before the overlay is shown.
+ *
+ * The overlay is hidden once the URL has caught up AND <main> no longer
+ * contains any `role="status"` skeletons (i.e. per-screen data has loaded).
+ *
+ * Covers every navigation with no per-page changes:
  *   - `<Link>` clicks (capture-phase document listener)
  *   - Programmatic `router.push` / `router.replace` (patched once at mount)
  */
+
+type SkeletonVariant =
+  | "generic"
+  | "notes"
+  | "tasks"
+  | "projects"
+  | "analytics"
+  | "dashboard"
+  | "calendar"
+  | "settings";
 
 type NavigationContextValue = {
   pendingNavPath: string | null;
@@ -46,6 +59,19 @@ const NavigationContext = createContext<NavigationContextValue | null>(null);
 
 const SAFETY_TIMEOUT_MS = 10_000;
 const POST_COMMIT_SETTLE_MS = 60;
+
+function routeToVariant(path: string | null | undefined): SkeletonVariant {
+  if (!path) return "generic";
+  const stripped = path.split("?")[0]?.split("#")[0] ?? path;
+  if (stripped.startsWith("/notes")) return "notes";
+  if (stripped.startsWith("/tasks")) return "tasks";
+  if (stripped.startsWith("/projects")) return "projects";
+  if (stripped.startsWith("/analytics")) return "analytics";
+  if (stripped.startsWith("/dashboard")) return "dashboard";
+  if (stripped.startsWith("/calendar")) return "calendar";
+  if (stripped.startsWith("/settings")) return "settings";
+  return "generic";
+}
 
 function isInternalAnchor(anchor: HTMLAnchorElement): boolean {
   if (!anchor.href) return false;
@@ -91,8 +117,9 @@ type OverlayController = {
 
 function createOverlayController(): OverlayController {
   let element: HTMLDivElement | null = null;
+  let contentEl: HTMLDivElement | null = null;
+  let reactRoot: Root | null = null;
   let safetyTimer: number | null = null;
-  let targetPath: string | null = null;
   let urlCommitted = false;
   let mainObserver: MutationObserver | null = null;
   let pendingFrame: number | null = null;
@@ -104,74 +131,37 @@ function createOverlayController(): OverlayController {
     el.setAttribute("role", "status");
     el.setAttribute("aria-live", "polite");
     el.setAttribute("aria-label", "Loading");
-    // Positioning: cover the main content region, not the sidebar.
-    // We use fixed with left tied to the sidebar width via a CSS variable
-    // fallback. The stylesheet can refine this; inline styles give us a solid
-    // default that works on first paint without waiting for CSS to apply.
+    // Solid background so the overlay is instantly "covering" even in the
+    // ~1 frame before the React root commits its skeleton markup.
     el.style.cssText = [
       "position:fixed",
       "inset:0",
       "z-index:9999",
       "background:var(--background, #ffffff)",
       "pointer-events:auto",
-      "display:flex",
-      "align-items:flex-start",
-      "justify-content:flex-start",
-      "padding:0",
+      "overflow:auto",
+      "padding:20px",
+      "box-sizing:border-box",
       "margin:0",
     ].join(";");
-    // The skeleton markup mirrors the generic ScreenSkeleton so it looks
-    // identical to the per-screen fallbacks it's covering.
-    el.innerHTML = `
-      <style>
-        @keyframes __nav-shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-        [data-nav-overlay] .__navblk {
-          border-radius: 6px;
-          background: linear-gradient(90deg, var(--muted, #eee) 0%, var(--accent, #e5e5e5) 50%, var(--muted, #eee) 100%);
-          background-size: 200% 100%;
-          animation: __nav-shimmer 1.5s ease-in-out infinite;
-        }
-        [data-nav-overlay] .__navrow { display:flex; align-items:center; justify-content:space-between; gap:16px; }
-        [data-nav-overlay] .__navcard { border:1px solid var(--border, #e5e5e5); background: var(--card, #fff); border-radius: 12px; padding: 16px; display:flex; flex-direction:column; gap: 12px; }
-      </style>
-      <div style="width:100%;max-width:100%;margin-left:auto;display:flex;flex-direction:column;gap:20px;padding:20px;box-sizing:border-box" data-nav-overlay-inner>
-        <div class="__navrow">
-          <div class="__navblk" style="height:28px;width:200px"></div>
-          <div style="display:flex;gap:8px">
-            <div class="__navblk" style="height:36px;width:96px"></div>
-            <div class="__navblk" style="height:36px;width:112px"></div>
-          </div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:16px">
-          <div class="__navcard">
-            <div class="__navblk" style="height:20px;width:60%"></div>
-            <div class="__navblk" style="height:16px;width:100%"></div>
-            <div class="__navblk" style="height:16px;width:83%"></div>
-            <div class="__navblk" style="height:16px;width:75%"></div>
-          </div>
-          <div class="__navcard">
-            <div class="__navblk" style="height:20px;width:55%"></div>
-            <div class="__navblk" style="height:16px;width:95%"></div>
-            <div class="__navblk" style="height:16px;width:70%"></div>
-          </div>
-          <div class="__navcard">
-            <div class="__navblk" style="height:20px;width:50%"></div>
-            <div class="__navblk" style="height:16px;width:88%"></div>
-            <div class="__navblk" style="height:16px;width:68%"></div>
-          </div>
-        </div>
-      </div>
-    `;
+
+    const content = document.createElement("div");
+    content.setAttribute("data-nav-overlay-content", "true");
+    content.style.cssText = "width:100%;height:100%";
+    el.appendChild(content);
+    contentEl = content;
     element = el;
     return el;
   };
 
-  const positionOverOfMain = (el: HTMLDivElement) => {
-    // Place overlay over main content area, leaving the sidebar exposed on
-    // desktop so the user can see where they're going. We measure on show.
+  const ensureRoot = (): Root => {
+    if (reactRoot) return reactRoot;
+    if (!contentEl) ensureElement();
+    reactRoot = createRoot(contentEl!);
+    return reactRoot;
+  };
+
+  const positionOverMain = (el: HTMLDivElement) => {
     const main = document.querySelector("main") as HTMLElement | null;
     if (!main) {
       el.style.left = "0";
@@ -192,15 +182,12 @@ function createOverlayController(): OverlayController {
   const mainHasSkeleton = (): boolean => {
     const main = document.querySelector("main");
     if (!main) return false;
-    // Our own overlay is outside main (attached to body), so it won't match.
-    // Per-screen skeletons render inside main with role="status".
     return !!main.querySelector('[role="status"][aria-live="polite"]');
   };
 
   const mainHasContent = (): boolean => {
     const main = document.querySelector("main");
     if (!main) return false;
-    // Any element that isn't a skeleton counts as "real content".
     const children = main.querySelectorAll("*");
     for (const child of Array.from(children)) {
       if (child.getAttribute("role") === "status") continue;
@@ -230,12 +217,19 @@ function createOverlayController(): OverlayController {
 
   const controller: OverlayController = {
     show(path: string) {
-      targetPath = path;
       urlCommitted = false;
       const el = ensureElement();
-      positionOverOfMain(el);
+      positionOverMain(el);
       if (!el.isConnected) document.body.appendChild(el);
       document.body.setAttribute("data-navigating", "true");
+
+      // Render the right variant synchronously so first paint of the overlay
+      // already contains the skeleton markup (no empty background flash).
+      const variant = routeToVariant(path);
+      const root = ensureRoot();
+      flushSync(() => {
+        root.render(<ScreenSkeleton variant={variant} />);
+      });
 
       if (safetyTimer !== null) window.clearTimeout(safetyTimer);
       safetyTimer = window.setTimeout(() => {
@@ -245,9 +239,6 @@ function createOverlayController(): OverlayController {
     markCommitted() {
       urlCommitted = true;
       startMainObserver();
-      // After commit, give React one frame to mount the new tree before we
-      // start checking. Otherwise we'd race past the brief moment where
-      // the new <main> is empty.
       if (pendingFrame !== null) cancelAnimationFrame(pendingFrame);
       pendingFrame = requestAnimationFrame(() => {
         pendingFrame = requestAnimationFrame(() => {
@@ -270,8 +261,9 @@ function createOverlayController(): OverlayController {
       }
       if (element && element.isConnected) element.remove();
       document.body.removeAttribute("data-navigating");
-      targetPath = null;
       urlCommitted = false;
+      // Don't unmount the React root — we'll re-use it on the next navigation
+      // to avoid recreating it each time.
     },
   };
   return controller;
@@ -323,7 +315,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
   }, [setPendingNavigation]);
 
   // Patch router.push / router.replace once so programmatic navigations
-  // (redirects, workspace switches, logout, etc.) also trigger the overlay.
+  // also trigger the overlay.
   useEffect(() => {
     const origPush = router.push.bind(router);
     const origReplace = router.replace.bind(router);
@@ -349,9 +341,8 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
     };
   }, [router, setPendingNavigation]);
 
-  // When pathname catches up with the target, notify the overlay that the
-  // URL has committed; it will wait for <main> to stop showing skeletons
-  // and then hide itself.
+  // When the URL catches up with the target, tell the overlay so it can
+  // wait for <main> to stop rendering skeletons and then hide itself.
   useEffect(() => {
     if (!pendingNavPath || !pathname) return;
     if (samePath(pendingNavPath, pathname)) {
