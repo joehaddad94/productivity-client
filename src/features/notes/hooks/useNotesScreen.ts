@@ -17,6 +17,11 @@ import type { Note } from "@/lib/types";
 import type { NoteUpdateChanges, UseNotesScreenResult } from "../model/types";
 
 type NoteListCache = { notes: Note[]; total: number };
+type PendingDeleteEntry = {
+  timer: ReturnType<typeof setTimeout>;
+  note: Note;
+  wasSelected: boolean;
+};
 
 export function useNotesScreen(): UseNotesScreenResult {
   const { currentWorkspace } = useWorkspace();
@@ -30,9 +35,7 @@ export function useNotesScreen(): UseNotesScreenResult {
   const [limit, setLimit] = useState(50);
   const createStartRef = useRef<number | null>(null);
   const noteSelectStartRef = useRef<number | null>(null);
-  const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(
-    new Map()
-  );
+  const pendingDeletes = useRef<Map<string, PendingDeleteEntry>>(new Map());
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
@@ -161,6 +164,9 @@ export function useNotesScreen(): UseNotesScreenResult {
 
   const handleDelete = useCallback(
     (id: string) => {
+      const deletedNote = notes.find((n) => n.id === id);
+      if (!deletedNote) return;
+
       queryClient.setQueriesData<NoteListCache>(
         { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
         (old) =>
@@ -169,6 +175,7 @@ export function useNotesScreen(): UseNotesScreenResult {
             : old
       );
 
+      const wasSelected = selectedNoteId === id;
       if (selectedNoteId === id) {
         setSelectedNoteId(notes.find((n) => n.id !== id)?.id ?? null);
       }
@@ -177,18 +184,39 @@ export function useNotesScreen(): UseNotesScreenResult {
         pendingDeletes.current.delete(id);
         deleteMutation.mutate(id);
       }, 5000);
-      pendingDeletes.current.set(id, timer);
+      pendingDeletes.current.set(id, {
+        timer,
+        note: deletedNote,
+        wasSelected,
+      });
 
       toast.success("Note deleted", {
         duration: 5000,
         action: {
           label: "Undo",
           onClick: () => {
-            const t = pendingDeletes.current.get(id);
-            if (t !== undefined) clearTimeout(t);
+            const pending = pendingDeletes.current.get(id);
+            if (!pending) return;
+            clearTimeout(pending.timer);
             pendingDeletes.current.delete(id);
+
+            // Restore instantly for snappy UX, then revalidate in background.
+            queryClient.setQueriesData<NoteListCache>(
+              { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
+              (old) => {
+                if (!old || !Array.isArray(old.notes)) return old;
+                if (old.notes.some((n) => n.id === id)) return old;
+                return { ...old, notes: [pending.note, ...old.notes], total: old.total + 1 };
+              }
+            );
+
+            if (pending.wasSelected) {
+              setSelectedNoteId(id);
+            }
+
             queryClient.invalidateQueries({
               queryKey: NOTES_QUERY_KEY(workspaceId ?? ""),
+              refetchType: "inactive",
             });
           },
         },
