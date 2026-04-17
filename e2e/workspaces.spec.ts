@@ -65,6 +65,28 @@ test.describe('Workspaces', () => {
     await pwItem.getByRole('button', { name: /^switch$/i }).click();
   });
 
+  test('newly created workspace is selected and can create task immediately', async ({ page }) => {
+    const wsName = `Auto Select ${Date.now()}`;
+    const taskTitle = `Workspace task ${Date.now()}`;
+
+    await goto(page, '/workspaces');
+    await page.getByRole('button', { name: /create workspace/i }).first().click();
+    await page.getByLabel('Name').first().fill(wsName);
+    await page.getByRole('button', { name: /^create$/i }).first().click();
+    await expectToast(page, /workspace created/i);
+
+    // This specifically validates the fix: create should auto-select the new workspace.
+    const wsItem = page.locator('li').filter({ hasText: wsName }).first();
+    await expect(wsItem.getByText(/current/i)).toBeVisible({ timeout: 5_000 });
+
+    await goto(page, '/tasks');
+    await page.getByRole('button', { name: /new task/i }).first().click();
+    await page.getByPlaceholder(/task title/i).first().fill(taskTitle);
+    await page.getByRole('button', { name: /create task/i }).first().click();
+    await expectToast(page, /task created/i);
+    await expect(page.getByText(taskTitle).first()).toBeVisible({ timeout: 8_000 });
+  });
+
   test('delete a workspace', async ({ page }) => {
     // Create a workspace specifically to delete
     await goto(page, '/workspaces');
