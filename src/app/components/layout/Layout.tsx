@@ -25,6 +25,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     sidebarOpen,
     toggleSidebar,
     closeSidebar,
+    activePath,
+    setPendingNavigation,
     pathname,
     theme,
     toggleTheme,
@@ -92,13 +94,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
           const Icon = item.icon;
           const isActive =
             item.path === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname?.startsWith(item.path) ?? false;
+              ? activePath === "/dashboard"
+              : activePath?.startsWith(item.path) ?? false;
           return (
             <Link
               key={item.path}
               href={item.path}
-              onClick={closeSidebar}
+              onClick={() => {
+                setPendingNavigation(item.path);
+                closeSidebar();
+              }}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors",
                 isActive

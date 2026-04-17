@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/app/context/AuthContext";
@@ -17,6 +17,8 @@ function isAuthOrFocusRoute(pathname: string) {
 export function useLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
+  const pendingNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -27,6 +29,7 @@ export function useLayout() {
   // When pathname is unknown (null/empty), treat as auth so we don't show sidebar with wrong loader.
   // App routes (e.g. /notes, /workspace when authenticated): show sidebar so loaders/skeleton appear with navbars.
   const path = pathname ?? "";
+  const activePath = pendingNavPath ?? path;
   const showSidebar = useMemo(
     () =>
       path !== "" &&
@@ -68,6 +71,28 @@ export function useLayout() {
     }
   }, [redirectingToLogin, redirectingToWorkspace, router]);
 
+  useEffect(() => {
+    if (!pendingNavPath || !path) return;
+    const isResolved =
+      pendingNavPath === "/dashboard"
+        ? path === "/dashboard"
+        : path.startsWith(pendingNavPath);
+    if (isResolved) {
+      setPendingNavPath(null);
+    }
+  }, [pendingNavPath, path]);
+
+  useEffect(() => {
+    if (!pendingNavPath) return;
+    if (pendingNavTimerRef.current) clearTimeout(pendingNavTimerRef.current);
+    pendingNavTimerRef.current = setTimeout(() => {
+      setPendingNavPath(null);
+    }, 12000);
+    return () => {
+      if (pendingNavTimerRef.current) clearTimeout(pendingNavTimerRef.current);
+    };
+  }, [pendingNavPath]);
+
   const handleLogout = useCallback(async () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
@@ -84,6 +109,9 @@ export function useLayout() {
 
   const toggleSidebar = useCallback(() => setSidebarOpen((prev) => !prev), []);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const setPendingNavigation = useCallback((targetPath: string) => {
+    setPendingNavPath(targetPath);
+  }, []);
   const toggleTheme = useCallback(() => {
     setTheme(theme === "dark" ? "light" : "dark");
   }, [setTheme, theme]);
@@ -97,6 +125,8 @@ export function useLayout() {
     sidebarOpen,
     toggleSidebar,
     closeSidebar,
+    activePath,
+    setPendingNavigation,
     pathname,
     theme,
     toggleTheme,
