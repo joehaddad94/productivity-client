@@ -26,6 +26,7 @@ export function useNotesScreen(): UseNotesScreenResult {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [shouldFetchTasks, setShouldFetchTasks] = useState(false);
   const [limit, setLimit] = useState(50);
   const createStartRef = useRef<number | null>(null);
   const noteSelectStartRef = useRef<number | null>(null);
@@ -41,7 +42,13 @@ export function useNotesScreen(): UseNotesScreenResult {
     limit,
   });
 
-  const { data: tasksPage } = useTasksQuery(workspaceId);
+  const { data: tasksPage, isLoading: tasksLoading } = useTasksQuery(
+    workspaceId,
+    undefined,
+    {
+      enabled: !!workspaceId && shouldFetchTasks,
+    }
+  );
   const allTasks = tasksPage?.tasks ?? [];
   const notes = page?.notes ?? [];
   const total = page?.total ?? 0;
@@ -125,6 +132,10 @@ export function useNotesScreen(): UseNotesScreenResult {
     },
     [updateMutation]
   );
+
+  const ensureTasksLoaded = useCallback(() => {
+    setShouldFetchTasks(true);
+  }, []);
 
   const createTaskMutation = useCreateTaskMutation(workspaceId);
 
@@ -225,6 +236,7 @@ export function useNotesScreen(): UseNotesScreenResult {
     notes,
     total,
     allTasks,
+    tasksLoading,
     selectedNote,
     isLoading,
     error: error as Error | null,
@@ -234,6 +246,7 @@ export function useNotesScreen(): UseNotesScreenResult {
     handleUpdate,
     handleTagsChange,
     handleLinkTask,
+    ensureTasksLoaded,
     handleConvertToTask,
     handleDelete,
     handleLoadMore,

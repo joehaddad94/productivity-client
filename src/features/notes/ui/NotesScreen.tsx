@@ -21,6 +21,7 @@ export function NotesScreen() {
     notes,
     total,
     allTasks,
+    tasksLoading,
     selectedNote,
     isLoading,
     error,
@@ -31,6 +32,7 @@ export function NotesScreen() {
     handleUpdate,
     handleTagsChange,
     handleLinkTask,
+    ensureTasksLoaded,
     handleConvertToTask,
     handleLoadMore,
   } = useNotesScreen();
@@ -137,8 +139,10 @@ export function NotesScreen() {
             onUpdate={handleUpdate}
             onTagsChange={handleTagsChange}
             onLinkTask={handleLinkTask}
+            onOpenTaskPicker={ensureTasksLoaded}
             onConvertToTask={handleConvertToTask}
             isSaving={updateIsPending}
+            tasksLoading={tasksLoading}
             tasks={allTasks}
           />
         ) : (

@@ -29,7 +29,9 @@ function NotificationBellComponent() {
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
 
-  const { data: notifications = [] } = useNotificationsQuery(workspaceId);
+  const { data: notifications = [], isLoading } = useNotificationsQuery(workspaceId, {
+    enabled: open,
+  });
   const { data: unreadCount = 0 } = useUnreadCountQuery(workspaceId);
   const markRead = useMarkReadMutation(workspaceId);
   const markAllRead = useMarkAllReadMutation(workspaceId);
@@ -131,7 +133,12 @@ function NotificationBellComponent() {
 
           {/* List */}
           <div className="max-h-96 overflow-y-auto">
-            {notifications.length === 0 ? (
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
+                <Bell className="size-8 opacity-30 animate-pulse" />
+                <p className="text-sm">Loading notifications...</p>
+              </div>
+            ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
                 <Bell className="size-8 opacity-30" />
                 <p className="text-sm">No notifications</p>
