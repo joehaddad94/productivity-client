@@ -1,8 +1,9 @@
 "use client";
 
-import { Loader2, Zap } from "lucide-react";
+import { Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { ActivityHeatmap } from "@/app/components/ActivityHeatmap";
+import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 import {
   BarChart,
   Bar,
@@ -67,18 +68,16 @@ export function AnalyticsScreen() {
     heatmapData,
   } = useAnalyticsScreen();
 
+  if (isLoading) {
+    return <ScreenSkeleton variant="analytics" />;
+  }
+
   return (
     <div className="max-w-5xl space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
-
-      {isLoading && (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
-        </div>
-      )}
       {error && <p className="text-sm text-destructive py-8 text-center">Failed to load analytics</p>}
 
-      {!isLoading && !error && (
+      {!error && (
         <>
           {/* Compact stat row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

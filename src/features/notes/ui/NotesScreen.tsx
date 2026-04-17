@@ -5,6 +5,7 @@ import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
 import { cn } from "@/app/components/ui/utils";
+import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 import { useNotesScreen } from "../hooks/useNotesScreen";
 import { NoteEditor } from "./NoteEditor";
 
@@ -36,6 +37,10 @@ export function NotesScreen() {
     handleConvertToTask,
     handleLoadMore,
   } = useNotesScreen();
+
+  if (isLoading) {
+    return <ScreenSkeleton variant="notes" />;
+  }
 
   return (
     <div className="flex flex-col lg:flex-row gap-0 h-[calc(100vh-5rem)] -m-5 lg:-m-6">
@@ -89,13 +94,8 @@ export function NotesScreen() {
 
         {/* Note list */}
         <div className="flex-1 overflow-y-auto py-1">
-          {isLoading && (
-            <div className="space-y-1 px-3 py-2">
-              {[1, 2, 3, 4].map((i) => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}
-            </div>
-          )}
           {error && <p className="text-xs text-destructive text-center py-4">Failed to load</p>}
-          {!isLoading && !error && notes.length === 0 && (
+          {!error && notes.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <FileText className="size-8 text-muted-foreground/30 mb-3" />
               <p className="text-xs text-muted-foreground">No notes yet</p>
@@ -104,7 +104,7 @@ export function NotesScreen() {
               </Button>
             </div>
           )}
-          {!isLoading && !error && notes.map((note) => (
+          {!error && notes.map((note) => (
             <div key={note.id} className="relative group px-2">
               <NoteCard
                 note={note}
@@ -120,7 +120,7 @@ export function NotesScreen() {
               </button>
             </div>
           ))}
-          {!isLoading && notes.length < total && (
+          {!error && notes.length < total && (
             <button
               onClick={handleLoadMore}
               className="w-full text-[11px] text-center py-2 text-muted-foreground hover:text-foreground"
