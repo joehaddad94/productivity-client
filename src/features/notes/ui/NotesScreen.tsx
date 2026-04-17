@@ -113,7 +113,7 @@ export function NotesScreen() {
               />
               <button
                 onClick={(e) => { e.stopPropagation(); handleDelete(note.id); }}
-                className="absolute top-3 right-4 opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all"
+                className="absolute bottom-2 right-4 opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all"
                 title="Delete note"
               >
                 <Trash2 className="size-3.5" />

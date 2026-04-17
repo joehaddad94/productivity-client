@@ -29,7 +29,7 @@ function NoteCardComponent({ note, isActive, onSelect }: NoteCardProps) {
     <div
       onClick={() => onSelect(note.id)}
       className={cn(
-        "px-3 py-2.5 rounded-lg cursor-pointer transition-colors",
+        "px-3 py-2.5 pr-10 rounded-lg cursor-pointer transition-colors",
         isActive
           ? "bg-muted"
           : "hover:bg-muted/50",

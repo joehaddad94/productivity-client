@@ -23,6 +23,8 @@ const TYPE_CONFIG: Record<AppNotification["type"], { icon: React.ElementType; co
 
 function NotificationBellComponent() {
   const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+  const [openToRight, setOpenToRight] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -53,6 +55,19 @@ function NotificationBellComponent() {
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !buttonRef.current) return;
+    const buttonRect = buttonRef.current.getBoundingClientRect();
+    const spaceAbove = buttonRect.top;
+    const spaceBelow = window.innerHeight - buttonRect.bottom;
+    const spaceLeft = buttonRect.left;
+    const spaceRight = window.innerWidth - buttonRect.right;
+    const preferredPanelHeight = 360;
+    const preferredPanelWidth = 320;
+    setOpenUpward(spaceBelow < preferredPanelHeight && spaceAbove > spaceBelow);
+    setOpenToRight(spaceRight >= preferredPanelWidth || spaceRight > spaceLeft);
   }, [open]);
 
   function handleOpen() {
@@ -87,7 +102,9 @@ function NotificationBellComponent() {
         <div
           ref={panelRef}
           className={cn(
-            "absolute right-0 top-10 z-50 w-80 rounded-xl overflow-hidden",
+            "absolute z-50 w-80 rounded-xl overflow-hidden",
+            openUpward ? "bottom-full mb-2" : "top-10",
+            openToRight ? "left-0" : "right-0",
             "bg-card border border-border",
             "shadow-lg"
           )}
