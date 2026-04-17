@@ -33,6 +33,7 @@ export function useNotesScreen(): UseNotesScreenResult {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [shouldFetchTasks, setShouldFetchTasks] = useState(false);
   const [limit, setLimit] = useState(50);
+  const pendingCreateTempIdsRef = useRef<Set<string>>(new Set());
   const createStartRef = useRef<number | null>(null);
   const noteSelectStartRef = useRef<number | null>(null);
   const pendingDeletes = useRef<Map<string, PendingDeleteEntry>>(new Map());
@@ -61,7 +62,7 @@ export function useNotesScreen(): UseNotesScreenResult {
   );
 
   const createMutation = useCreateNoteMutation(workspaceId, {
-    onSuccess: (note) => {
+    onSuccess: (note, variables) => {
       if (createStartRef.current !== null && typeof window !== "undefined") {
         const e2eMs = Math.round((performance.now() - createStartRef.current) * 10) / 10;
         console.log("[notes-timing] e2e:create-note-until-mutation-success:", e2eMs, "ms", {
@@ -69,10 +70,23 @@ export function useNotesScreen(): UseNotesScreenResult {
           workspaceId,
         });
       }
-      setSelectedNoteId(note.id);
+      if (variables.clientTempId) {
+        pendingCreateTempIdsRef.current.delete(variables.clientTempId);
+      }
+      setSelectedNoteId((current) =>
+        current && current === variables.clientTempId ? note.id : current ?? note.id
+      );
       toast.success("Note created");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err, variables) => {
+      if (variables.clientTempId) {
+        pendingCreateTempIdsRef.current.delete(variables.clientTempId);
+        setSelectedNoteId((current) =>
+          current === variables.clientTempId ? notes[0]?.id ?? null : current
+        );
+      }
+      toast.error(err.message);
+    },
   });
 
   const updateMutation = useUpdateNoteMutation(workspaceId, {
@@ -98,10 +112,13 @@ export function useNotesScreen(): UseNotesScreenResult {
 
   const handleCreateNote = () => {
     if (!workspaceId) return;
+    const tempId = `temp:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+    pendingCreateTempIdsRef.current.add(tempId);
+    setSelectedNoteId(tempId);
     if (typeof window !== "undefined") {
       createStartRef.current = performance.now();
     }
-    createMutation.mutate({ title: "Untitled Note", tags: [] });
+    createMutation.mutate({ title: "Untitled Note", tags: [], clientTempId: tempId });
   };
 
   const handleSelectNote = useCallback((id: string | null) => {

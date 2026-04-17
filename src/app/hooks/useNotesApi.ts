@@ -21,8 +21,16 @@ export const NOTES_QUERY_KEY = (workspaceId: string) =>
 export const NOTE_QUERY_KEY = (workspaceId: string, id: string) =>
   ["notes", workspaceId, id] as const;
 
+type CreateNoteMutationInput = CreateNoteBody & { clientTempId?: string };
+type CreateNoteMutationContext = {
+  previousPages: Array<[readonly unknown[], NotesPage | undefined]>;
+  tempId: string;
+};
+
 function upsertNoteInPages(page: NotesPage | undefined, note: Note): NotesPage | undefined {
-  if (!page || !Array.isArray(page.notes)) return page;
+  if (!page || !Array.isArray(page.notes)) {
+    return { notes: [note], total: 1 };
+  }
   const existingIndex = page.notes.findIndex((n) => n.id === note.id);
   if (existingIndex >= 0) {
     const next = [...page.notes];
@@ -41,6 +49,21 @@ function removeNoteFromPages(page: NotesPage | undefined, id: string): NotesPage
     notes: page.notes.filter((n) => n.id !== id),
     total: Math.max(0, page.total - 1),
   };
+}
+
+function replaceTempNoteInPages(
+  page: NotesPage | undefined,
+  tempId: string,
+  note: Note
+): NotesPage | undefined {
+  if (!page || !Array.isArray(page.notes)) return page;
+  const tempIndex = page.notes.findIndex((n) => n.id === tempId);
+  if (tempIndex >= 0) {
+    const next = [...page.notes];
+    next[tempIndex] = note;
+    return { ...page, notes: next };
+  }
+  return upsertNoteInPages(page, note);
 }
 
 export function useNotesQuery(
@@ -75,22 +98,93 @@ export function useNoteQuery(
 
 export function useCreateNoteMutation(
   workspaceId: string | null | undefined,
-  options?: UseMutationOptions<Note, Error, CreateNoteBody>
+  options?: UseMutationOptions<Note, Error, CreateNoteMutationInput>
 ) {
   const queryClient = useQueryClient();
+  const workspaceKey = workspaceId ?? "";
   return useMutation({
-    mutationFn: (body: CreateNoteBody) => notesApi.create(workspaceId!, body),
+    mutationFn: ({ clientTempId: _clientTempId, ...body }: CreateNoteMutationInput) =>
+      notesApi.create(workspaceId!, body),
     ...options,
+    onMutate: async (variables) => {
+      const tempId = variables.clientTempId ?? `temp:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+      const now = new Date().toISOString();
+      const tempNote: Note = {
+        id: tempId,
+        workspaceId: workspaceKey,
+        title: variables.title,
+        content: variables.content ?? "",
+        tags: variables.tags ?? [],
+        projectId: variables.projectId ?? null,
+        taskId: variables.taskId ?? null,
+        assigneeId: variables.assigneeId ?? null,
+        status: variables.status ?? null,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await queryClient.cancelQueries({
+        queryKey: NOTES_QUERY_KEY(workspaceKey),
+      });
+      const previousPages = queryClient.getQueriesData<NotesPage>({
+        queryKey: NOTES_QUERY_KEY(workspaceKey),
+      });
+      queryClient.setQueriesData<NotesPage>(
+        { queryKey: NOTES_QUERY_KEY(workspaceKey) },
+        (old) => upsertNoteInPages(old, tempNote)
+      );
+      queryClient.setQueryData(NOTE_QUERY_KEY(workspaceKey, tempId), tempNote);
+
+      const context: CreateNoteMutationContext = { previousPages, tempId };
+      return context;
+    },
     onSuccess: (data, variables, context, mutation) => {
-      options?.onSuccess?.(data, variables, context, mutation);
       queryClient.setQueryData(
-        NOTE_QUERY_KEY(workspaceId ?? "", data.id),
+        NOTE_QUERY_KEY(workspaceKey, data.id),
         data
       );
       queryClient.setQueriesData<NotesPage>(
-        { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
-        (old) => upsertNoteInPages(old, data)
+        { queryKey: NOTES_QUERY_KEY(workspaceKey) },
+        (old) =>
+          replaceTempNoteInPages(
+            old,
+            (context as CreateNoteMutationContext | undefined)?.tempId ??
+              variables.clientTempId ??
+              "",
+            data
+          )
       );
+      const tempId =
+        (context as CreateNoteMutationContext | undefined)?.tempId ??
+        variables.clientTempId;
+      if (tempId) {
+        queryClient.removeQueries({
+          queryKey: NOTE_QUERY_KEY(workspaceKey, tempId),
+        });
+      }
+      options?.onSuccess?.(data, variables, context, mutation);
+    },
+    onError: (error, variables, context, mutation) => {
+      const createContext = context as CreateNoteMutationContext | undefined;
+      if (createContext?.previousPages) {
+        for (const [key, data] of createContext.previousPages) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+      const tempId = createContext?.tempId ?? variables.clientTempId;
+      if (tempId) {
+        queryClient.removeQueries({
+          queryKey: NOTE_QUERY_KEY(workspaceKey, tempId),
+        });
+      }
+      options?.onError?.(error, variables, context, mutation);
+    },
+    onSettled: (data, error, variables, context, mutation) => {
+      queryClient.invalidateQueries({
+        queryKey: NOTES_QUERY_KEY(workspaceKey),
+        refetchType: "inactive",
+      });
+      options?.onSettled?.(data, error, variables, context, mutation);
     },
   });
 }
