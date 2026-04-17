@@ -88,7 +88,7 @@ function GenericSkeleton({ className }: { className?: string }) {
 function NotesSkeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn("flex flex-col lg:flex-row gap-0 h-[calc(100vh-5rem)] -m-5 lg:-m-6", className)}
+      className={cn("flex flex-col lg:flex-row gap-0 h-[calc(100vh-3rem)] lg:h-screen -m-5 lg:-m-6", className)}
       role="status"
       aria-live="polite"
     >

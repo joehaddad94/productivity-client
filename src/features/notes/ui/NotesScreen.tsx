@@ -43,7 +43,7 @@ export function NotesScreen() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-0 h-[calc(100vh-5rem)] -m-5 lg:-m-6">
+    <div className="flex flex-col lg:flex-row gap-0 h-[calc(100vh-3rem)] lg:h-screen -m-5 lg:-m-6">
       {/* Sidebar */}
       <div className="lg:w-64 xl:w-72 flex-shrink-0 flex flex-col border-r border-border/60 bg-[var(--sidebar-bg)]">
         {/* Header */}
