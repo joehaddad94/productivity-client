@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
-import { AUTH_PATHS } from "@/app/components/layout/types";
+import { isAuthOrFocusRoute } from "@/app/components/layout/types";
 
 /**
  * Root loading UI: auth loader (full screen) on auth routes,
@@ -14,7 +14,7 @@ import { AUTH_PATHS } from "@/app/components/layout/types";
 export function RouteAwareLoading() {
   const pathname = usePathname();
   const isAuthRoute =
-    pathname == null || pathname === "" || AUTH_PATHS.includes(pathname);
+    pathname == null || pathname === "" || isAuthOrFocusRoute(pathname);
 
   if (isAuthRoute) {
     return <ScreenLoader variant="auth" message="Loading…" />;

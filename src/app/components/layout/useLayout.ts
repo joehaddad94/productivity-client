@@ -6,13 +6,7 @@ import { useTheme } from "next-themes";
 import { useAuth } from "@/app/context/AuthContext";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { toast } from "sonner";
-import { AUTH_PATHS, FOCUS_PATH_PREFIX, WORKSPACE_GATE_PATH } from "./types";
-
-function isAuthOrFocusRoute(pathname: string) {
-  if (AUTH_PATHS.some((p) => pathname === p)) return true;
-  if (pathname.startsWith(FOCUS_PATH_PREFIX)) return true;
-  return false;
-}
+import { isAuthOrFocusRoute, WORKSPACE_GATE_PATH } from "./types";
 
 export function useLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
