@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { memo, useState, useRef, useEffect } from "react";
 import { Bell, Check, CheckCheck, Trash2, X, CalendarClock, AlertCircle, Calendar } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/app/components/ui/utils";
@@ -21,7 +21,7 @@ const TYPE_CONFIG: Record<AppNotification["type"], { icon: React.ElementType; co
   daily_agenda: { icon: Calendar, color: "text-primary" },
 };
 
-export function NotificationBell() {
+function NotificationBellComponent() {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -193,3 +193,5 @@ export function NotificationBell() {
     </div>
   );
 }
+
+export const NotificationBell = memo(NotificationBellComponent);
