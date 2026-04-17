@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -11,10 +11,16 @@ import {
   useNotesQuery,
   useUpdateNoteMutation,
 } from "@/app/hooks/useNotesApi";
+import { useWorkspaceTagsQuery } from "@/app/hooks/useTagsApi";
+import { useNoteTagBatcher } from "@/app/hooks/useNoteTagBatcher";
 import { useCreateTaskMutation, useTasksQuery } from "@/app/hooks/useTasksApi";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import type { Note } from "@/lib/types";
-import type { NoteUpdateChanges, UseNotesScreenResult } from "../model/types";
+import type {
+  NoteUpdateChanges,
+  TagMode,
+  UseNotesScreenResult,
+} from "../model/types";
 
 type NoteListCache = { notes: Note[]; total: number };
 type PendingDeleteEntry = {
@@ -30,7 +36,8 @@ export function useNotesScreen(): UseNotesScreenResult {
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedTags, setSelectedTagsState] = useState<string[]>([]);
+  const [tagMode, setTagModeState] = useState<TagMode>("all");
   const [shouldFetchTasks, setShouldFetchTasks] = useState(false);
   const [limit, setLimit] = useState(50);
   const pendingCreateTempIdsRef = useRef<Set<string>>(new Set());
@@ -42,9 +49,12 @@ export function useNotesScreen(): UseNotesScreenResult {
 
   const { data: page, isLoading, error } = useNotesQuery(workspaceId, {
     search: debouncedSearch || undefined,
-    tags: selectedTag ?? undefined,
+    tags: selectedTags.length ? selectedTags : undefined,
+    tagMode: selectedTags.length >= 2 ? tagMode : undefined,
     limit,
   });
+
+  const { data: workspaceTags = [] } = useWorkspaceTagsQuery(workspaceId);
 
   const { data: tasksPage, isLoading: tasksLoading } = useTasksQuery(
     workspaceId,
@@ -56,10 +66,6 @@ export function useNotesScreen(): UseNotesScreenResult {
   const allTasks = tasksPage?.tasks ?? [];
   const notes = page?.notes ?? [];
   const total = page?.total ?? 0;
-  const allTags = useMemo(
-    () => Array.from(new Set(notes.flatMap((n) => n.tags ?? []))).sort(),
-    [notes]
-  );
 
   const createMutation = useCreateNoteMutation(workspaceId, {
     onSuccess: (note, variables) => {
@@ -92,6 +98,8 @@ export function useNotesScreen(): UseNotesScreenResult {
   const updateMutation = useUpdateNoteMutation(workspaceId, {
     onError: (err) => toast.error(err.message),
   });
+
+  const tagBatcher = useNoteTagBatcher(workspaceId);
 
   const deleteMutation = useDeleteNoteMutation(workspaceId, {
     onError: (err) => {
@@ -139,11 +147,19 @@ export function useNotesScreen(): UseNotesScreenResult {
     [updateMutation]
   );
 
-  const handleTagsChange = useCallback(
+  const handleAddTags = useCallback(
     (id: string, tags: string[]) => {
-      updateMutation.mutate({ id, body: { tags } });
+      if (!tags.length) return;
+      tagBatcher.enqueueAdd(id, tags);
     },
-    [updateMutation]
+    [tagBatcher]
+  );
+
+  const handleRemoveTag = useCallback(
+    (id: string, tag: string) => {
+      tagBatcher.enqueueRemove(id, tag);
+    },
+    [tagBatcher]
   );
 
   const handleLinkTask = useCallback(
@@ -217,7 +233,6 @@ export function useNotesScreen(): UseNotesScreenResult {
             clearTimeout(pending.timer);
             pendingDeletes.current.delete(id);
 
-            // Restore instantly for snappy UX, then revalidate in background.
             queryClient.setQueriesData<NoteListCache>(
               { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
               (old) => {
@@ -245,6 +260,25 @@ export function useNotesScreen(): UseNotesScreenResult {
   const handleLoadMore = useCallback(() => {
     setLimit((value) => value + 50);
   }, []);
+
+  const setSelectedTags = useCallback((tags: string[]) => {
+    const next = Array.from(
+      new Set(tags.map((t) => t.trim().toLowerCase()).filter(Boolean)),
+    );
+    setSelectedTagsState(next);
+  }, []);
+
+  const toggleTag = useCallback((tag: string) => {
+    const normalized = tag.trim().toLowerCase();
+    if (!normalized) return;
+    setSelectedTagsState((current) =>
+      current.includes(normalized)
+        ? current.filter((t) => t !== normalized)
+        : [...current, normalized],
+    );
+  }, []);
+
+  const setTagMode = useCallback((mode: TagMode) => setTagModeState(mode), []);
 
   useEffect(() => {
     if (createStartRef.current === null || createMutation.isPending || isLoading) return;
@@ -275,9 +309,12 @@ export function useNotesScreen(): UseNotesScreenResult {
     setSelectedNoteId: handleSelectNote,
     searchQuery,
     setSearchQuery,
-    selectedTag,
-    setSelectedTag,
-    allTags,
+    selectedTags,
+    setSelectedTags,
+    toggleTag,
+    tagMode,
+    setTagMode,
+    allTags: workspaceTags,
     notes,
     total,
     allTasks,
@@ -286,10 +323,11 @@ export function useNotesScreen(): UseNotesScreenResult {
     isLoading,
     error: error as Error | null,
     createIsPending: createMutation.isPending,
-    updateIsPending: updateMutation.isPending,
+    updateIsPending: updateMutation.isPending || tagBatcher.isPending,
     handleCreateNote,
     handleUpdate,
-    handleTagsChange,
+    handleAddTags,
+    handleRemoveTag,
     handleLinkTask,
     ensureTasksLoaded,
     handleConvertToTask,

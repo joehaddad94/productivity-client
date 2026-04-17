@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   Bold,
   Italic,
@@ -9,21 +9,25 @@ import {
   List,
   ListOrdered,
   Loader2,
-  Plus,
   Unlink,
-  X,
 } from "lucide-react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import { toast } from "sonner";
 import { cn } from "@/app/components/ui/utils";
+import { TagChip } from "@/app/components/tags/TagChip";
+import { TagInput } from "@/app/components/tags/TagInput";
 import type { NoteEditorProps } from "../model/types";
 
 export function NoteEditor({
   note,
+  existingTags,
   onUpdate,
-  onTagsChange,
+  onAddTags,
+  onRemoveTag,
+  onTagClick,
   onLinkTask,
   onOpenTaskPicker,
   onConvertToTask,
@@ -32,12 +36,11 @@ export function NoteEditor({
   tasks,
 }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
-  const [isAddingTag, setIsAddingTag] = useState(false);
-  const [tagInput, setTagInput] = useState("");
   const [showTaskPicker, setShowTaskPicker] = useState(false);
   const contentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const paneRef = useRef<HTMLDivElement>(null);
   const linkedTask = tasks.find((t) => t.id === note.taskId) ?? null;
 
   const editor = useEditor({
@@ -65,8 +68,6 @@ export function NoteEditor({
     }
     setTitle(note.title);
     setShowTaskPicker(false);
-    setIsAddingTag(false);
-    setTagInput("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 
@@ -75,6 +76,19 @@ export function NoteEditor({
       if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
       if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
     };
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!event.altKey) return;
+      if (event.key !== "t" && event.key !== "T") return;
+      const input = tagInputRef.current;
+      if (!input) return;
+      event.preventDefault();
+      input.focus();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
   }, []);
 
   const handleTitleChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -95,77 +109,53 @@ export function NoteEditor({
     }
   };
 
+  const handleAdd = useCallback(
+    (tags: string[]) => {
+      onAddTags(note.id, tags);
+    },
+    [note.id, onAddTags],
+  );
+
+  const handleRemove = useCallback(
+    (tag: string) => {
+      onRemoveTag(note.id, tag);
+      toast.success(`Removed "${tag}"`, {
+        duration: 5000,
+        action: {
+          label: "Undo",
+          onClick: () => onAddTags(note.id, [tag]),
+        },
+      });
+    },
+    [note.id, onAddTags, onRemoveTag],
+  );
+
   return (
-    <div className="flex flex-col h-full">
-      {/* Fixed toolbar */}
+    <div ref={paneRef} tabIndex={-1} className="flex flex-col h-full outline-none">
       <div className="flex items-center justify-between gap-3 px-5 py-2.5 border-b border-border/40 shrink-0">
-        {/* Tags */}
-        <div className="flex flex-wrap gap-1.5 items-center flex-1 min-w-0">
+        <div
+          className="flex flex-wrap gap-1.5 items-center flex-1 min-w-0"
+          data-testid="editor-tag-row"
+        >
           {note.tags?.map((tag) => (
-            <span
+            <TagChip
               key={tag}
-              className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
-            >
-              {tag}
-              <button
-                onClick={() =>
-                  onTagsChange(note.id, (note.tags ?? []).filter((t) => t !== tag))
-                }
-                className="hover:text-destructive transition-colors"
-                title={`Remove tag "${tag}"`}
-              >
-                <X className="size-2.5" />
-              </button>
-            </span>
-          ))}
-          {isAddingTag ? (
-            <input
-              ref={tagInputRef}
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  const tag = tagInput.trim().toLowerCase();
-                  if (tag && !(note.tags ?? []).includes(tag)) {
-                    onTagsChange(note.id, [...(note.tags ?? []), tag]);
-                  }
-                  setTagInput("");
-                  setIsAddingTag(false);
-                }
-                if (e.key === "Escape") {
-                  setTagInput("");
-                  setIsAddingTag(false);
-                }
-              }}
-              onBlur={() => {
-                const tag = tagInput.trim().toLowerCase();
-                if (tag && !(note.tags ?? []).includes(tag)) {
-                  onTagsChange(note.id, [...(note.tags ?? []), tag]);
-                }
-                setTagInput("");
-                setIsAddingTag(false);
-              }}
-              placeholder="tag name…"
-              className="text-[11px] px-2 py-0.5 rounded-full border border-primary/40 bg-primary/5 focus:outline-none focus:border-primary w-24"
-              autoFocus
+              tag={tag}
+              size="sm"
+              onClick={onTagClick ? (t) => onTagClick(t) : undefined}
+              onRemove={handleRemove}
             />
-          ) : (
-            <button
-              onClick={() => {
-                setIsAddingTag(true);
-                setTimeout(() => tagInputRef.current?.focus(), 0);
-              }}
-              className="text-[10px] text-muted-foreground/60 hover:text-primary flex items-center gap-0.5 transition-colors"
-              title="Add tag"
-            >
-              <Plus className="size-3" />
-              Add tag
-            </button>
-          )}
+          ))}
+          <TagInput
+            ref={tagInputRef}
+            existingTags={existingTags}
+            selectedTags={note.tags ?? []}
+            onAdd={handleAdd}
+            placeholder="Add tag (Alt+T)"
+            dataTestId="editor-tag-input"
+          />
         </div>
 
-        {/* Link task + convert */}
         <div className="relative flex items-center gap-2 shrink-0">
           {!note.taskId && (
             <button
@@ -228,7 +218,6 @@ export function NoteEditor({
         </div>
       </div>
 
-      {/* Editor area */}
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <input
           value={title}
@@ -301,7 +290,6 @@ export function NoteEditor({
         />
       </div>
 
-      {/* Footer */}
       <div className="px-6 py-2.5 border-t border-border/40 shrink-0">
         {isSaving ? (
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">

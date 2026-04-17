@@ -1,11 +1,16 @@
 import type { Note, Task } from "@/lib/types";
+import type { WorkspaceTag } from "@/lib/api/tags-api";
 
 export type NoteUpdateChanges = { title?: string; content?: string };
+export type TagMode = "any" | "all";
 
 export interface NoteEditorProps {
   note: Note;
+  existingTags: string[];
   onUpdate: (id: string, changes: NoteUpdateChanges) => void;
-  onTagsChange: (id: string, tags: string[]) => void;
+  onAddTags: (id: string, tags: string[]) => void;
+  onRemoveTag: (id: string, tag: string) => void;
+  onTagClick?: (tag: string) => void;
   onLinkTask: (id: string, taskId: string | null) => void;
   onOpenTaskPicker?: () => void;
   onConvertToTask: (id: string) => void;
@@ -20,9 +25,12 @@ export interface UseNotesScreenResult {
   setSelectedNoteId: (id: string | null) => void;
   searchQuery: string;
   setSearchQuery: (value: string) => void;
-  selectedTag: string | null;
-  setSelectedTag: (tag: string | null) => void;
-  allTags: string[];
+  selectedTags: string[];
+  setSelectedTags: (tags: string[]) => void;
+  toggleTag: (tag: string) => void;
+  tagMode: TagMode;
+  setTagMode: (mode: TagMode) => void;
+  allTags: WorkspaceTag[];
   notes: Note[];
   total: number;
   allTasks: Task[];
@@ -34,7 +42,8 @@ export interface UseNotesScreenResult {
   updateIsPending: boolean;
   handleCreateNote: () => void;
   handleUpdate: (id: string, changes: NoteUpdateChanges) => void;
-  handleTagsChange: (id: string, tags: string[]) => void;
+  handleAddTags: (id: string, tags: string[]) => void;
+  handleRemoveTag: (id: string, tag: string) => void;
   handleLinkTask: (id: string, taskId: string | null) => void;
   ensureTasksLoaded: () => void;
   handleConvertToTask: (id: string) => void;
