@@ -58,10 +58,13 @@ export function NoteEditor({
     if (editor && note.content !== undefined) {
       const current = editor.getHTML();
       if (current !== (note.content ?? "")) {
-        editor.commands.setContent(note.content ?? "");
+        editor.commands.setContent(note.content ?? "", false);
       }
     }
     setTitle(note.title);
+    setShowTaskPicker(false);
+    setIsAddingTag(false);
+    setTagInput("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 

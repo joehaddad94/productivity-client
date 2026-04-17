@@ -1,10 +1,11 @@
+import { memo, useMemo } from "react";
 import type { Note } from "@/lib/types";
 import { cn } from "./ui/utils";
 
 interface NoteCardProps {
   note: Note;
   isActive?: boolean;
-  onSelect: (note: Note) => void;
+  onSelect: (id: string) => void;
 }
 
 function relativeDate(dateStr: string): string {
@@ -18,12 +19,15 @@ function relativeDate(dateStr: string): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export function NoteCard({ note, isActive, onSelect }: NoteCardProps) {
-  const preview = note.content?.replace(/<[^>]+>/g, "").trim().slice(0, 80) ?? "";
+function NoteCardComponent({ note, isActive, onSelect }: NoteCardProps) {
+  const preview = useMemo(
+    () => note.content?.replace(/<[^>]+>/g, "").trim().slice(0, 80) ?? "",
+    [note.content]
+  );
 
   return (
     <div
-      onClick={() => onSelect(note)}
+      onClick={() => onSelect(note.id)}
       className={cn(
         "px-3 py-2.5 rounded-lg cursor-pointer transition-colors",
         isActive
@@ -50,3 +54,5 @@ export function NoteCard({ note, isActive, onSelect }: NoteCardProps) {
     </div>
   );
 }
+
+export const NoteCard = memo(NoteCardComponent);

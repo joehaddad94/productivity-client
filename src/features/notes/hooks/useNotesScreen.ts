@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -27,16 +27,13 @@ export function useNotesScreen(): UseNotesScreenResult {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [limit, setLimit] = useState(50);
+  const createStartRef = useRef<number | null>(null);
+  const noteSelectStartRef = useRef<number | null>(null);
   const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map()
   );
 
   const debouncedSearch = useDebounce(searchQuery, 300);
-
-  const { data: allNotesPage } = useNotesQuery(workspaceId, { limit: 200 });
-  const allTags = Array.from(
-    new Set((allNotesPage?.notes ?? []).flatMap((n) => n.tags ?? []))
-  ).sort();
 
   const { data: page, isLoading, error } = useNotesQuery(workspaceId, {
     search: debouncedSearch || undefined,
@@ -48,9 +45,20 @@ export function useNotesScreen(): UseNotesScreenResult {
   const allTasks = tasksPage?.tasks ?? [];
   const notes = page?.notes ?? [];
   const total = page?.total ?? 0;
+  const allTags = useMemo(
+    () => Array.from(new Set(notes.flatMap((n) => n.tags ?? []))).sort(),
+    [notes]
+  );
 
   const createMutation = useCreateNoteMutation(workspaceId, {
     onSuccess: (note) => {
+      if (createStartRef.current !== null && typeof window !== "undefined") {
+        const e2eMs = Math.round((performance.now() - createStartRef.current) * 10) / 10;
+        console.log("[notes-timing] e2e:create-note-until-mutation-success:", e2eMs, "ms", {
+          noteId: note.id,
+          workspaceId,
+        });
+      }
       setSelectedNoteId(note.id);
       toast.success("Note created");
     },
@@ -80,8 +88,22 @@ export function useNotesScreen(): UseNotesScreenResult {
 
   const handleCreateNote = () => {
     if (!workspaceId) return;
+    if (typeof window !== "undefined") {
+      createStartRef.current = performance.now();
+    }
     createMutation.mutate({ title: "Untitled Note", tags: [] });
   };
+
+  const handleSelectNote = useCallback((id: string | null) => {
+    if (!id) {
+      setSelectedNoteId(null);
+      return;
+    }
+    if (typeof window !== "undefined") {
+      noteSelectStartRef.current = performance.now();
+    }
+    setSelectedNoteId(id);
+  }, []);
 
   const handleUpdate = useCallback(
     (id: string, changes: NoteUpdateChanges) => {
@@ -168,10 +190,33 @@ export function useNotesScreen(): UseNotesScreenResult {
     setLimit((value) => value + 50);
   }, []);
 
+  useEffect(() => {
+    if (createStartRef.current === null || createMutation.isPending || isLoading) return;
+    if (typeof window === "undefined") return;
+    const uiMs = Math.round((performance.now() - createStartRef.current) * 10) / 10;
+    console.log("[notes-timing] ui:create-note-until-list-settled:", uiMs, "ms", {
+      notesInView: notes.length,
+      total,
+      workspaceId,
+    });
+    createStartRef.current = null;
+  }, [createMutation.isPending, isLoading, notes.length, total, workspaceId]);
+
+  useEffect(() => {
+    if (!selectedNote || noteSelectStartRef.current === null) return;
+    if (typeof window === "undefined") return;
+    const switchMs = Math.round((performance.now() - noteSelectStartRef.current) * 10) / 10;
+    console.log("[notes-timing] switch-note-e2e:", switchMs, "ms", {
+      selectedNoteId: selectedNote.id,
+      workspaceId,
+    });
+    noteSelectStartRef.current = null;
+  }, [selectedNote, workspaceId]);
+
   return {
     workspaceId,
     selectedNoteId,
-    setSelectedNoteId,
+    setSelectedNoteId: handleSelectNote,
     searchQuery,
     setSearchQuery,
     selectedTag,

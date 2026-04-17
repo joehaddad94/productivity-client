@@ -17,6 +17,12 @@ import type { Note } from "@/lib/types";
 const API_BASE =
   (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_URL) || "";
 
+function logClientTiming(label: string, start: number, extra?: Record<string, unknown>) {
+  if (typeof window === "undefined" || process.env.NODE_ENV === "production") return;
+  const ms = Math.round((performance.now() - start) * 10) / 10;
+  console.log(`[notes-timing] ${label}: ${ms}ms`, extra ?? "");
+}
+
 function api(path: string, options: RequestInit = {}) {
   const url = API_BASE ? `${API_BASE}${path}` : path;
   return fetch(url, {
@@ -99,12 +105,17 @@ export const notesApi = {
   },
 
   create: async (workspaceId: string, body: CreateNoteBody): Promise<Note> => {
+    const startedAt = typeof window !== "undefined" ? performance.now() : 0;
     const res = await api(`/workspaces/${workspaceId}/notes`, {
       method: "POST",
       body: JSON.stringify(body),
     });
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
+    logClientTiming("api:create-note", startedAt, {
+      workspaceId,
+      status: res.status,
+    });
     return (data as { note: Note }).note;
   },
 

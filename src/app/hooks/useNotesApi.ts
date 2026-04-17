@@ -21,6 +21,28 @@ export const NOTES_QUERY_KEY = (workspaceId: string) =>
 export const NOTE_QUERY_KEY = (workspaceId: string, id: string) =>
   ["notes", workspaceId, id] as const;
 
+function upsertNoteInPages(page: NotesPage | undefined, note: Note): NotesPage | undefined {
+  if (!page || !Array.isArray(page.notes)) return page;
+  const existingIndex = page.notes.findIndex((n) => n.id === note.id);
+  if (existingIndex >= 0) {
+    const next = [...page.notes];
+    next[existingIndex] = note;
+    return { ...page, notes: next };
+  }
+  return { ...page, notes: [note, ...page.notes], total: page.total + 1 };
+}
+
+function removeNoteFromPages(page: NotesPage | undefined, id: string): NotesPage | undefined {
+  if (!page || !Array.isArray(page.notes)) return page;
+  const exists = page.notes.some((n) => n.id === id);
+  if (!exists) return page;
+  return {
+    ...page,
+    notes: page.notes.filter((n) => n.id !== id),
+    total: Math.max(0, page.total - 1),
+  };
+}
+
 export function useNotesQuery(
   workspaceId: string | null | undefined,
   params?: ListNotesParams,
@@ -65,7 +87,10 @@ export function useCreateNoteMutation(
         NOTE_QUERY_KEY(workspaceId ?? "", data.id),
         data
       );
-      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
+      queryClient.setQueriesData<NotesPage>(
+        { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
+        (old) => upsertNoteInPages(old, data)
+      );
     },
   });
 }
@@ -84,7 +109,10 @@ export function useUpdateNoteMutation(
         NOTE_QUERY_KEY(workspaceId ?? "", data.id),
         data
       );
-      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
+      queryClient.setQueriesData<NotesPage>(
+        { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
+        (old) => upsertNoteInPages(old, data)
+      );
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });
@@ -102,7 +130,10 @@ export function useDeleteNoteMutation(
       queryClient.removeQueries({
         queryKey: NOTE_QUERY_KEY(workspaceId ?? "", id),
       });
-      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
+      queryClient.setQueriesData<NotesPage>(
+        { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
+        (old) => removeNoteFromPages(old, id)
+      );
       options?.onSuccess?.(_, id, context, mutation);
     },
   });

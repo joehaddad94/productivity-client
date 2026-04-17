@@ -107,7 +107,7 @@ export function NotesScreen() {
               <NoteCard
                 note={note}
                 isActive={selectedNoteId === note.id}
-                onSelect={() => setSelectedNoteId(note.id)}
+                onSelect={setSelectedNoteId}
               />
               <button
                 onClick={(e) => { e.stopPropagation(); handleDelete(note.id); }}
@@ -133,7 +133,6 @@ export function NotesScreen() {
       <div className="flex-1 flex flex-col min-w-0 bg-background">
         {selectedNote ? (
           <NoteEditor
-            key={selectedNote.id}
             note={selectedNote}
             onUpdate={handleUpdate}
             onTagsChange={handleTagsChange}
