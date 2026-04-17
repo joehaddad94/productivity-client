@@ -26,8 +26,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
     toggleSidebar,
     closeSidebar,
     activePath,
-    setPendingNavigation,
-    pathname,
     theme,
     toggleTheme,
     handleLogout,
@@ -100,10 +98,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Link
               key={item.path}
               href={item.path}
-              onClick={() => {
-                setPendingNavigation(item.path);
-                closeSidebar();
-              }}
+              onClick={closeSidebar}
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors",

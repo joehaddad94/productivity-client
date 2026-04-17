@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { QueryProvider } from "@/app/providers/QueryProvider";
 import { AuthProvider } from "@/app/context/AuthContext";
 import { WorkspaceProvider } from "@/app/context/WorkspaceContext";
+import { NavigationProvider } from "@/app/context/NavigationContext";
 import { Toaster } from "@/app/components/ui/sonner";
 
 function ServiceWorkerRegistrar() {
@@ -24,9 +25,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryProvider>
         <AuthProvider>
           <WorkspaceProvider>
-            <ServiceWorkerRegistrar />
-            {children}
-            <Toaster />
+            <NavigationProvider>
+              <ServiceWorkerRegistrar />
+              {children}
+              <Toaster />
+            </NavigationProvider>
           </WorkspaceProvider>
         </AuthProvider>
       </QueryProvider>
