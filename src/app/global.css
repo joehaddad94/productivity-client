@@ -82,6 +82,98 @@ html {
 [data-sonner-toast][data-styled="true"].toast-compact [data-title] {
   line-height: 1.35;
 }
+
+/* ------------------------------------------------------------------
+ * Note editor — rich-content styling
+ * Tiptap renders a ProseMirror DOM; these rules polish the extensions
+ * that the default `prose` utilities don't style well (task lists and
+ * inline/uploaded images).
+ * ---------------------------------------------------------------- */
+.note-prose .ProseMirror ul[data-type="taskList"],
+.note-prose .ProseMirror ul.task-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.5em 0;
+}
+.note-prose .ProseMirror ul[data-type="taskList"] li,
+.note-prose .ProseMirror ul.task-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.15em 0;
+}
+.note-prose .ProseMirror ul[data-type="taskList"] li > label,
+.note-prose .ProseMirror ul.task-list li > label {
+  margin-top: 0.25em;
+  user-select: none;
+  flex-shrink: 0;
+}
+.note-prose .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"],
+.note-prose .ProseMirror ul.task-list li > label input[type="checkbox"] {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+  display: grid;
+  place-content: center;
+}
+.note-prose .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]:checked,
+.note-prose .ProseMirror ul.task-list li > label input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.note-prose .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]:checked::after,
+.note-prose .ProseMirror ul.task-list li > label input[type="checkbox"]:checked::after {
+  content: "";
+  width: 4px;
+  height: 7px;
+  border: solid var(--primary-foreground);
+  border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(45deg);
+}
+.note-prose .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div,
+.note-prose .ProseMirror ul.task-list li[data-checked="true"] > div {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+.note-prose .ProseMirror ul[data-type="taskList"] li > div,
+.note-prose .ProseMirror ul.task-list li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.note-prose .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+  margin: 0.75em 0;
+  box-shadow: 0 0 0 1px var(--border);
+}
+.note-prose .ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.note-prose .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.25em 0;
+}
+.note-prose .ProseMirror hr.ProseMirror-selectednode {
+  border-top-color: var(--primary);
+}
+
+.note-prose .ProseMirror a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
 [data-sonner-toast][data-type="error"] {
   background: color-mix(in srgb, var(--destructive) 12%, white) !important;
   border-color: color-mix(in srgb, var(--destructive) 50%, transparent) !important;
