@@ -9,6 +9,17 @@ import { NOTES_QUERY_KEY, NOTE_QUERY_KEY } from "./useNotesApi";
 import { WORKSPACE_TAGS_QUERY_KEY } from "./useTagsApi";
 
 const FLUSH_DELAY_MS = 200;
+// Must stay in sync with ArrayMaxSize on the server's AddTagsDto.
+const MAX_TAGS_PER_POST = 50;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  if (items.length <= size) return [items];
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(items.slice(i, i + size));
+  }
+  return out;
+}
 
 function normalize(tag: string): string {
   return tag.trim().toLowerCase();
@@ -121,7 +132,8 @@ export type NoteTagBatcher = {
  * - Serializes network calls per note so the backend never sees concurrent
  *   read-modify-write races on the same Note.tags array.
  * - Cancels out add+remove of the same tag within the debounce window.
- * - On error, invalidates affected caches to reconcile with the server.
+ * - On error, reverts the optimistic changes for that batch and invalidates
+ *   caches to reconcile with the server.
  */
 export function useNoteTagBatcher(workspaceId: string | null | undefined): NoteTagBatcher {
   const queryClient = useQueryClient();
@@ -129,6 +141,15 @@ export function useNoteTagBatcher(workspaceId: string | null | undefined): NoteT
 
   const buffersRef = useRef<Map<string, NoteBuffer>>(new Map());
   const [inflightCount, setInflightCount] = useState(0);
+
+  // Latest workspaceId kept in a ref so the long-lived callbacks below always
+  // see the current value, even if they were created on an earlier render
+  // (e.g. the first render where workspaceId was still null).
+  const workspaceIdRef = useRef(workspaceId);
+  workspaceIdRef.current = workspaceId;
+
+  const wsKeyRef = useRef(wsKey);
+  wsKeyRef.current = wsKey;
 
   const getBuffer = useCallback((noteId: string): NoteBuffer => {
     let buf = buffersRef.current.get(noteId);
@@ -144,22 +165,12 @@ export function useNoteTagBatcher(workspaceId: string | null | undefined): NoteT
     return buf;
   }, []);
 
-  const scheduleFlush = useCallback(
-    (noteId: string) => {
-      const buf = getBuffer(noteId);
-      if (buf.timer) clearTimeout(buf.timer);
-      buf.timer = setTimeout(() => {
-        buf.timer = null;
-        flushBuffer(noteId);
-      }, FLUSH_DELAY_MS);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getBuffer],
-  );
-
   const flushBuffer = useCallback(
     (noteId: string) => {
-      if (!workspaceId) return;
+      const currentWorkspaceId = workspaceIdRef.current;
+      const currentWsKey = wsKeyRef.current;
+      if (!currentWorkspaceId) return;
+
       const buf = getBuffer(noteId);
       if (buf.timer) {
         clearTimeout(buf.timer);
@@ -179,22 +190,67 @@ export function useNoteTagBatcher(workspaceId: string | null | undefined): NoteT
         .then(async () => {
           try {
             if (adds.length > 0) {
-              await notesApi.addTags(workspaceId, noteId, adds);
+              for (const group of chunk(adds, MAX_TAGS_PER_POST)) {
+                await notesApi.addTags(currentWorkspaceId, noteId, group);
+              }
             }
             for (const tag of removes) {
-              await notesApi.removeTag(workspaceId, noteId, tag);
+              await notesApi.removeTag(currentWorkspaceId, noteId, tag);
             }
           } catch (err) {
+            // Revert optimistic changes for this batch.
+            if (adds.length > 0) {
+              const addsSet = new Set(adds);
+              applyOptimisticToNotesList(queryClient, currentWsKey, noteId, (existing) =>
+                existing.filter((t) => !addsSet.has(t.toLowerCase())),
+              );
+              applyOptimisticToNoteDetail(queryClient, currentWsKey, noteId, (existing) =>
+                existing.filter((t) => !addsSet.has(t.toLowerCase())),
+              );
+              applyOptimisticToWorkspaceTags(queryClient, currentWsKey, {
+                addedToNote: [],
+                removedFromNote: adds,
+              });
+            }
+            if (removes.length > 0) {
+              applyOptimisticToNotesList(queryClient, currentWsKey, noteId, (existing) => {
+                const seen = new Set(existing.map((t) => t.toLowerCase()));
+                const next = [...existing];
+                for (const t of removes) {
+                  if (!seen.has(t)) {
+                    next.push(t);
+                    seen.add(t);
+                  }
+                }
+                return next;
+              });
+              applyOptimisticToNoteDetail(queryClient, currentWsKey, noteId, (existing) => {
+                const seen = new Set(existing.map((t) => t.toLowerCase()));
+                const next = [...existing];
+                for (const t of removes) {
+                  if (!seen.has(t)) {
+                    next.push(t);
+                    seen.add(t);
+                  }
+                }
+                return next;
+              });
+              applyOptimisticToWorkspaceTags(queryClient, currentWsKey, {
+                addedToNote: removes,
+                removedFromNote: [],
+              });
+            }
+
             queryClient.invalidateQueries({
-              queryKey: NOTES_QUERY_KEY(wsKey),
+              queryKey: NOTES_QUERY_KEY(currentWsKey),
               refetchType: "active",
             });
             queryClient.invalidateQueries({
-              queryKey: NOTE_QUERY_KEY(wsKey, noteId),
+              queryKey: NOTE_QUERY_KEY(currentWsKey, noteId),
               refetchType: "active",
             });
             queryClient.invalidateQueries({
-              queryKey: WORKSPACE_TAGS_QUERY_KEY(wsKey),
+              queryKey: WORKSPACE_TAGS_QUERY_KEY(currentWsKey),
               refetchType: "active",
             });
             throw err;
@@ -204,20 +260,37 @@ export function useNoteTagBatcher(workspaceId: string | null | undefined): NoteT
           setInflightCount((c) => Math.max(0, c - 1));
         });
     },
-    [workspaceId, wsKey, queryClient, getBuffer],
+    [queryClient, getBuffer],
+  );
+
+  // Keep a ref to the latest flushBuffer so scheduled timers always call the
+  // current version (and never a stale closure from a render where
+  // workspaceId was still null).
+  const flushBufferRef = useRef(flushBuffer);
+  flushBufferRef.current = flushBuffer;
+
+  const scheduleFlush = useCallback(
+    (noteId: string) => {
+      const buf = getBuffer(noteId);
+      if (buf.timer) clearTimeout(buf.timer);
+      buf.timer = setTimeout(() => {
+        buf.timer = null;
+        flushBufferRef.current(noteId);
+      }, FLUSH_DELAY_MS);
+    },
+    [getBuffer],
   );
 
   const enqueueAdd = useCallback(
     (noteId: string, tags: string[]) => {
-      if (!workspaceId) return;
-      const normalized = Array.from(
-        new Set(tags.map(normalize).filter(Boolean)),
-      );
+      if (!workspaceIdRef.current) return;
+      const currentWsKey = wsKeyRef.current;
+      const normalized = Array.from(new Set(tags.map(normalize).filter(Boolean)));
       if (normalized.length === 0) return;
 
       const buf = getBuffer(noteId);
       const existingOnNote = new Set(
-        getCurrentTagsForNote(queryClient, wsKey, noteId).map((t) => t.toLowerCase()),
+        getCurrentTagsForNote(queryClient, currentWsKey, noteId).map((t) => t.toLowerCase()),
       );
 
       const actuallyNew: string[] = [];
@@ -225,7 +298,6 @@ export function useNoteTagBatcher(workspaceId: string | null | undefined): NoteT
 
       for (const t of normalized) {
         if (buf.removes.has(t)) {
-          // User re-added a tag they were about to remove; cancel the remove.
           buf.removes.delete(t);
           cancelledRemoves.push(t);
           continue;
@@ -240,7 +312,7 @@ export function useNoteTagBatcher(workspaceId: string | null | undefined): NoteT
 
       const addSet = new Set([...actuallyNew, ...cancelledRemoves]);
 
-      applyOptimisticToNotesList(queryClient, wsKey, noteId, (existing) => {
+      applyOptimisticToNotesList(queryClient, currentWsKey, noteId, (existing) => {
         const merged = [...existing];
         const seen = new Set(existing.map((t) => t.toLowerCase()));
         for (const t of addSet) {
@@ -251,7 +323,7 @@ export function useNoteTagBatcher(workspaceId: string | null | undefined): NoteT
         }
         return merged;
       });
-      applyOptimisticToNoteDetail(queryClient, wsKey, noteId, (existing) => {
+      applyOptimisticToNoteDetail(queryClient, currentWsKey, noteId, (existing) => {
         const merged = [...existing];
         const seen = new Set(existing.map((t) => t.toLowerCase()));
         for (const t of addSet) {
@@ -262,60 +334,60 @@ export function useNoteTagBatcher(workspaceId: string | null | undefined): NoteT
         }
         return merged;
       });
-      applyOptimisticToWorkspaceTags(queryClient, wsKey, {
+      applyOptimisticToWorkspaceTags(queryClient, currentWsKey, {
         addedToNote: Array.from(addSet),
         removedFromNote: [],
       });
 
       scheduleFlush(noteId);
     },
-    [workspaceId, wsKey, queryClient, getBuffer, scheduleFlush],
+    [queryClient, getBuffer, scheduleFlush],
   );
 
   const enqueueRemove = useCallback(
     (noteId: string, tag: string) => {
-      if (!workspaceId) return;
+      if (!workspaceIdRef.current) return;
+      const currentWsKey = wsKeyRef.current;
       const t = normalize(tag);
       if (!t) return;
 
       const buf = getBuffer(noteId);
 
       const existingOnNote = new Set(
-        getCurrentTagsForNote(queryClient, wsKey, noteId).map((x) => x.toLowerCase()),
+        getCurrentTagsForNote(queryClient, currentWsKey, noteId).map((x) => x.toLowerCase()),
       );
 
       if (buf.adds.has(t)) {
-        // Added then removed within the window; just cancel the add.
         buf.adds.delete(t);
       } else {
         if (!existingOnNote.has(t) && !buf.removes.has(t)) return;
         buf.removes.add(t);
       }
 
-      applyOptimisticToNotesList(queryClient, wsKey, noteId, (existing) =>
+      applyOptimisticToNotesList(queryClient, currentWsKey, noteId, (existing) =>
         existing.filter((x) => x.toLowerCase() !== t),
       );
-      applyOptimisticToNoteDetail(queryClient, wsKey, noteId, (existing) =>
+      applyOptimisticToNoteDetail(queryClient, currentWsKey, noteId, (existing) =>
         existing.filter((x) => x.toLowerCase() !== t),
       );
-      applyOptimisticToWorkspaceTags(queryClient, wsKey, {
+      applyOptimisticToWorkspaceTags(queryClient, currentWsKey, {
         addedToNote: [],
         removedFromNote: [t],
       });
 
       scheduleFlush(noteId);
     },
-    [workspaceId, wsKey, queryClient, getBuffer, scheduleFlush],
+    [queryClient, getBuffer, scheduleFlush],
   );
 
   const flush = useCallback(
     async (noteId?: string) => {
       const ids = noteId ? [noteId] : Array.from(buffersRef.current.keys());
-      for (const id of ids) flushBuffer(id);
+      for (const id of ids) flushBufferRef.current(id);
       const chains = ids.map((id) => buffersRef.current.get(id)?.chain).filter(Boolean);
       await Promise.allSettled(chains as Promise<void>[]);
     },
-    [flushBuffer],
+    [],
   );
 
   useEffect(() => {
@@ -326,12 +398,11 @@ export function useNoteTagBatcher(workspaceId: string | null | undefined): NoteT
           clearTimeout(buf.timer);
           buf.timer = null;
           if (buf.adds.size > 0 || buf.removes.size > 0) {
-            flushBuffer(id);
+            flushBufferRef.current(id);
           }
         }
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

@@ -29,6 +29,8 @@ function NoteCardComponent({ note, isActive, onSelect }: NoteCardProps) {
   return (
     <div
       onClick={() => onSelect(note.id)}
+      data-testid="note-card"
+      data-note-id={note.id}
       className={cn(
         "px-3 py-2.5 pr-10 rounded-lg cursor-pointer transition-colors",
         isActive
