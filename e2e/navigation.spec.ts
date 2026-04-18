@@ -1,12 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { goto } from './helpers';
+import { PLAYWRIGHT_BASE_URL } from './env';
 
 test.describe('Navigation & Layout', () => {
   test('redirects unauthenticated users to login', async ({ browser }) => {
     // Use a fresh context with no auth state
     const ctx = await browser.newContext({ storageState: undefined });
     const page = await ctx.newPage();
-    await page.goto('http://localhost:3000/notes');
+    await page.goto(`${PLAYWRIGHT_BASE_URL}/notes`);
     await expect(page).toHaveURL(/login|signin/, { timeout: 8_000 });
     await ctx.close();
   });

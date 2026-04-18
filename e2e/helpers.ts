@@ -2,8 +2,9 @@
  * Shared helpers for Playwright tests.
  */
 import { type Page, expect } from '@playwright/test';
+import { API } from "./env";
 
-export const API = 'http://localhost:8000';
+export { API };
 
 /** Wait for the page to finish loading (no spinners). */
 export async function waitForReady(page: Page) {
@@ -34,4 +35,9 @@ export async function expectToast(page: Page, text: string | RegExp) {
   // 10 s — the local API can be slow when the workspace has many tasks queued for invalidation
   await expect(page.locator('[data-sonner-toast]').filter({ hasText: text }))
     .toBeVisible({ timeout: 10_000 });
+}
+
+/** Select all — ⌘A on macOS, Ctrl+A on Windows/Linux (contenteditable / inputs). */
+export async function selectAll(page: Page) {
+  await page.keyboard.press("ControlOrMeta+a");
 }

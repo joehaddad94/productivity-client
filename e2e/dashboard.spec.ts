@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { goto, expectToast } from './helpers';
+import { goto, expectToast, API } from './helpers';
 
 test.describe('Dashboard', () => {
   test.beforeEach(async ({ page }) => {
@@ -58,7 +58,6 @@ test.describe('Dashboard', () => {
   });
 
   test('overdue section appears when an overdue task exists', async ({ page }) => {
-    const API = 'http://localhost:8000';
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     // Get workspace ID from API (page has auth cookies from storageState)
