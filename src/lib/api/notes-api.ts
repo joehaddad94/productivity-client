@@ -75,7 +75,12 @@ export type CreateNoteBody = {
   status?: string;
 };
 
-export type UpdateNoteBody = Partial<CreateNoteBody>;
+// Update allows explicit null on relation fields to unlink them.
+export type UpdateNoteBody = Partial<Omit<CreateNoteBody, "projectId" | "taskId" | "assigneeId">> & {
+  projectId?: string | null;
+  taskId?: string | null;
+  assigneeId?: string | null;
+};
 
 export type NotesPage = { notes: Note[]; total: number };
 
