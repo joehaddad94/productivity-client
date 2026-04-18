@@ -21,3 +21,9 @@ export const NAV_ITEMS: NavItem[] = [
 export const AUTH_PATHS = ["/", "/login", "/signup", "/verify"];
 export const WORKSPACE_GATE_PATH = "/workspace";
 export const FOCUS_PATH_PREFIX = "/focus/";
+
+export function isAuthOrFocusRoute(pathname: string) {
+  if (AUTH_PATHS.some((p) => pathname === p)) return true;
+  if (pathname.startsWith(FOCUS_PATH_PREFIX)) return true;
+  return false;
+}

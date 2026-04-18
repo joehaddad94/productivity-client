@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { memo, useState, useRef, useEffect } from "react";
 import { Bell, Check, CheckCheck, Trash2, X, CalendarClock, AlertCircle, Calendar } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/app/components/ui/utils";
@@ -21,15 +21,19 @@ const TYPE_CONFIG: Record<AppNotification["type"], { icon: React.ElementType; co
   daily_agenda: { icon: Calendar, color: "text-primary" },
 };
 
-export function NotificationBell() {
+function NotificationBellComponent() {
   const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+  const [openToRight, setOpenToRight] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
 
-  const { data: notifications = [] } = useNotificationsQuery(workspaceId);
+  const { data: notifications = [], isLoading } = useNotificationsQuery(workspaceId, {
+    enabled: open,
+  });
   const { data: unreadCount = 0 } = useUnreadCountQuery(workspaceId);
   const markRead = useMarkReadMutation(workspaceId);
   const markAllRead = useMarkAllReadMutation(workspaceId);
@@ -51,6 +55,19 @@ export function NotificationBell() {
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !buttonRef.current) return;
+    const buttonRect = buttonRef.current.getBoundingClientRect();
+    const spaceAbove = buttonRect.top;
+    const spaceBelow = window.innerHeight - buttonRect.bottom;
+    const spaceLeft = buttonRect.left;
+    const spaceRight = window.innerWidth - buttonRect.right;
+    const preferredPanelHeight = 360;
+    const preferredPanelWidth = 320;
+    setOpenUpward(spaceBelow < preferredPanelHeight && spaceAbove > spaceBelow);
+    setOpenToRight(spaceRight >= preferredPanelWidth || spaceRight > spaceLeft);
   }, [open]);
 
   function handleOpen() {
@@ -85,7 +102,9 @@ export function NotificationBell() {
         <div
           ref={panelRef}
           className={cn(
-            "absolute right-0 top-10 z-50 w-80 rounded-xl overflow-hidden",
+            "absolute z-50 w-80 rounded-xl overflow-hidden",
+            openUpward ? "bottom-full mb-2" : "top-10",
+            openToRight ? "left-0" : "right-0",
             "bg-card border border-border",
             "shadow-lg"
           )}
@@ -131,7 +150,12 @@ export function NotificationBell() {
 
           {/* List */}
           <div className="max-h-96 overflow-y-auto">
-            {notifications.length === 0 ? (
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
+                <Bell className="size-8 opacity-30 animate-pulse" />
+                <p className="text-sm">Loading notifications...</p>
+              </div>
+            ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
                 <Bell className="size-8 opacity-30" />
                 <p className="text-sm">No notifications</p>
@@ -193,3 +217,5 @@ export function NotificationBell() {
     </div>
   );
 }
+
+export const NotificationBell = memo(NotificationBellComponent);

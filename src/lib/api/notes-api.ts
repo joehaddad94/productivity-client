@@ -17,6 +17,12 @@ import type { Note } from "@/lib/types";
 const API_BASE =
   (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_URL) || "";
 
+function logClientTiming(label: string, start: number, extra?: Record<string, unknown>) {
+  if (typeof window === "undefined" || process.env.NODE_ENV === "production") return;
+  const ms = Math.round((performance.now() - start) * 10) / 10;
+  console.log(`[notes-timing] ${label}: ${ms}ms`, extra ?? "");
+}
+
 function api(path: string, options: RequestInit = {}) {
   const url = API_BASE ? `${API_BASE}${path}` : path;
   return fetch(url, {
@@ -51,7 +57,8 @@ async function parseJson(res: Response): Promise<unknown> {
 
 export type ListNotesParams = {
   search?: string;
-  tags?: string;
+  tags?: string[];
+  tagMode?: "any" | "all";
   projectId?: string;
   taskId?: string;
   limit?: number;
@@ -76,7 +83,8 @@ export const notesApi = {
   list: async (workspaceId: string, params?: ListNotesParams): Promise<NotesPage> => {
     const qs = new URLSearchParams();
     if (params?.search) qs.set("search", params.search);
-    if (params?.tags) qs.set("tags", params.tags);
+    if (params?.tags && params.tags.length) qs.set("tags", params.tags.join(","));
+    if (params?.tagMode) qs.set("tagMode", params.tagMode);
     if (params?.projectId) qs.set("projectId", params.projectId);
     if (params?.taskId) qs.set("taskId", params.taskId);
     if (params?.limit !== undefined) qs.set("limit", String(params.limit));
@@ -99,12 +107,17 @@ export const notesApi = {
   },
 
   create: async (workspaceId: string, body: CreateNoteBody): Promise<Note> => {
+    const startedAt = typeof window !== "undefined" ? performance.now() : 0;
     const res = await api(`/workspaces/${workspaceId}/notes`, {
       method: "POST",
       body: JSON.stringify(body),
     });
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
+    logClientTiming("api:create-note", startedAt, {
+      workspaceId,
+      status: res.status,
+    });
     return (data as { note: Note }).note;
   },
 
@@ -125,5 +138,25 @@ export const notesApi = {
     if (res.ok) return;
     const data = await parseJson(res);
     throw new Error(getMessage(data));
+  },
+
+  addTags: async (workspaceId: string, noteId: string, tags: string[]): Promise<Note> => {
+    const res = await api(`/workspaces/${workspaceId}/notes/${noteId}/tags`, {
+      method: "POST",
+      body: JSON.stringify({ tags }),
+    });
+    const data = await parseJson(res);
+    if (!res.ok) throw new Error(getMessage(data));
+    return (data as { note: Note }).note;
+  },
+
+  removeTag: async (workspaceId: string, noteId: string, tag: string): Promise<Note> => {
+    const res = await api(
+      `/workspaces/${workspaceId}/notes/${noteId}/tags/${encodeURIComponent(tag)}`,
+      { method: "DELETE" },
+    );
+    const data = await parseJson(res);
+    if (!res.ok) throw new Error(getMessage(data));
+    return (data as { note: Note }).note;
   },
 };

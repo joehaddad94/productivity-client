@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, Fragment } from "react";
+import { memo, useId, Fragment } from "react";
 import Link from "next/link";
 import {
   Building2,
@@ -19,7 +19,7 @@ import {
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { cn } from "@/app/components/ui/utils";
 
-export function WorkspaceSwitcher() {
+function WorkspaceSwitcherComponent() {
   const gradientId = useId();
   const {
     currentWorkspace,
@@ -235,3 +235,5 @@ export function WorkspaceSwitcher() {
     </>
   );
 }
+
+export const WorkspaceSwitcher = memo(WorkspaceSwitcherComponent);

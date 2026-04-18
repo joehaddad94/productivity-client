@@ -11,12 +11,23 @@ import {
   useNotesQuery,
   useUpdateNoteMutation,
 } from "@/app/hooks/useNotesApi";
+import { useWorkspaceTagsQuery } from "@/app/hooks/useTagsApi";
+import { useNoteTagBatcher } from "@/app/hooks/useNoteTagBatcher";
 import { useCreateTaskMutation, useTasksQuery } from "@/app/hooks/useTasksApi";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import type { Note } from "@/lib/types";
-import type { NoteUpdateChanges, UseNotesScreenResult } from "../model/types";
+import type {
+  NoteUpdateChanges,
+  TagMode,
+  UseNotesScreenResult,
+} from "../model/types";
 
 type NoteListCache = { notes: Note[]; total: number };
+type PendingDeleteEntry = {
+  timer: ReturnType<typeof setTimeout>;
+  note: Note;
+  wasSelected: boolean;
+};
 
 export function useNotesScreen(): UseNotesScreenResult {
   const { currentWorkspace } = useWorkspace();
@@ -25,41 +36,70 @@ export function useNotesScreen(): UseNotesScreenResult {
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedTags, setSelectedTagsState] = useState<string[]>([]);
+  const [tagMode, setTagModeState] = useState<TagMode>("all");
+  const [shouldFetchTasks, setShouldFetchTasks] = useState(false);
   const [limit, setLimit] = useState(50);
-  const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(
-    new Map()
-  );
+  const pendingCreateTempIdsRef = useRef<Set<string>>(new Set());
+  const createStartRef = useRef<number | null>(null);
+  const noteSelectStartRef = useRef<number | null>(null);
+  const pendingDeletes = useRef<Map<string, PendingDeleteEntry>>(new Map());
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  const { data: allNotesPage } = useNotesQuery(workspaceId, { limit: 200 });
-  const allTags = Array.from(
-    new Set((allNotesPage?.notes ?? []).flatMap((n) => n.tags ?? []))
-  ).sort();
-
   const { data: page, isLoading, error } = useNotesQuery(workspaceId, {
     search: debouncedSearch || undefined,
-    tags: selectedTag ?? undefined,
+    tags: selectedTags.length ? selectedTags : undefined,
+    tagMode: selectedTags.length >= 2 ? tagMode : undefined,
     limit,
   });
 
-  const { data: tasksPage } = useTasksQuery(workspaceId);
+  const { data: workspaceTags = [] } = useWorkspaceTagsQuery(workspaceId);
+
+  const { data: tasksPage, isLoading: tasksLoading } = useTasksQuery(
+    workspaceId,
+    undefined,
+    {
+      enabled: !!workspaceId && shouldFetchTasks,
+    }
+  );
   const allTasks = tasksPage?.tasks ?? [];
   const notes = page?.notes ?? [];
   const total = page?.total ?? 0;
 
   const createMutation = useCreateNoteMutation(workspaceId, {
-    onSuccess: (note) => {
-      setSelectedNoteId(note.id);
+    onSuccess: (note, variables) => {
+      if (createStartRef.current !== null && typeof window !== "undefined") {
+        const e2eMs = Math.round((performance.now() - createStartRef.current) * 10) / 10;
+        console.log("[notes-timing] e2e:create-note-until-mutation-success:", e2eMs, "ms", {
+          noteId: note.id,
+          workspaceId,
+        });
+      }
+      if (variables.clientTempId) {
+        pendingCreateTempIdsRef.current.delete(variables.clientTempId);
+      }
+      setSelectedNoteId((current) =>
+        current && current === variables.clientTempId ? note.id : current ?? note.id
+      );
       toast.success("Note created");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err, variables) => {
+      if (variables.clientTempId) {
+        pendingCreateTempIdsRef.current.delete(variables.clientTempId);
+        setSelectedNoteId((current) =>
+          current === variables.clientTempId ? notes[0]?.id ?? null : current
+        );
+      }
+      toast.error(err.message);
+    },
   });
 
   const updateMutation = useUpdateNoteMutation(workspaceId, {
     onError: (err) => toast.error(err.message),
   });
+
+  const tagBatcher = useNoteTagBatcher(workspaceId);
 
   const deleteMutation = useDeleteNoteMutation(workspaceId, {
     onError: (err) => {
@@ -80,8 +120,25 @@ export function useNotesScreen(): UseNotesScreenResult {
 
   const handleCreateNote = () => {
     if (!workspaceId) return;
-    createMutation.mutate({ title: "Untitled Note", tags: [] });
+    const tempId = `temp:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+    pendingCreateTempIdsRef.current.add(tempId);
+    setSelectedNoteId(tempId);
+    if (typeof window !== "undefined") {
+      createStartRef.current = performance.now();
+    }
+    createMutation.mutate({ title: "Untitled Note", tags: [], clientTempId: tempId });
   };
+
+  const handleSelectNote = useCallback((id: string | null) => {
+    if (!id) {
+      setSelectedNoteId(null);
+      return;
+    }
+    if (typeof window !== "undefined") {
+      noteSelectStartRef.current = performance.now();
+    }
+    setSelectedNoteId(id);
+  }, []);
 
   const handleUpdate = useCallback(
     (id: string, changes: NoteUpdateChanges) => {
@@ -90,11 +147,19 @@ export function useNotesScreen(): UseNotesScreenResult {
     [updateMutation]
   );
 
-  const handleTagsChange = useCallback(
+  const handleAddTags = useCallback(
     (id: string, tags: string[]) => {
-      updateMutation.mutate({ id, body: { tags } });
+      if (!tags.length) return;
+      tagBatcher.enqueueAdd(id, tags);
     },
-    [updateMutation]
+    [tagBatcher]
+  );
+
+  const handleRemoveTag = useCallback(
+    (id: string, tag: string) => {
+      tagBatcher.enqueueRemove(id, tag);
+    },
+    [tagBatcher]
   );
 
   const handleLinkTask = useCallback(
@@ -103,6 +168,10 @@ export function useNotesScreen(): UseNotesScreenResult {
     },
     [updateMutation]
   );
+
+  const ensureTasksLoaded = useCallback(() => {
+    setShouldFetchTasks(true);
+  }, []);
 
   const createTaskMutation = useCreateTaskMutation(workspaceId);
 
@@ -128,6 +197,9 @@ export function useNotesScreen(): UseNotesScreenResult {
 
   const handleDelete = useCallback(
     (id: string) => {
+      const deletedNote = notes.find((n) => n.id === id);
+      if (!deletedNote) return;
+
       queryClient.setQueriesData<NoteListCache>(
         { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
         (old) =>
@@ -136,6 +208,7 @@ export function useNotesScreen(): UseNotesScreenResult {
             : old
       );
 
+      const wasSelected = selectedNoteId === id;
       if (selectedNoteId === id) {
         setSelectedNoteId(notes.find((n) => n.id !== id)?.id ?? null);
       }
@@ -144,18 +217,38 @@ export function useNotesScreen(): UseNotesScreenResult {
         pendingDeletes.current.delete(id);
         deleteMutation.mutate(id);
       }, 5000);
-      pendingDeletes.current.set(id, timer);
+      pendingDeletes.current.set(id, {
+        timer,
+        note: deletedNote,
+        wasSelected,
+      });
 
       toast.success("Note deleted", {
         duration: 5000,
         action: {
           label: "Undo",
           onClick: () => {
-            const t = pendingDeletes.current.get(id);
-            if (t !== undefined) clearTimeout(t);
+            const pending = pendingDeletes.current.get(id);
+            if (!pending) return;
+            clearTimeout(pending.timer);
             pendingDeletes.current.delete(id);
+
+            queryClient.setQueriesData<NoteListCache>(
+              { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
+              (old) => {
+                if (!old || !Array.isArray(old.notes)) return old;
+                if (old.notes.some((n) => n.id === id)) return old;
+                return { ...old, notes: [pending.note, ...old.notes], total: old.total + 1 };
+              }
+            );
+
+            if (pending.wasSelected) {
+              setSelectedNoteId(id);
+            }
+
             queryClient.invalidateQueries({
               queryKey: NOTES_QUERY_KEY(workspaceId ?? ""),
+              refetchType: "inactive",
             });
           },
         },
@@ -168,27 +261,75 @@ export function useNotesScreen(): UseNotesScreenResult {
     setLimit((value) => value + 50);
   }, []);
 
+  const setSelectedTags = useCallback((tags: string[]) => {
+    const next = Array.from(
+      new Set(tags.map((t) => t.trim().toLowerCase()).filter(Boolean)),
+    );
+    setSelectedTagsState(next);
+  }, []);
+
+  const toggleTag = useCallback((tag: string) => {
+    const normalized = tag.trim().toLowerCase();
+    if (!normalized) return;
+    setSelectedTagsState((current) =>
+      current.includes(normalized)
+        ? current.filter((t) => t !== normalized)
+        : [...current, normalized],
+    );
+  }, []);
+
+  const setTagMode = useCallback((mode: TagMode) => setTagModeState(mode), []);
+
+  useEffect(() => {
+    if (createStartRef.current === null || createMutation.isPending || isLoading) return;
+    if (typeof window === "undefined") return;
+    const uiMs = Math.round((performance.now() - createStartRef.current) * 10) / 10;
+    console.log("[notes-timing] ui:create-note-until-list-settled:", uiMs, "ms", {
+      notesInView: notes.length,
+      total,
+      workspaceId,
+    });
+    createStartRef.current = null;
+  }, [createMutation.isPending, isLoading, notes.length, total, workspaceId]);
+
+  useEffect(() => {
+    if (!selectedNote || noteSelectStartRef.current === null) return;
+    if (typeof window === "undefined") return;
+    const switchMs = Math.round((performance.now() - noteSelectStartRef.current) * 10) / 10;
+    console.log("[notes-timing] switch-note-e2e:", switchMs, "ms", {
+      selectedNoteId: selectedNote.id,
+      workspaceId,
+    });
+    noteSelectStartRef.current = null;
+  }, [selectedNote, workspaceId]);
+
   return {
     workspaceId,
     selectedNoteId,
-    setSelectedNoteId,
+    setSelectedNoteId: handleSelectNote,
     searchQuery,
     setSearchQuery,
-    selectedTag,
-    setSelectedTag,
-    allTags,
+    selectedTags,
+    setSelectedTags,
+    toggleTag,
+    tagMode,
+    setTagMode,
+    allTags: workspaceTags,
     notes,
     total,
     allTasks,
+    tasksLoading,
     selectedNote,
     isLoading,
     error: error as Error | null,
     createIsPending: createMutation.isPending,
-    updateIsPending: updateMutation.isPending,
+    updateIsPending: updateMutation.isPending || tagBatcher.isPending,
     handleCreateNote,
     handleUpdate,
-    handleTagsChange,
+    handleAddTags,
+    handleRemoveTag,
     handleLinkTask,
+    ensureTasksLoaded,
     handleConvertToTask,
     handleDelete,
     handleLoadMore,

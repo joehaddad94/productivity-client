@@ -1,22 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/app/context/AuthContext";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
+import { useNavigation } from "@/app/context/NavigationContext";
 import { toast } from "sonner";
-import { AUTH_PATHS, FOCUS_PATH_PREFIX, WORKSPACE_GATE_PATH } from "./types";
-
-function isAuthOrFocusRoute(pathname: string) {
-  if (AUTH_PATHS.some((p) => pathname === p)) return true;
-  if (pathname.startsWith(FOCUS_PATH_PREFIX)) return true;
-  return false;
-}
+import { isAuthOrFocusRoute, WORKSPACE_GATE_PATH } from "./types";
 
 export function useLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { pendingNavPath, setPendingNavigation } = useNavigation();
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -27,29 +23,39 @@ export function useLayout() {
   // When pathname is unknown (null/empty), treat as auth so we don't show sidebar with wrong loader.
   // App routes (e.g. /notes, /workspace when authenticated): show sidebar so loaders/skeleton appear with navbars.
   const path = pathname ?? "";
-  const showSidebar =
-    path !== "" &&
-    !isAuthOrFocusRoute(path) &&
-    (path !== WORKSPACE_GATE_PATH || !!user);
+  const activePath = pendingNavPath ?? path;
+  const showSidebar = useMemo(
+    () =>
+      path !== "" &&
+      !isAuthOrFocusRoute(path) &&
+      (path !== WORKSPACE_GATE_PATH || !!user),
+    [path, user]
+  );
 
   // Only redirect to /workspace for the brief transient state where workspaces
   // exist but none is selected (auto-resolved by WorkspaceContext's useEffect).
   // When workspaces.length === 0, show an inline empty state in the content area
   // instead — so the user stays within the app shell with the sidebar visible.
-  const redirectingToWorkspace =
-    showSidebar &&
-    !!user &&
-    isFetched &&
-    needsWorkspace &&
-    hasWorkspaces &&
-    path !== WORKSPACE_GATE_PATH;
+  const redirectingToWorkspace = useMemo(
+    () =>
+      showSidebar &&
+      !!user &&
+      isFetched &&
+      needsWorkspace &&
+      hasWorkspaces &&
+      path !== WORKSPACE_GATE_PATH,
+    [showSidebar, user, isFetched, needsWorkspace, hasWorkspaces, path]
+  );
 
-  const redirectingToLogin =
-    isInitialized &&
-    !user &&
-    path !== "" &&
-    !isAuthOrFocusRoute(path) &&
-    path !== WORKSPACE_GATE_PATH;
+  const redirectingToLogin = useMemo(
+    () =>
+      isInitialized &&
+      !user &&
+      path !== "" &&
+      !isAuthOrFocusRoute(path) &&
+      path !== WORKSPACE_GATE_PATH,
+    [isInitialized, user, path]
+  );
 
   useEffect(() => {
     if (redirectingToLogin) {
@@ -59,7 +65,7 @@ export function useLayout() {
     }
   }, [redirectingToLogin, redirectingToWorkspace, router]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
@@ -71,11 +77,13 @@ export function useLayout() {
     } finally {
       setIsLoggingOut(false);
     }
-  };
+  }, [isLoggingOut, logout, router]);
 
-  const toggleSidebar = () => setSidebarOpen((prev) => !prev);
-  const closeSidebar = () => setSidebarOpen(false);
-  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+  const toggleSidebar = useCallback(() => setSidebarOpen((prev) => !prev), []);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  }, [setTheme, theme]);
 
   return {
     showSidebar,
@@ -86,6 +94,9 @@ export function useLayout() {
     sidebarOpen,
     toggleSidebar,
     closeSidebar,
+    activePath,
+    pendingNavPath,
+    setPendingNavigation,
     pathname,
     theme,
     toggleTheme,

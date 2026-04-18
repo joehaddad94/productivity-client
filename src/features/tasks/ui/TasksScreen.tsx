@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/app/components/ui/badge";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { cn } from "@/app/components/ui/utils";
+import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 import { useTasksScreen } from "../hooks/useTasksScreen";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TaskDrawer } from "./TaskDrawer";
@@ -298,6 +299,10 @@ export function TasksScreen() {
     </div>
   );
 
+  if (isLoading) {
+    return <ScreenSkeleton variant="tasks" />;
+  }
+
   return (
     <>
       <div className="max-w-3xl space-y-5">
@@ -357,16 +362,11 @@ export function TasksScreen() {
           </div>
         )}
 
-        {/* Loading / error */}
-        {isLoading && (
-          <div className="space-y-2">
-            {[1, 2, 3, 4].map((i) => <div key={i} className="h-9 rounded-lg bg-muted animate-pulse" />)}
-          </div>
-        )}
+        {/* Error */}
         {error && <p className="text-sm text-destructive">Failed to load tasks</p>}
 
         {/* Tabs */}
-        {!isLoading && !error && (
+        {!error && (
           <Tabs defaultValue="pending">
             <TabsList className="h-9 bg-muted/40 border border-border/50 p-0.5 rounded-lg">
               <TabsTrigger value="pending" className="text-xs h-8 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
@@ -389,7 +389,7 @@ export function TasksScreen() {
         )}
 
         {/* Load more */}
-        {!isLoading && tasks.length < total && (
+        {!error && tasks.length < total && (
           <div className="flex justify-center pt-2">
             <Button variant="ghost" size="sm" onClick={handleLoadMore} className="text-muted-foreground">
               Load more ({tasks.length} / {total})

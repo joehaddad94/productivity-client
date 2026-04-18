@@ -1,9 +1,10 @@
 "use client";
 
-import { X, Play, Pause, RotateCcw, CheckCircle2, Loader2 } from "lucide-react";
+import { X, Play, Pause, RotateCcw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Progress } from "@/app/components/ui/progress";
+import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { useFocusScreen } from "../hooks/useFocusScreen";
 
 export function FocusScreen() {
@@ -22,11 +23,7 @@ export function FocusScreen() {
   } = useFocusScreen();
 
   if (isLoading) {
-    return (
-      <div className="fixed inset-0 bg-gray-50 dark:bg-gray-950 z-50 flex items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-gray-400" />
-      </div>
-    );
+    return <ScreenLoader variant="auth" message="Loading focus session…" />;
   }
 
   if (error || !task) {

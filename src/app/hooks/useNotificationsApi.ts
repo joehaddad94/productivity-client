@@ -6,12 +6,16 @@ const NOTIFICATIONS_KEY = (workspaceId: string) => ['notifications', workspaceId
 const UNREAD_KEY = (workspaceId: string) => ['notifications-unread', workspaceId];
 const SETTINGS_KEY = ['notification-settings'];
 
-export function useNotificationsQuery(workspaceId: string | null | undefined) {
+export function useNotificationsQuery(
+  workspaceId: string | null | undefined,
+  options?: { enabled?: boolean }
+) {
+  const isEnabled = options?.enabled ?? true;
   return useQuery({
     queryKey: NOTIFICATIONS_KEY(workspaceId ?? ''),
     queryFn: () => notificationsApi.list(workspaceId!),
-    enabled: !!workspaceId,
-    refetchInterval: 60_000, // poll every 60s
+    enabled: !!workspaceId && isEnabled,
+    refetchInterval: isEnabled ? 60_000 : false, // poll only when panel is active
   });
 }
 

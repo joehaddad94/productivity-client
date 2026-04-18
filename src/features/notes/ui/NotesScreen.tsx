@@ -1,12 +1,18 @@
 "use client";
 
-import { Plus, Trash2, FileText } from "lucide-react";
+import { useMemo, useState } from "react";
+import { MoreHorizontal, Plus, Trash2, FileText } from "lucide-react";
 import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
 import { cn } from "@/app/components/ui/utils";
+import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
+import { TagChip } from "@/app/components/tags/TagChip";
+import { ManageTagsDialog } from "@/app/components/tags/ManageTagsDialog";
 import { useNotesScreen } from "../hooks/useNotesScreen";
 import { NoteEditor } from "./NoteEditor";
+
+const INLINE_TAG_LIMIT = 8;
 
 export function NotesScreen() {
   const {
@@ -15,12 +21,15 @@ export function NotesScreen() {
     setSelectedNoteId,
     searchQuery,
     setSearchQuery,
-    selectedTag,
-    setSelectedTag,
+    selectedTags,
+    toggleTag,
+    tagMode,
+    setTagMode,
     allTags,
     notes,
     total,
     allTasks,
+    tasksLoading,
     selectedNote,
     isLoading,
     error,
@@ -29,17 +38,31 @@ export function NotesScreen() {
     handleCreateNote,
     handleDelete,
     handleUpdate,
-    handleTagsChange,
+    handleAddTags,
+    handleRemoveTag,
     handleLinkTask,
+    ensureTasksLoaded,
     handleConvertToTask,
     handleLoadMore,
   } = useNotesScreen();
 
+  const [manageOpen, setManageOpen] = useState(false);
+
+  const existingTagLabels = useMemo(
+    () => allTags.map((t) => t.tag),
+    [allTags],
+  );
+
+  const inlineTags = allTags.slice(0, INLINE_TAG_LIMIT);
+  const hasOverflow = allTags.length > INLINE_TAG_LIMIT;
+
+  if (isLoading) {
+    return <ScreenSkeleton variant="notes" />;
+  }
+
   return (
-    <div className="flex flex-col lg:flex-row gap-0 h-[calc(100vh-5rem)] -m-5 lg:-m-6">
-      {/* Sidebar */}
+    <div className="flex flex-col lg:flex-row gap-0 h-[calc(100vh-3rem)] lg:h-screen -m-5 lg:-m-6">
       <div className="lg:w-64 xl:w-72 flex-shrink-0 flex flex-col border-r border-border/60 bg-[var(--sidebar-bg)]">
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
           <h1 className="text-sm font-semibold">Notes</h1>
           <Button
@@ -54,7 +77,6 @@ export function NotesScreen() {
           </Button>
         </div>
 
-        {/* Search */}
         <div className="px-3 py-2 border-b border-border/40">
           <SearchInput
             placeholder="Search…"
@@ -65,35 +87,89 @@ export function NotesScreen() {
           />
         </div>
 
-        {/* Tag filters */}
         {allTags.length > 0 && (
-          <div className="flex flex-wrap gap-1 px-3 py-2 border-b border-border/40">
-            {allTags.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                className={cn(
-                  "text-[10px] px-2 py-0.5 rounded-full transition-colors",
-                  selectedTag === tag
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:text-foreground",
-                )}
+          <div
+            className="flex flex-col gap-2 px-3 py-2 border-b border-border/40"
+            data-testid="tag-filter-bar"
+          >
+            <div className="flex flex-wrap gap-1 items-center">
+              {inlineTags.map(({ tag, count }) => (
+                <TagChip
+                  key={tag}
+                  tag={tag}
+                  count={count}
+                  size="xs"
+                  active={selectedTags.includes(tag)}
+                  onClick={toggleTag}
+                />
+              ))}
+              {hasOverflow && (
+                <button
+                  type="button"
+                  onClick={() => setManageOpen(true)}
+                  className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 px-1.5 h-5 rounded-full border border-dashed"
+                  data-testid="tag-filter-overflow"
+                  aria-label="Manage tags"
+                >
+                  <MoreHorizontal className="size-3" />
+                  +{allTags.length - INLINE_TAG_LIMIT}
+                </button>
+              )}
+              {!hasOverflow && allTags.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setManageOpen(true)}
+                  className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 px-1.5 h-5 rounded-full border border-dashed"
+                  data-testid="tag-filter-manage"
+                  aria-label="Manage tags"
+                >
+                  Manage
+                </button>
+              )}
+            </div>
+            {selectedTags.length >= 2 && (
+              <div
+                className="inline-flex self-start items-center gap-0.5 text-[10px] rounded-full border"
+                role="group"
+                aria-label="Tag match mode"
+                data-testid="tag-mode-toggle"
               >
-                {tag}
-              </button>
-            ))}
+                <button
+                  type="button"
+                  onClick={() => setTagMode("all")}
+                  aria-pressed={tagMode === "all"}
+                  data-testid="tag-mode-all"
+                  className={cn(
+                    "px-2 h-5 rounded-full transition-colors",
+                    tagMode === "all"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTagMode("any")}
+                  aria-pressed={tagMode === "any"}
+                  data-testid="tag-mode-any"
+                  className={cn(
+                    "px-2 h-5 rounded-full transition-colors",
+                    tagMode === "any"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Any
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Note list */}
         <div className="flex-1 overflow-y-auto py-1">
-          {isLoading && (
-            <div className="space-y-1 px-3 py-2">
-              {[1, 2, 3, 4].map((i) => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}
-            </div>
-          )}
           {error && <p className="text-xs text-destructive text-center py-4">Failed to load</p>}
-          {!isLoading && !error && notes.length === 0 && (
+          {!error && notes.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <FileText className="size-8 text-muted-foreground/30 mb-3" />
               <p className="text-xs text-muted-foreground">No notes yet</p>
@@ -102,23 +178,23 @@ export function NotesScreen() {
               </Button>
             </div>
           )}
-          {!isLoading && !error && notes.map((note) => (
+          {!error && notes.map((note) => (
             <div key={note.id} className="relative group px-2">
               <NoteCard
                 note={note}
                 isActive={selectedNoteId === note.id}
-                onSelect={() => setSelectedNoteId(note.id)}
+                onSelect={setSelectedNoteId}
               />
               <button
                 onClick={(e) => { e.stopPropagation(); handleDelete(note.id); }}
-                className="absolute top-3 right-4 opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all"
+                className="absolute bottom-2 right-4 opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all"
                 title="Delete note"
               >
                 <Trash2 className="size-3.5" />
               </button>
             </div>
           ))}
-          {!isLoading && notes.length < total && (
+          {!error && notes.length < total && (
             <button
               onClick={handleLoadMore}
               className="w-full text-[11px] text-center py-2 text-muted-foreground hover:text-foreground"
@@ -129,17 +205,20 @@ export function NotesScreen() {
         </div>
       </div>
 
-      {/* Editor pane */}
       <div className="flex-1 flex flex-col min-w-0 bg-background">
         {selectedNote ? (
           <NoteEditor
-            key={selectedNote.id}
             note={selectedNote}
+            existingTags={existingTagLabels}
             onUpdate={handleUpdate}
-            onTagsChange={handleTagsChange}
+            onAddTags={handleAddTags}
+            onRemoveTag={handleRemoveTag}
+            onTagClick={(tag) => toggleTag(tag)}
             onLinkTask={handleLinkTask}
+            onOpenTaskPicker={ensureTasksLoaded}
             onConvertToTask={handleConvertToTask}
             isSaving={updateIsPending}
+            tasksLoading={tasksLoading}
             tasks={allTasks}
           />
         ) : (
@@ -157,6 +236,12 @@ export function NotesScreen() {
           </div>
         )}
       </div>
+
+      <ManageTagsDialog
+        open={manageOpen}
+        onOpenChange={setManageOpen}
+        workspaceId={workspaceId}
+      />
     </div>
   );
 }
