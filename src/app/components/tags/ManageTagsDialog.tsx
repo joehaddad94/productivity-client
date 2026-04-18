@@ -75,11 +75,11 @@ export function ManageTagsDialog({ open, onOpenChange, workspaceId }: ManageTags
       {
         onSuccess: () =>
           toast.success(`Renamed "${from}" to "${next}"`, {
-            position: "top-center",
+            position: "bottom-right",
             duration: 2000,
           }),
         onError: (err) =>
-          toast.error(err.message, { position: "top-center", duration: 2500 }),
+          toast.error(err.message, { position: "bottom-right", duration: 2500 }),
       },
     );
   };
@@ -105,10 +105,10 @@ export function ManageTagsDialog({ open, onOpenChange, workspaceId }: ManageTags
         onSuccess: (res) =>
           toast.success(
             `Removed "${tag}" from ${res.affected} note${res.affected === 1 ? "" : "s"}`,
-            { position: "top-center", duration: 2000 },
+            { position: "bottom-right", duration: 2000 },
           ),
         onError: (err) =>
-          toast.error(err.message, { position: "top-center", duration: 2500 }),
+          toast.error(err.message, { position: "bottom-right", duration: 2500 }),
       },
     );
   };

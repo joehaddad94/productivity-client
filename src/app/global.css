@@ -69,9 +69,18 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Toast: more visible position and clear error styling */
+/* Toast: bottom-right stack, slightly shorter rows */
 [data-sonner-toaster] {
-  --offset-top: 1rem;
+  --offset-bottom: 1rem;
+  --offset-right: 1rem;
+}
+[data-sonner-toast][data-styled="true"].toast-compact {
+  padding: 10px 12px;
+  font-size: 12px;
+  gap: 4px;
+}
+[data-sonner-toast][data-styled="true"].toast-compact [data-title] {
+  line-height: 1.35;
 }
 [data-sonner-toast][data-type="error"] {
   background: color-mix(in srgb, var(--destructive) 12%, white) !important;
