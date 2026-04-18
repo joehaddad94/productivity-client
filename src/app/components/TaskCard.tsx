@@ -1,13 +1,15 @@
 import { Calendar, RefreshCw } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
-import { Badge } from "./ui/badge";
 import { cn } from "./ui/utils";
 
-const PRIORITY_COLORS: Record<string, string> = {
-  low: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
-  medium: "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400",
-  high: "bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400",
+// Text-only color classes for the priority label. Keeping these in their own
+// map avoids fragile runtime slicing of a combined bg+text class string and
+// makes the classes statically detectable by Tailwind's JIT.
+const PRIORITY_TEXT: Record<string, string> = {
+  low: "text-gray-500 dark:text-gray-400",
+  medium: "text-amber-700 dark:text-amber-400",
+  high: "text-red-600 dark:text-red-400",
 };
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -50,7 +52,7 @@ export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
           {task.priority && (
             <span className="flex items-center gap-1">
               <span className={cn("size-1.5 rounded-full shrink-0", PRIORITY_DOT[task.priority])} />
-              <span className={cn("text-[11px] font-medium", PRIORITY_COLORS[task.priority].split(" ").slice(2).join(" "))}>
+              <span className={cn("text-[11px] font-medium", PRIORITY_TEXT[task.priority])}>
                 {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
               </span>
             </span>
