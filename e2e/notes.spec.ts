@@ -1,110 +1,130 @@
-import { test, expect } from '@playwright/test';
-import { goto, expectToast, selectAll } from './helpers';
+import { test, expect } from "@playwright/test";
+import { goto, expectToast, selectAll } from "./helpers";
 
-test.describe('Notes', () => {
+test.describe("Notes", () => {
   test.beforeEach(async ({ page }) => {
-    await goto(page, '/notes');
+    await goto(page, "/notes");
   });
 
-  test('page loads and shows Notes heading', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /notes/i })).toBeVisible();
+  test("page shows Notes header", async ({ page }) => {
+    await expect(page.getByRole("heading", { name: /^notes$/i })).toBeVisible();
   });
 
-  test('create a new note', async ({ page }) => {
-    await page.getByRole('button', { name: /new/i }).click();
+  test("creates a note and lists Untitled Note", async ({ page }) => {
+    await page.getByTitle("New note").click();
+    await expectToast(page, /note created/i);
+    await expect(page.getByText("Untitled Note").first()).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("edits note title and updates the list", async ({ page }) => {
+    await page.getByTitle("New note").click();
     await expectToast(page, /note created/i);
 
-    // New "Untitled Note" should appear in the list
-    await expect(page.getByText('Untitled Note').first()).toBeVisible();
-  });
-
-  test('edit note title', async ({ page }) => {
-    // Create a note first
-    await page.getByRole('button', { name: /new/i }).click();
-    await expectToast(page, /note created/i);
-
-    // Wait for the editor panel to render (notes list must refetch before selectedNote resolves)
     const titleInput = page.locator('input[placeholder="Untitled"]').first();
-    await expect(titleInput).toBeVisible({ timeout: 8_000 });
+    await expect(titleInput).toBeVisible({ timeout: 10_000 });
     await titleInput.clear();
-    await titleInput.fill('My Test Note');
+    await titleInput.fill("My Test Note");
     await titleInput.blur();
 
-    // Title should update in the sidebar list after save
-    await page.waitForTimeout(1500);
-    await expect(page.getByText('My Test Note').first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("My Test Note").first()).toBeVisible({ timeout: 8_000 });
   });
 
-  test('edit note content with rich text toolbar', async ({ page }) => {
-    await page.getByRole('button', { name: /new/i }).click();
+  test("rich text: bold via formatting toolbar", async ({ page }) => {
+    await page.getByTitle("New note").click();
     await expectToast(page, /note created/i);
 
-    // Wait for the editor panel to render (notes list must refetch before selectedNote resolves)
-    const editor = page.locator('.ProseMirror').first();
+    const editor = page.locator(".ProseMirror").first();
     await expect(editor).toBeVisible({ timeout: 15_000 });
     await editor.click();
-    await editor.type('Hello bold world');
+    await editor.type("Hello bold");
 
-    // Select all text — the floating BubbleMenu should appear (⌘A on Mac, Ctrl+A on Windows)
     await selectAll(page);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(200);
 
-    // BubbleMenu should now be visible with Bold button
-    await expect(page.getByRole('button', { name: /bold/i }).first()).toBeVisible({ timeout: 3_000 });
-    await page.getByRole('button', { name: /bold/i }).first().click();
+    await page.getByRole("button", { name: /bold \(⌘b\)/i }).first().click();
 
-    // Bold button should remain visible (BubbleMenu still open)
-    await expect(page.getByRole('button', { name: /bold/i }).first()).toBeVisible();
+    await expect(editor.locator("strong, b")).toHaveText(/hello bold/i);
   });
 
-  test('delete a note', async ({ page }) => {
-    // Create a note
-    await page.getByRole('button', { name: /new/i }).click();
+  test("formatting toolbar is visible", async ({ page }) => {
+    await page.getByTitle("New note").click();
     await expectToast(page, /note created/i);
 
-    // Wait for the refetch to settle
-    await page.waitForTimeout(800);
+    await expect(page.getByTestId("editor-toolbar")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("toolbar", { name: /formatting/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /heading 1/i })).toBeVisible();
+  });
 
-    // Get the bounding box of the first note card wrapper
-    const wrapper = page.locator('.relative.group').first();
-    await expect(wrapper).toBeVisible({ timeout: 5_000 });
+  test("deletes a note from the list", async ({ page }) => {
+    await page.getByTitle("New note").click();
+    await expectToast(page, /note created/i);
 
-    // Hover to reveal the delete button, wait for CSS transition
-    await wrapper.hover();
-    await page.waitForTimeout(300);
+    const row = page.locator(".relative.group").filter({ has: page.getByTestId("note-card") }).first();
+    const card = row.getByTestId("note-card").first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await row.hover();
+    await page.waitForTimeout(200);
 
-    // Trigger the button's React onClick directly via the fiber tree
-    const triggered = await page.evaluate(() => {
-      const btn = document.querySelector<HTMLElement>('[title="Delete note"]');
-      if (!btn) return false;
-      const fiberKey = Object.keys(btn).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'));
-      if (!fiberKey) return false;
-      let fiber = (btn as any)[fiberKey];
-      while (fiber) {
-        const onClick = fiber.pendingProps?.onClick || fiber.memoizedProps?.onClick;
-        if (onClick) {
-          const evt = new MouseEvent('click', { bubbles: true, cancelable: true });
-          onClick(evt);
-          return true;
-        }
-        fiber = fiber.return;
-      }
-      return false;
-    });
-    console.log('React handler triggered:', triggered);
-
+    await row.getByTitle("Delete note").click();
     await expectToast(page, /note deleted/i);
   });
 
-  test('search filters notes', async ({ page }) => {
-    // Search input has aria-label="Search notes" (placeholder is just "Search…")
-    const searchInput = page.getByLabel('Search notes');
-    await searchInput.fill('zzznomatch999');
-    await page.waitForTimeout(600);
+  test("search filters by title", async ({ page }) => {
+    const token = `E2E-${Date.now()}`;
+    await page.getByTitle("New note").click();
+    await expectToast(page, /note created/i);
 
-    // Just verify search input works without crash
-    const noteCards = page.locator('[data-testid="note-card"], .note-card');
-    const count = await noteCards.count();
-    expect(count).toBeGreaterThanOrEqual(0);
+    const titleInput = page.locator('input[placeholder="Untitled"]').first();
+    await expect(titleInput).toBeVisible({ timeout: 10_000 });
+    await titleInput.fill(token);
+    await titleInput.blur();
+    await expect(page.getByText(token).first()).toBeVisible({ timeout: 8_000 });
+
+    await page.getByLabel("Search notes").fill(token);
+    await page.waitForTimeout(400);
+    await expect(page.getByTestId("note-card").filter({ hasText: token })).toBeVisible();
+  });
+});
+
+test.describe("Notes — convert to task", () => {
+  test.beforeEach(async ({ page }) => {
+    await goto(page, "/notes");
+  });
+
+  test("To task control is available for a new note", async ({ page }) => {
+    await page.getByTitle("New note").click();
+    await expectToast(page, /note created/i);
+
+    await expect(page.getByTestId("convert-to-task")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("convert-to-task")).toContainText(/to task/i);
+  });
+
+  test("convert to task succeeds and shows toast", async ({ page }) => {
+    await page.getByTitle("New note").click();
+    await expectToast(page, /note created/i);
+
+    const title = `Convert-${Date.now()}`;
+    const titleInput = page.locator('input[placeholder="Untitled"]').first();
+    await expect(titleInput).toBeVisible({ timeout: 10_000 });
+    await titleInput.clear();
+    await titleInput.fill(title);
+    await titleInput.blur();
+    await page.waitForTimeout(800);
+
+    await page.getByTestId("convert-to-task").click();
+    await expectToast(page, /converted to task/i);
+  });
+
+  test("after conversion, To task is hidden and task link is shown", async ({ page }) => {
+    await page.getByTitle("New note").click();
+    await expectToast(page, /note created/i);
+
+    await expect(page.getByTestId("convert-to-task")).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId("convert-to-task").click();
+    await expectToast(page, /converted to task/i);
+
+    await expect(page.getByTestId("convert-to-task")).not.toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("link-chip-task")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: /unlink task/i })).toBeVisible();
   });
 });
