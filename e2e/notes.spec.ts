@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { goto, expectToast } from './helpers';
+import { goto, expectToast, selectAll } from './helpers';
 
 test.describe('Notes', () => {
   test.beforeEach(async ({ page }) => {
@@ -45,8 +45,8 @@ test.describe('Notes', () => {
     await editor.click();
     await editor.type('Hello bold world');
 
-    // Select all text — the floating BubbleMenu should appear
-    await page.keyboard.press('Control+a');
+    // Select all text — the floating BubbleMenu should appear (⌘A on Mac, Ctrl+A on Windows)
+    await selectAll(page);
     await page.waitForTimeout(300);
 
     // BubbleMenu should now be visible with Bold button

@@ -1,101 +1,89 @@
 /**
  * Global setup — runs once before all tests.
  *
- * Calls POST /auth/dev-session on the backend to get a JWT cookie,
+ * Calls POST /api/auth/dev-session (same-origin via Next proxy) to get a JWT cookie,
  * then saves the browser storage state so every test starts authenticated
  * with a test workspace ready.
  *
- * FIX: After navigating to '/' we must wait for the workspace context to
- * finish loading (sidebar nav becomes visible) before saving state.
- * Without this wait, tests that rely on workspace data (Notes "New" button,
- * Pomodoro expanded panel, etc.) fail with 30s timeouts because the context
- * provider hasn't resolved yet when the auth state snapshot is taken.
+ * Set PLAYWRIGHT_BASE_URL for hosted runs (e.g. https://app.example.com).
+ * Backend must allow /auth/dev-session (not available when API NODE_ENV=production).
  */
-import { test as setup, expect, request } from '@playwright/test';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import { test as setup, expect, request } from "@playwright/test";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import { PLAYWRIGHT_BASE_URL } from "./env";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const API = 'http://localhost:8000';
-const AUTH_FILE = path.join(__dirname, '../playwright/.auth/user.json');
+const AUTH_FILE = path.join(__dirname, "../playwright/.auth/user.json");
 
-setup('authenticate and prepare workspace', async ({ page }) => {
-  // 1. Get a session cookie from the backend dev endpoint
-  const apiCtx = await request.newContext({ baseURL: API });
-  const res = await apiCtx.post('/auth/dev-session', {
-    data: { email: 'playwright@tasky.test', name: 'Playwright Test' },
+function parseFirstCookieNameValue(setCookie: string): { name: string; value: string } {
+  const firstPart = setCookie.split(";")[0]?.trim() ?? "";
+  const eq = firstPart.indexOf("=");
+  if (eq <= 0) {
+    throw new Error(`Invalid Set-Cookie (no name=value): ${setCookie.slice(0, 80)}`);
+  }
+  return {
+    name: firstPart.slice(0, eq).trim(),
+    value: firstPart.slice(eq + 1).trim(),
+  };
+}
+
+setup("authenticate and prepare workspace", async ({ page }) => {
+  const apiCtx = await request.newContext({ baseURL: PLAYWRIGHT_BASE_URL });
+  const res = await apiCtx.post("/api/auth/dev-session", {
+    data: { email: "playwright@tasky.test", name: "Playwright Test" },
   });
+
+  if (res.status() === 403) {
+    throw new Error(
+      "E2E: POST /api/auth/dev-session returned 403. On production APIs dev-session is disabled; " +
+        "use a staging/preview backend or run against local next dev + API with NODE_ENV!=production.",
+    );
+  }
   expect(res.status()).toBe(201);
 
-  // 2. Extract the Set-Cookie header and inject it into the browser context
-  const setCookie = res.headers()['set-cookie'];
-  expect(setCookie, 'Backend must set auth cookie').toBeTruthy();
-
-  // Parse cookie name/value/domain for Playwright
-  const cookieParts = setCookie.split(';').map((s) => s.trim());
-  const [nameVal] = cookieParts;
-  const [cookieName, cookieValue] = nameVal.split('=');
+  const setCookieHeader = res.headers()["set-cookie"];
+  expect(setCookieHeader, "Backend must set auth cookie").toBeTruthy();
+  const cookieStrings = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+  const { name: cookieName, value: cookieValue } = parseFirstCookieNameValue(cookieStrings[0]!);
 
   await page.context().addCookies([
     {
-      name: cookieName.trim(),
-      value: cookieValue.trim(),
-      domain: 'localhost',
-      path: '/',
-      httpOnly: true,
-      secure: false,
-      sameSite: 'Lax',
+      name: cookieName,
+      value: cookieValue,
+      url: PLAYWRIGHT_BASE_URL,
     },
   ]);
 
-  // 3. Navigate to the app — should land on dashboard or workspace gate
-  await page.goto('/');
-  await page.waitForLoadState('networkidle');
+  await page.goto(`${PLAYWRIGHT_BASE_URL}/`);
+  await page.waitForLoadState("load");
 
-  // 4. Create a test workspace if none exists
   const url = page.url();
-  if (url.includes('/workspace')) {
-    // On workspace creation gate — create one
-    await page.fill('input[placeholder*="workspace" i], input[name="name"]', 'Playwright Workspace');
+  if (url.includes("/workspace")) {
+    await page.fill('input[placeholder*="workspace" i], input[name="name"]', "Playwright Workspace");
     await page.click('button[type="submit"], button:has-text("Create")');
     await page.waitForURL(/\/(dashboard|notes|tasks)/, { timeout: 10_000 });
   }
 
-  // 5. ── CRITICAL FIX ──────────────────────────────────────────────────────
-  //    Wait for the workspace context to fully initialize before saving state.
-  //    The WorkspaceProvider fetches workspace data asynchronously; if we
-  //    snapshot too early, every test starts with an un-initialized context
-  //    and content-dependent UI (Notes "New" button, Pomodoro panel, etc.)
-  //    never appears — causing 30s timeouts across all feature specs.
-  //
-  //    We wait for the sidebar navigation to be visible: it is only rendered
-  //    once WorkspaceContext has resolved with a valid workspace object.
-  // ────────────────────────────────────────────────────────────────────────
   await page.waitForSelector('nav, [data-testid="sidebar"], [aria-label*="navigation" i]', {
     timeout: 15_000,
   });
 
-  // Also ensure we're on a real app route (not still on workspace gate)
   await page.waitForURL(/\/(dashboard|notes|tasks|analytics|settings|calendar)/, {
     timeout: 10_000,
   });
 
-  // Give the workspace context one extra tick to settle all async state
-  // (e.g. active workspace ID written to context, project list fetched)
   await page.waitForFunction(
     () => {
-      // The app sets data-workspace-ready="true" on <body> once context resolves,
-      // OR we fall back to checking that the main content area has children.
       const body = document.body;
-      if (body.dataset.workspaceReady === 'true') return true;
+      if (body.dataset.workspaceReady === "true") return true;
       const main = document.querySelector('main, [role="main"], #__next main');
       return main !== null && main.children.length > 0;
     },
     { timeout: 15_000 },
   );
 
-  // 6. Save auth state for reuse in all tests
   fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
   await page.context().storageState({ path: AUTH_FILE });
   await apiCtx.dispose();

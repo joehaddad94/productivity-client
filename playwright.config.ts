@@ -1,14 +1,16 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const PLAYWRIGHT_BASE_URL =
+  process.env.PLAYWRIGHT_BASE_URL?.replace(/\/$/, '') || 'http://localhost:3000';
+
 /**
  * Playwright E2E config for Tasky frontend.
  *
- * Requirements before running:
- *   1. Backend running:  cd productivity-server && npm run start:dev
- *   2. Frontend running: cd productivity-client && npm run dev
+ * Local: backend + `npm run dev`, then `npx playwright test`.
+ * Hosted: `PLAYWRIGHT_BASE_URL=https://your-app.vercel.app npx playwright test`
+ * (API must expose /auth/dev-session via Next `/api` proxy — not on production API).
  *
- * Run tests:  npx playwright test
- * UI mode:   npx playwright test --ui
+ * CI: `.github/workflows/playwright-e2e.yml` runs the same suite on macOS + Windows.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -21,7 +23,7 @@ export default defineConfig({
   timeout: 60_000,
 
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: PLAYWRIGHT_BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     // Share auth state across all tests
