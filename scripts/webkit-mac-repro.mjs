@@ -28,11 +28,31 @@ import { randomBytes } from "node:crypto";
 // Override via env for re-runs (e.g. after deploying the /api rewrite):
 //   FRONTEND_URL=https://<preview>.vercel.app \
 //   BACKEND_URL=https://<preview>.vercel.app/api \
+//   VERCEL_BYPASS_TOKEN=<automation-bypass-secret> \
 //   node scripts/webkit-mac-repro.mjs
+//
+// VERCEL_BYPASS_TOKEN is only needed when the target is a Vercel preview URL
+// that has Deployment Protection / SSO enabled. Create it in Vercel dashboard:
+//   Project → Settings → Deployment Protection → Protection Bypass for Automation.
 const FRONTEND = process.env.FRONTEND_URL || "https://productivity-client.vercel.app";
 const BACKEND =
   process.env.BACKEND_URL || "https://productivity-server-development.up.railway.app";
+const VERCEL_BYPASS = process.env.VERCEL_BYPASS_TOKEN || "";
 const MAIL_TM = "https://api.mail.tm";
+
+// Headers that every HTTP request (server-side fetch and in-browser XHR) must
+// carry so Vercel's edge lets the request through to our Next.js function.
+const bypassHeaders = VERCEL_BYPASS
+  ? { "x-vercel-protection-bypass": VERCEL_BYPASS }
+  : {};
+
+function withBypassQuery(url) {
+  if (!VERCEL_BYPASS) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}x-vercel-protection-bypass=${encodeURIComponent(
+    VERCEL_BYPASS
+  )}&x-vercel-set-bypass-cookie=samesitenone`;
+}
 
 const ts = Date.now();
 
@@ -140,6 +160,7 @@ async function main() {
       "Content-Type": "application/json",
       Origin: FRONTEND,
       "User-Agent": MAC_SAFARI_UA,
+      ...bypassHeaders,
     },
     body: JSON.stringify({ email: TEST_EMAIL, name: "Mac Repro" }),
   });
@@ -154,6 +175,7 @@ async function main() {
         "Content-Type": "application/json",
         Origin: FRONTEND,
         "User-Agent": MAC_SAFARI_UA,
+        ...bypassHeaders,
       },
       body: JSON.stringify({ email: TEST_EMAIL }),
     });
@@ -184,6 +206,7 @@ async function main() {
     deviceScaleFactor: 2,
     isMobile: false,
     hasTouch: false,
+    extraHTTPHeaders: { ...bypassHeaders },
   });
   await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
 
@@ -249,7 +272,7 @@ async function main() {
 
   log("Cookies BEFORE verify:", await context.cookies());
 
-  await page.goto(verifyUrl, { waitUntil: "load" });
+  await page.goto(withBypassQuery(verifyUrl), { waitUntil: "load" });
 
   log("Waiting 6s for verify fetch + client-side redirects to settle...");
   await page.waitForTimeout(6_000);
@@ -259,7 +282,7 @@ async function main() {
 
   try {
     const meRes = await context.request.get(`${BACKEND}/auth/me`, {
-      headers: { Origin: FRONTEND },
+      headers: { Origin: FRONTEND, ...bypassHeaders },
     });
     log(`Manual /auth/me from WebKit context → ${meRes.status()}`);
     log(`   body: ${(await meRes.text()).slice(0, 300)}`);
