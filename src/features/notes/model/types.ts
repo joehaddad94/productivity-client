@@ -13,7 +13,9 @@ export interface NoteEditorProps {
   onTagClick?: (tag: string) => void;
   onLinkTask: (id: string, taskId: string | null) => void;
   onOpenTaskPicker?: () => void;
+  isLinkingTask?: boolean;
   onConvertToTask: (id: string) => void;
+  isConvertingToTask?: boolean;
   isSaving: boolean;
   tasksLoading?: boolean;
   tasks: Task[];
@@ -45,8 +47,10 @@ export interface UseNotesScreenResult {
   handleAddTags: (id: string, tags: string[]) => void;
   handleRemoveTag: (id: string, tag: string) => void;
   handleLinkTask: (id: string, taskId: string | null) => void;
+  linkingTaskNoteIds: Set<string>;
   ensureTasksLoaded: () => void;
   handleConvertToTask: (id: string) => void;
+  convertingNoteIds: Set<string>;
   handleDelete: (id: string) => void;
   handleLoadMore: () => void;
 }

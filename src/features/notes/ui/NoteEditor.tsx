@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   Bold,
+  CheckSquare,
   Italic,
-  Link2,
-  LinkIcon,
   List,
   ListOrdered,
   Loader2,
-  Unlink,
+  Sparkles,
 } from "lucide-react";
+import { LinkedItems, renderRelation } from "@/app/components/linking/LinkPicker";
+import type { Task } from "@/lib/types";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
@@ -30,13 +31,14 @@ export function NoteEditor({
   onTagClick,
   onLinkTask,
   onOpenTaskPicker,
+  isLinkingTask = false,
   onConvertToTask,
+  isConvertingToTask = false,
   isSaving,
   tasksLoading = false,
   tasks,
 }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
-  const [showTaskPicker, setShowTaskPicker] = useState(false);
   const contentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
@@ -67,7 +69,6 @@ export function NoteEditor({
       }
     }
     setTitle(note.title);
-    setShowTaskPicker(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 
@@ -130,6 +131,44 @@ export function NoteEditor({
     [note.id, onAddTags, onRemoveTag],
   );
 
+  // ---------------------------------------------------------------
+  // Relation configs for LinkedItems. Add more (e.g. Project) here
+  // without touching the JSX below.
+  // ---------------------------------------------------------------
+  const taskRelation = useMemo(
+    () => ({
+      kind: "task",
+      singularLabel: "task",
+      icon: CheckSquare,
+      value: note.taskId ?? null,
+      currentItem: linkedTask,
+      getId: (t: Task) => t.id,
+      getLabel: (t: Task) => t.title,
+      getSecondary: (t: Task) =>
+        t.status === "completed"
+          ? "Completed"
+          : t.status === "in_progress"
+            ? "In progress"
+            : null,
+      items: tasks,
+      isLoading: tasksLoading,
+      onOpenPicker: onOpenTaskPicker,
+      onChange: (next: string | null) => onLinkTask(note.id, next),
+      isPending: isLinkingTask,
+      size: "xs" as const,
+    }),
+    [
+      linkedTask,
+      note.id,
+      note.taskId,
+      tasks,
+      tasksLoading,
+      onLinkTask,
+      onOpenTaskPicker,
+      isLinkingTask,
+    ],
+  );
+
   return (
     <div ref={paneRef} tabIndex={-1} className="flex flex-col h-full outline-none">
       <div className="flex items-center justify-between gap-3 px-5 py-2.5 border-b border-border/40 shrink-0">
@@ -156,64 +195,30 @@ export function NoteEditor({
           />
         </div>
 
-        <div className="relative flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <LinkedItems relations={[renderRelation(taskRelation)]} />
           {!note.taskId && (
             <button
+              type="button"
               onClick={() => onConvertToTask(note.id)}
-              className="text-[10px] text-muted-foreground/60 hover:text-primary flex items-center gap-0.5 transition-colors"
-              title="Convert note to task"
-            >
-              To task
-            </button>
-          )}
-          {linkedTask || note.taskId ? (
-            <div className="flex items-center gap-1 text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-              <Link2 className="size-3" />
-              <span className="max-w-28 truncate">
-                {linkedTask ? linkedTask.title : "Linked task"}
-              </span>
-              <button
-                onClick={() => onLinkTask(note.id, null)}
-                className="hover:text-destructive transition-colors"
-                title="Unlink task"
-              >
-                <Unlink className="size-3" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => {
-                onOpenTaskPicker?.();
-                setShowTaskPicker((v) => !v);
-              }}
-              className="text-[10px] text-muted-foreground/60 hover:text-primary flex items-center gap-0.5 transition-colors"
-              title="Link to a task"
-            >
-              <LinkIcon className="size-3" />
-              Link task
-            </button>
-          )}
-          {showTaskPicker && (
-            <div className="absolute right-0 top-6 z-10 bg-background border border-border/60 rounded-lg shadow-md w-56 max-h-48 overflow-y-auto">
-              {tasksLoading ? (
-                <p className="text-xs text-muted-foreground p-3">Loading tasks...</p>
-              ) : tasks.length === 0 ? (
-                <p className="text-xs text-muted-foreground p-3">No tasks in workspace</p>
-              ) : (
-                tasks.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      onLinkTask(note.id, t.id);
-                      setShowTaskPicker(false);
-                    }}
-                    className="w-full text-left text-xs px-3 py-2 hover:bg-muted/50 truncate transition-colors"
-                  >
-                    {t.title}
-                  </button>
-                ))
+              disabled={isConvertingToTask}
+              aria-busy={isConvertingToTask}
+              title="Create a task from this note's title"
+              data-testid="convert-to-task"
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 h-5 text-[10px] transition-colors",
+                isConvertingToTask
+                  ? "text-primary bg-primary/10 cursor-wait"
+                  : "text-muted-foreground hover:text-primary hover:bg-primary/5",
               )}
-            </div>
+            >
+              {isConvertingToTask ? (
+                <Loader2 className="size-2.5 animate-spin" />
+              ) : (
+                <Sparkles className="size-2.5" />
+              )}
+              {isConvertingToTask ? "Creating…" : "To task"}
+            </button>
           )}
         </div>
       </div>

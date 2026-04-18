@@ -42,8 +42,10 @@ export function NotesScreen() {
     handleAddTags,
     handleRemoveTag,
     handleLinkTask,
+    linkingTaskNoteIds,
     ensureTasksLoaded,
     handleConvertToTask,
+    convertingNoteIds,
     handleLoadMore,
   } = useNotesScreen();
 
@@ -250,7 +252,9 @@ export function NotesScreen() {
             onTagClick={(tag) => toggleTag(tag)}
             onLinkTask={handleLinkTask}
             onOpenTaskPicker={ensureTasksLoaded}
+            isLinkingTask={linkingTaskNoteIds.has(selectedNote.id)}
             onConvertToTask={handleConvertToTask}
+            isConvertingToTask={convertingNoteIds.has(selectedNote.id)}
             isSaving={updateIsPending}
             tasksLoading={tasksLoading}
             tasks={allTasks}

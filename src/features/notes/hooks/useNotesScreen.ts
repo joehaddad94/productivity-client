@@ -162,11 +162,59 @@ export function useNotesScreen(): UseNotesScreenResult {
     [tagBatcher]
   );
 
+  const [linkingTaskNoteIds, setLinkingTaskNoteIds] = useState<Set<string>>(
+    () => new Set()
+  );
+
   const handleLinkTask = useCallback(
     (id: string, taskId: string | null) => {
-      updateMutation.mutate({ id, body: { taskId: taskId ?? undefined } });
+      const prevTaskId = notes.find((n) => n.id === id)?.taskId ?? null;
+      if (prevTaskId === taskId) return;
+
+      setLinkingTaskNoteIds((prev) => {
+        if (prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+
+      updateMutation.mutate(
+        { id, body: { taskId } },
+        {
+          onSuccess: () => {
+            if (taskId === null) {
+              toast.success("Task unlinked", {
+                duration: 5000,
+                action: prevTaskId
+                  ? {
+                      label: "Undo",
+                      onClick: () =>
+                        updateMutation.mutate({
+                          id,
+                          body: { taskId: prevTaskId },
+                        }),
+                    }
+                  : undefined,
+              });
+            } else {
+              toast.success("Linked to task");
+            }
+          },
+          onError: (err) => {
+            toast.error(err.message);
+          },
+          onSettled: () => {
+            setLinkingTaskNoteIds((prev) => {
+              if (!prev.has(id)) return prev;
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
+          },
+        },
+      );
     },
-    [updateMutation]
+    [notes, updateMutation],
   );
 
   const ensureTasksLoaded = useCallback(() => {
@@ -174,25 +222,58 @@ export function useNotesScreen(): UseNotesScreenResult {
   }, []);
 
   const createTaskMutation = useCreateTaskMutation(workspaceId);
+  const [convertingNoteIds, setConvertingNoteIds] = useState<Set<string>>(
+    () => new Set()
+  );
 
   const handleConvertToTask = useCallback(
     (noteId: string) => {
       const note = notes.find((n) => n.id === noteId);
       if (!note || !workspaceId) return;
+      if (convertingNoteIds.has(noteId)) return;
+
+      setConvertingNoteIds((prev) => {
+        const next = new Set(prev);
+        next.add(noteId);
+        return next;
+      });
+      const loadingToastId = toast.loading("Creating task…");
+
       createTaskMutation.mutate(
         { title: note.title },
         {
           onSuccess: (task) => {
-            updateMutation.mutate({ id: noteId, body: { taskId: task.id } });
+            updateMutation.mutate(
+              { id: noteId, body: { taskId: task.id } },
+              {
+                onSettled: () => {
+                  setConvertingNoteIds((prev) => {
+                    if (!prev.has(noteId)) return prev;
+                    const next = new Set(prev);
+                    next.delete(noteId);
+                    return next;
+                  });
+                },
+              }
+            );
             toast.success("Converted to task", {
+              id: loadingToastId,
               description: `"${task.title}" added to your tasks`,
             });
           },
-          onError: (err) => toast.error(err.message),
+          onError: (err) => {
+            setConvertingNoteIds((prev) => {
+              if (!prev.has(noteId)) return prev;
+              const next = new Set(prev);
+              next.delete(noteId);
+              return next;
+            });
+            toast.error(err.message, { id: loadingToastId });
+          },
         }
       );
     },
-    [notes, workspaceId, createTaskMutation, updateMutation]
+    [notes, workspaceId, convertingNoteIds, createTaskMutation, updateMutation]
   );
 
   const handleDelete = useCallback(
@@ -329,8 +410,10 @@ export function useNotesScreen(): UseNotesScreenResult {
     handleAddTags,
     handleRemoveTag,
     handleLinkTask,
+    linkingTaskNoteIds,
     ensureTasksLoaded,
     handleConvertToTask,
+    convertingNoteIds,
     handleDelete,
     handleLoadMore,
   };
