@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { MoreHorizontal, Plus, Trash2, FileText } from "lucide-react";
+import { MoreHorizontal, Plus, Trash2, FileText, X } from "lucide-react";
 import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
@@ -22,6 +22,7 @@ export function NotesScreen() {
     searchQuery,
     setSearchQuery,
     selectedTags,
+    setSelectedTags,
     toggleTag,
     tagMode,
     setTagMode,
@@ -92,6 +93,39 @@ export function NotesScreen() {
             className="flex flex-col gap-2 px-3 py-2 border-b border-border/40"
             data-testid="tag-filter-bar"
           >
+            {selectedTags.length > 0 && (
+              <div
+                className="flex items-center gap-1.5 rounded-md bg-accent/40 px-2 py-1.5"
+                data-testid="tag-filter-active"
+              >
+                <span className="text-[10px] font-medium text-muted-foreground shrink-0">
+                  Filtering by
+                </span>
+                <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                  {selectedTags.map((tag) => (
+                    <TagChip
+                      key={tag}
+                      tag={tag}
+                      size="xs"
+                      active
+                      onClick={toggleTag}
+                      onRemove={toggleTag}
+                      ariaLabel={`Remove ${tag} filter`}
+                    />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTags([])}
+                  className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 shrink-0 px-1.5 h-5 rounded-full hover:bg-background"
+                  data-testid="tag-filter-clear"
+                  aria-label="Clear all filters"
+                >
+                  <X className="size-3" />
+                  Clear
+                </button>
+              </div>
+            )}
             <div className="flex flex-wrap gap-1 items-center">
               {inlineTags.map(({ tag, count }) => (
                 <TagChip

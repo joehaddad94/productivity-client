@@ -116,30 +116,37 @@ export function ManageTagsDialog({ open, onOpenChange, workspaceId }: ManageTags
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent data-testid="manage-tags-dialog" className="max-w-md">
-          <DialogHeader>
+        <DialogContent data-testid="manage-tags-dialog" className="max-w-md gap-5">
+          <DialogHeader className="space-y-1">
             <DialogTitle>Manage tags</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs leading-relaxed sm:text-sm">
               Rename or delete tags across every note in this workspace.
             </DialogDescription>
           </DialogHeader>
 
-          <Input
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Search tags"
-            data-testid="manage-tags-search"
-          />
+          <div className="space-y-2">
+            <label className="sr-only" htmlFor="manage-tags-search-input">
+              Search tags
+            </label>
+            <Input
+              id="manage-tags-search-input"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Search tags…"
+              data-testid="manage-tags-search"
+              className="h-9 text-sm"
+            />
+          </div>
 
-          <div className="max-h-[50vh] overflow-auto -mx-2 px-2">
+          <div className="max-h-[min(50vh,22rem)] overflow-y-auto rounded-lg border border-border/50 bg-muted/25 p-1.5 shadow-inner">
             {isLoading ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">Loading…</p>
+              <p className="text-sm text-muted-foreground py-8 text-center">Loading…</p>
             ) : visibleTags.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">
+              <p className="text-sm text-muted-foreground px-3 py-8 text-center leading-relaxed">
                 {tags.length === 0 ? "No tags yet. Add one from a note." : "No matches."}
               </p>
             ) : (
-              <ul className="divide-y">
+              <ul className="flex flex-col gap-1" role="list">
                 {visibleTags.map(({ tag, count }) => {
                   const isEditing = editing === tag;
                   return (
@@ -148,7 +155,9 @@ export function ManageTagsDialog({ open, onOpenChange, workspaceId }: ManageTags
                       data-testid="manage-tags-row"
                       data-tag={tag}
                       className={cn(
-                        "flex items-center gap-2 py-2",
+                        "group flex min-h-10 items-center gap-2 rounded-md px-2 py-1.5 transition-colors",
+                        "hover:bg-background/80",
+                        isEditing && "bg-background ring-1 ring-border/60 shadow-sm",
                         renameMutation.isPending && "opacity-60",
                       )}
                     >
@@ -160,20 +169,21 @@ export function ManageTagsDialog({ open, onOpenChange, workspaceId }: ManageTags
                           onBlur={commitRename}
                           onKeyDown={handleEditKeyDown}
                           data-testid="manage-tags-rename-input"
-                          className="h-8 text-sm"
+                          className="h-8 flex-1 text-sm"
                         />
                       ) : (
-                        <div className="flex-1 min-w-0 flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
                           <TagChip tag={tag} count={count} size="sm" />
                         </div>
                       )}
 
                       {isEditing ? (
-                        <>
+                        <div className="flex shrink-0 items-center gap-0.5">
                           <Button
                             type="button"
                             size="icon"
                             variant="ghost"
+                            className="h-8 w-8"
                             onClick={commitRename}
                             aria-label="Save rename"
                             data-testid="manage-tags-save"
@@ -184,6 +194,7 @@ export function ManageTagsDialog({ open, onOpenChange, workspaceId }: ManageTags
                             type="button"
                             size="icon"
                             variant="ghost"
+                            className="h-8 w-8"
                             onClick={() => {
                               setEditing(null);
                               setDraft("");
@@ -192,13 +203,14 @@ export function ManageTagsDialog({ open, onOpenChange, workspaceId }: ManageTags
                           >
                             <X className="h-4 w-4" />
                           </Button>
-                        </>
+                        </div>
                       ) : (
-                        <>
+                        <div className="flex shrink-0 items-center gap-0.5 opacity-80 group-hover:opacity-100">
                           <Button
                             type="button"
                             size="icon"
                             variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => beginEdit(tag)}
                             aria-label={`Rename ${tag}`}
                             data-testid="manage-tags-rename"
@@ -209,13 +221,14 @@ export function ManageTagsDialog({ open, onOpenChange, workspaceId }: ManageTags
                             type="button"
                             size="icon"
                             variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             onClick={() => setPendingDelete(tag)}
                             aria-label={`Delete ${tag}`}
                             data-testid="manage-tags-delete"
                           >
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        </>
+                        </div>
                       )}
                     </li>
                   );
