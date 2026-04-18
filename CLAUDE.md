@@ -16,11 +16,8 @@
 
 ## Test commands (run from client root)
 ```
-# Run specific feature specs only
-npx playwright test e2e/pomodoro-new.spec.ts e2e/pomodoro-focus-minutes.spec.ts e2e/notes-convert.spec.ts --workers=1
-
-# Run full suite
-npx playwright test --workers=1
+# E2E (auth + notes only; requires Next + API)
+npm run test:e2e
 ```
 
 ## Commit message convention
