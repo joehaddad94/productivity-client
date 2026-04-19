@@ -223,12 +223,17 @@ function createOverlayController(): OverlayController {
       if (!el.isConnected) document.body.appendChild(el);
       document.body.setAttribute("data-navigating", "true");
 
-      // Render the right variant synchronously so first paint of the overlay
-      // already contains the skeleton markup (no empty background flash).
+      // Render the skeleton into the independent React root. We use
+      // queueMicrotask so this runs after any active React flush (avoiding
+      // the "flushSync inside lifecycle" warning when show() is called from a
+      // useEffect via the patched router). The overlay element is already
+      // attached with a solid background, so there is no visible flash.
       const variant = routeToVariant(path);
       const root = ensureRoot();
-      flushSync(() => {
-        root.render(<ScreenSkeleton variant={variant} />);
+      queueMicrotask(() => {
+        flushSync(() => {
+          root.render(<ScreenSkeleton variant={variant} />);
+        });
       });
 
       if (safetyTimer !== null) window.clearTimeout(safetyTimer);
