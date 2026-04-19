@@ -200,7 +200,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <main className="lg:ml-56 min-h-screen flex flex-col pt-12 lg:pt-0">
         <div className="flex-1 p-5 lg:p-6">
-          {isFetched && !hasWorkspaces ? (
+          {!isFetched ? (
+            <ScreenLoader variant="app" />
+          ) : !hasWorkspaces ? (
             <div className="flex items-center justify-center min-h-[60vh]">
               <div className="w-full max-w-md">
                 <CreateFirstWorkspace
@@ -209,7 +211,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           ) : redirectingToWorkspace ? (
-            <ScreenSkeleton />
+            <ScreenLoader variant="app" />
           ) : (
             children
           )}

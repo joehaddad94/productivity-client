@@ -16,7 +16,7 @@ import type { Task } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
-import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
+import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { TaskCard } from "@/app/components/TaskCard";
 import { NoteCard } from "@/app/components/NoteCard";
 import { TaskDrawer } from "@/features/tasks/ui/TaskDrawer";
@@ -156,7 +156,7 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
   }
 
   if (projectLoading) {
-    return <ScreenSkeleton variant="project-detail" />;
+    return <ScreenLoader variant="app" />;
   }
 
   if (!project) {

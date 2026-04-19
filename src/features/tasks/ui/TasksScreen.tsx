@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/app/components/ui/badge";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { cn } from "@/app/components/ui/utils";
-import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
+import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { useTasksScreen } from "../hooks/useTasksScreen";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TaskDrawer } from "./TaskDrawer";
@@ -300,7 +300,7 @@ export function TasksScreen() {
   );
 
   if (isLoading) {
-    return <ScreenSkeleton variant="tasks" />;
+    return <ScreenLoader variant="app" />;
   }
 
   return (
