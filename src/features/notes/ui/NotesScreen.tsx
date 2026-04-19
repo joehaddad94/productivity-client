@@ -1,9 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { MoreHorizontal, Plus, Trash2, FileText, X } from "lucide-react";
+import { FolderOpen, MoreHorizontal, Plus, Trash2, FileText, X } from "lucide-react";
 import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/ui/select";
 import { SearchInput } from "@/app/components/ui/search-input";
 import { cn } from "@/app/components/ui/utils";
 import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
@@ -26,6 +33,8 @@ export function NotesScreen() {
     toggleTag,
     tagMode,
     setTagMode,
+    filterProjectId,
+    setFilterProjectId,
     allTags,
     notes,
     total,
@@ -44,6 +53,11 @@ export function NotesScreen() {
     handleLinkTask,
     linkingTaskNoteIds,
     ensureTasksLoaded,
+    allProjects,
+    projectsLoading,
+    handleLinkProject,
+    linkingProjectNoteIds,
+    ensureProjectsLoaded,
     handleConvertToTask,
     convertingNoteIds,
     handleLoadMore,
@@ -88,6 +102,34 @@ export function NotesScreen() {
             aria-label="Search notes"
             className="h-7 text-xs"
           />
+        </div>
+
+        <div className="px-3 py-2 border-b border-border/40 space-y-1">
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            Project
+          </span>
+          <Select
+            value={filterProjectId ?? "__all__"}
+            onValueChange={(v) => setFilterProjectId(v === "__all__" ? null : v)}
+            disabled={!workspaceId || projectsLoading}
+          >
+            <SelectTrigger
+              className="h-8 text-xs w-full"
+              aria-label="Filter notes by project"
+              data-testid="notes-project-filter"
+            >
+              <FolderOpen className="size-3.5 shrink-0 text-muted-foreground mr-1.5" />
+              <SelectValue placeholder={projectsLoading ? "Loading…" : "All projects"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All projects</SelectItem>
+              {allProjects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {allTags.length > 0 && (
@@ -208,7 +250,13 @@ export function NotesScreen() {
           {!error && notes.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <FileText className="size-8 text-muted-foreground/30 mb-3" />
-              <p className="text-xs text-muted-foreground">No notes yet</p>
+              <p className="text-xs text-muted-foreground">
+                {filterProjectId
+                  ? "No notes in this project"
+                  : searchQuery.trim() || selectedTags.length > 0
+                    ? "No notes match your filters"
+                    : "No notes yet"}
+              </p>
               <Button variant="ghost" size="sm" className="mt-2 text-xs" onClick={handleCreateNote} disabled={!workspaceId}>
                 <Plus className="size-3" /> Create one
               </Button>
@@ -253,6 +301,11 @@ export function NotesScreen() {
             onLinkTask={handleLinkTask}
             onOpenTaskPicker={ensureTasksLoaded}
             isLinkingTask={linkingTaskNoteIds.has(selectedNote.id)}
+            onLinkProject={handleLinkProject}
+            onOpenProjectPicker={ensureProjectsLoaded}
+            isLinkingProject={linkingProjectNoteIds.has(selectedNote.id)}
+            projects={allProjects}
+            projectsLoading={projectsLoading}
             onConvertToTask={handleConvertToTask}
             isConvertingToTask={convertingNoteIds.has(selectedNote.id)}
             isSaving={updateIsPending}

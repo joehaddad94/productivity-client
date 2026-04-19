@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
@@ -15,16 +17,20 @@ export function ProjectNoteEditorScreen({
   projectId: string;
   noteId: string;
 }) {
+  const router = useRouter();
   const {
     workspaceId,
     note,
     isLoading,
     isError,
-    projectMismatch,
     existingTagLabels,
     allTasks,
     tasksLoading,
     ensureTasksLoaded,
+    allProjects,
+    projectsLoading,
+    handleLinkProject,
+    linkingProjectNoteIds,
     updateIsPending,
     linkingTaskNoteIds,
     convertingNoteIds,
@@ -38,6 +44,11 @@ export function ProjectNoteEditorScreen({
   } = useProjectNoteEditorScreen(projectId, noteId);
 
   const { data: project } = useProjectQuery(workspaceId, projectId);
+
+  useEffect(() => {
+    if (!note?.projectId || note.projectId === projectId) return;
+    router.replace(`/projects/${note.projectId}/notes/${noteId}`);
+  }, [note?.projectId, projectId, noteId, router, note]);
 
   if (isLoading) {
     return <ScreenSkeleton variant="notes" />;
@@ -58,19 +69,6 @@ export function ProjectNoteEditorScreen({
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <p className="text-sm text-muted-foreground">Note not found</p>
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/projects/${projectId}`}>Back to project</Link>
-        </Button>
-      </div>
-    );
-  }
-
-  if (projectMismatch) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4 px-4 text-center max-w-md mx-auto">
-        <p className="text-sm text-muted-foreground">
-          This note isn&apos;t part of this project. Open it from the main Notes page or the project it belongs to.
-        </p>
         <Button asChild variant="outline" size="sm">
           <Link href={`/projects/${projectId}`}>Back to project</Link>
         </Button>
@@ -117,6 +115,10 @@ export function ProjectNoteEditorScreen({
           onLinkTask={handleLinkTask}
           onOpenTaskPicker={ensureTasksLoaded}
           isLinkingTask={linkingTaskNoteIds.has(note.id)}
+          onLinkProject={handleLinkProject}
+          isLinkingProject={linkingProjectNoteIds.has(note.id)}
+          projects={allProjects}
+          projectsLoading={projectsLoading}
           onConvertToTask={handleConvertToTask}
           isConvertingToTask={convertingNoteIds.has(note.id)}
           isSaving={updateIsPending}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import {
   Bold,
   CheckSquare,
+  FolderOpen,
   Italic,
   Loader2,
   Sparkles,
@@ -11,7 +12,7 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 import { LinkedItems, renderRelation } from "@/app/components/linking/LinkPicker";
-import type { Task } from "@/lib/types";
+import type { Project, Task } from "@/lib/types";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
@@ -50,6 +51,11 @@ export function NoteEditor({
   onLinkTask,
   onOpenTaskPicker,
   isLinkingTask = false,
+  onLinkProject,
+  onOpenProjectPicker,
+  isLinkingProject = false,
+  projects = [],
+  projectsLoading = false,
   onConvertToTask,
   isConvertingToTask = false,
   isSaving,
@@ -62,6 +68,7 @@ export function NoteEditor({
   const tagInputRef = useRef<HTMLInputElement>(null);
   const paneRef = useRef<HTMLDivElement>(null);
   const linkedTask = tasks.find((t) => t.id === note.taskId) ?? null;
+  const linkedProject = projects.find((p) => p.id === note.projectId) ?? null;
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -271,6 +278,52 @@ export function NoteEditor({
     ],
   );
 
+  const projectRelation = useMemo(() => {
+    if (!onLinkProject) return null;
+    const statusLabel = (p: Project) => {
+      const s = p.status ?? "active";
+      if (s === "on_hold") return "On hold";
+      if (s === "completed") return "Completed";
+      return "Active";
+    };
+    return {
+      kind: "project",
+      singularLabel: "project",
+      icon: FolderOpen,
+      tone: {
+        chipClass:
+          "border-amber-500/35 bg-amber-500/10 text-amber-900 dark:text-amber-100",
+        triggerClass: "hover:border-amber-500/40",
+      },
+      value: note.projectId ?? null,
+      currentItem: linkedProject,
+      getId: (p: Project) => p.id,
+      getLabel: (p: Project) => p.name,
+      getSecondary: (p: Project) => statusLabel(p),
+      items: projects,
+      isLoading: projectsLoading,
+      onOpenPicker: onOpenProjectPicker,
+      onChange: (next: string | null) => onLinkProject(note.id, next),
+      isPending: isLinkingProject,
+      size: "xs" as const,
+    };
+  }, [
+    onLinkProject,
+    linkedProject,
+    note.id,
+    note.projectId,
+    projects,
+    projectsLoading,
+    onOpenProjectPicker,
+    isLinkingProject,
+  ]);
+
+  const linkRelations = useMemo(() => {
+    const list = [renderRelation(taskRelation)];
+    if (projectRelation) list.push(renderRelation(projectRelation));
+    return list;
+  }, [taskRelation, projectRelation]);
+
   return (
     <div ref={paneRef} tabIndex={-1} className="flex flex-col h-full outline-none">
       <div className="flex items-center justify-between gap-3 px-5 py-2.5 border-b border-border/40 shrink-0">
@@ -298,7 +351,7 @@ export function NoteEditor({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <LinkedItems relations={[renderRelation(taskRelation)]} />
+          <LinkedItems relations={linkRelations} />
           {!note.taskId && (
             <button
               type="button"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -11,6 +11,7 @@ import {
 } from "@/app/hooks/useNotesApi";
 import { useWorkspaceTagsQuery } from "@/app/hooks/useTagsApi";
 import { useNoteTagBatcher } from "@/app/hooks/useNoteTagBatcher";
+import { useProjectsQuery } from "@/app/hooks/useProjectsApi";
 import { useCreateTaskMutation, useTasksQuery } from "@/app/hooks/useTasksApi";
 import type { NoteUpdateChanges } from "../model/types";
 
@@ -26,6 +27,9 @@ export function useProjectNoteEditorScreen(projectId: string, noteId: string) {
   const [convertingNoteIds, setConvertingNoteIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [linkingProjectNoteIds, setLinkingProjectNoteIds] = useState<
+    Set<string>
+  >(() => new Set());
 
   const {
     data: note,
@@ -43,6 +47,13 @@ export function useProjectNoteEditorScreen(projectId: string, noteId: string) {
   );
   const allTasks = tasksPage?.tasks ?? [];
 
+  const { data: projectsPage, isLoading: projectsLoading } = useProjectsQuery(
+    workspaceId,
+    { limit: 200 },
+    { enabled: !!workspaceId },
+  );
+  const allProjects = projectsPage?.projects ?? [];
+
   const updateMutation = useUpdateNoteMutation(workspaceId, {
     onError: (err) => toast.error(err.message),
   });
@@ -54,12 +65,6 @@ export function useProjectNoteEditorScreen(projectId: string, noteId: string) {
   });
 
   const createTaskMutation = useCreateTaskMutation(workspaceId);
-
-  const projectMismatch = Boolean(
-    note &&
-      note.projectId != null &&
-      note.projectId !== projectId,
-  );
 
   const handleUpdate = useCallback(
     (id: string, changes: NoteUpdateChanges) => {
@@ -86,6 +91,59 @@ export function useProjectNoteEditorScreen(projectId: string, noteId: string) {
   const ensureTasksLoaded = useCallback(() => {
     setShouldFetchTasks(true);
   }, []);
+
+  useEffect(() => {
+    if (note?.projectId) setShouldFetchTasks(true);
+  }, [note?.projectId]);
+
+  const handleLinkProject = useCallback(
+    (id: string, nextProjectId: string | null) => {
+      const prevProjectId = note?.projectId ?? null;
+      if (prevProjectId === nextProjectId) return;
+
+      setLinkingProjectNoteIds((prev) => {
+        if (prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+
+      updateMutation.mutate(
+        { id, body: { projectId: nextProjectId } },
+        {
+          onSuccess: () => {
+            if (nextProjectId === null) {
+              toast.success("Project unlinked", {
+                duration: 5000,
+                action: prevProjectId
+                  ? {
+                      label: "Undo",
+                      onClick: () =>
+                        updateMutation.mutate({
+                          id,
+                          body: { projectId: prevProjectId },
+                        }),
+                    }
+                  : undefined,
+              });
+            } else {
+              toast.success("Linked to project");
+            }
+          },
+          onError: (err) => toast.error(err.message),
+          onSettled: () => {
+            setLinkingProjectNoteIds((prev) => {
+              if (!prev.has(id)) return prev;
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
+          },
+        },
+      );
+    },
+    [note?.projectId, updateMutation],
+  );
 
   const handleLinkTask = useCallback(
     (id: string, taskId: string | null) => {
@@ -206,7 +264,6 @@ export function useProjectNoteEditorScreen(projectId: string, noteId: string) {
     isLoading,
     isError,
     error: error as Error | null,
-    projectMismatch: !!note && projectMismatch,
     existingTagLabels,
     allTasks,
     tasksLoading,
@@ -218,6 +275,10 @@ export function useProjectNoteEditorScreen(projectId: string, noteId: string) {
     handleAddTags,
     handleRemoveTag,
     handleLinkTask,
+    handleLinkProject,
+    linkingProjectNoteIds,
+    allProjects,
+    projectsLoading,
     handleConvertToTask,
     handleDelete,
     deleteIsPending: deleteMutation.isPending,

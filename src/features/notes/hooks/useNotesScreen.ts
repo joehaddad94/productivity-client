@@ -13,6 +13,7 @@ import {
 } from "@/app/hooks/useNotesApi";
 import { useWorkspaceTagsQuery } from "@/app/hooks/useTagsApi";
 import { useNoteTagBatcher } from "@/app/hooks/useNoteTagBatcher";
+import { useProjectsQuery } from "@/app/hooks/useProjectsApi";
 import { useCreateTaskMutation, useTasksQuery } from "@/app/hooks/useTasksApi";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import type { Note } from "@/lib/types";
@@ -39,6 +40,7 @@ export function useNotesScreen(): UseNotesScreenResult {
   const [selectedTags, setSelectedTagsState] = useState<string[]>([]);
   const [tagMode, setTagModeState] = useState<TagMode>("all");
   const [shouldFetchTasks, setShouldFetchTasks] = useState(false);
+  const [filterProjectId, setFilterProjectId] = useState<string | null>(null);
   const [limit, setLimit] = useState(50);
   const pendingCreateTempIdsRef = useRef<Set<string>>(new Set());
   const createStartRef = useRef<number | null>(null);
@@ -51,6 +53,7 @@ export function useNotesScreen(): UseNotesScreenResult {
     search: debouncedSearch || undefined,
     tags: selectedTags.length ? selectedTags : undefined,
     tagMode: selectedTags.length >= 2 ? tagMode : undefined,
+    projectId: filterProjectId ?? undefined,
     limit,
   });
 
@@ -64,8 +67,21 @@ export function useNotesScreen(): UseNotesScreenResult {
     }
   );
   const allTasks = tasksPage?.tasks ?? [];
+
+  const { data: projectsPage, isLoading: projectsLoading } = useProjectsQuery(
+    workspaceId,
+    { limit: 200 },
+    { enabled: !!workspaceId },
+  );
+  const allProjects = projectsPage?.projects ?? [];
   const notes = page?.notes ?? [];
   const total = page?.total ?? 0;
+
+  useEffect(() => {
+    if (!filterProjectId || projectsLoading) return;
+    if (allProjects.some((p) => p.id === filterProjectId)) return;
+    setFilterProjectId(null);
+  }, [filterProjectId, allProjects, projectsLoading]);
 
   const createMutation = useCreateNoteMutation(workspaceId, {
     onSuccess: (note, variables) => {
@@ -111,10 +127,15 @@ export function useNotesScreen(): UseNotesScreenResult {
   });
 
   useEffect(() => {
-    if (notes.length > 0 && !selectedNoteId) {
-      setSelectedNoteId(notes[0].id);
+    if (notes.length === 0) {
+      setSelectedNoteId(null);
+      return;
     }
-  }, [notes, selectedNoteId]);
+    setSelectedNoteId((current) => {
+      if (current && notes.some((n) => n.id === current)) return current;
+      return notes[0].id;
+    });
+  }, [notes]);
 
   const selectedNote = notes.find((n) => n.id === selectedNoteId) ?? null;
 
@@ -126,7 +147,12 @@ export function useNotesScreen(): UseNotesScreenResult {
     if (typeof window !== "undefined") {
       createStartRef.current = performance.now();
     }
-    createMutation.mutate({ title: "Untitled Note", tags: [], clientTempId: tempId });
+    createMutation.mutate({
+      title: "Untitled Note",
+      tags: [],
+      clientTempId: tempId,
+      ...(filterProjectId ? { projectId: filterProjectId } : {}),
+    });
   };
 
   const handleSelectNote = useCallback((id: string | null) => {
@@ -165,6 +191,9 @@ export function useNotesScreen(): UseNotesScreenResult {
   const [linkingTaskNoteIds, setLinkingTaskNoteIds] = useState<Set<string>>(
     () => new Set()
   );
+  const [linkingProjectNoteIds, setLinkingProjectNoteIds] = useState<
+    Set<string>
+  >(() => new Set());
 
   const handleLinkTask = useCallback(
     (id: string, taskId: string | null) => {
@@ -217,9 +246,60 @@ export function useNotesScreen(): UseNotesScreenResult {
     [notes, updateMutation],
   );
 
+  const handleLinkProject = useCallback(
+    (id: string, projectId: string | null) => {
+      const prevProjectId = notes.find((n) => n.id === id)?.projectId ?? null;
+      if (prevProjectId === projectId) return;
+
+      setLinkingProjectNoteIds((prev) => {
+        if (prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+
+      updateMutation.mutate(
+        { id, body: { projectId } },
+        {
+          onSuccess: () => {
+            if (projectId === null) {
+              toast.success("Project unlinked", {
+                duration: 5000,
+                action: prevProjectId
+                  ? {
+                      label: "Undo",
+                      onClick: () =>
+                        updateMutation.mutate({
+                          id,
+                          body: { projectId: prevProjectId },
+                        }),
+                    }
+                  : undefined,
+              });
+            } else {
+              toast.success("Linked to project");
+            }
+          },
+          onError: (err) => toast.error(err.message),
+          onSettled: () => {
+            setLinkingProjectNoteIds((prev) => {
+              if (!prev.has(id)) return prev;
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
+          },
+        },
+      );
+    },
+    [notes, updateMutation],
+  );
+
   const ensureTasksLoaded = useCallback(() => {
     setShouldFetchTasks(true);
   }, []);
+
+  const ensureProjectsLoaded = useCallback(() => {}, []);
 
   const createTaskMutation = useCreateTaskMutation(workspaceId);
   const [convertingNoteIds, setConvertingNoteIds] = useState<Set<string>>(
@@ -395,6 +475,8 @@ export function useNotesScreen(): UseNotesScreenResult {
     toggleTag,
     tagMode,
     setTagMode,
+    filterProjectId,
+    setFilterProjectId,
     allTags: workspaceTags,
     notes,
     total,
@@ -412,6 +494,11 @@ export function useNotesScreen(): UseNotesScreenResult {
     handleLinkTask,
     linkingTaskNoteIds,
     ensureTasksLoaded,
+    allProjects,
+    projectsLoading,
+    handleLinkProject,
+    linkingProjectNoteIds,
+    ensureProjectsLoaded,
     handleConvertToTask,
     convertingNoteIds,
     handleDelete,
