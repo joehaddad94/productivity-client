@@ -134,34 +134,64 @@ export function NotesScreen() {
 
         {allTags.length > 0 && (
           <div
-            className="flex flex-col gap-2 px-3 py-2 border-b border-border/40"
+            className="flex flex-col gap-1.5 px-3 py-2 border-b border-border/40"
             data-testid="tag-filter-bar"
           >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Tags
+              </span>
+              <button
+                type="button"
+                onClick={() => setManageOpen(true)}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                data-testid="tag-filter-manage"
+                aria-label="Manage tags"
+              >
+                Manage
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1 items-center">
+              {inlineTags.map(({ tag, count }) => {
+                const isActive = selectedTags.includes(tag);
+                return (
+                  <TagChip
+                    key={tag}
+                    tag={tag}
+                    count={count}
+                    size="xs"
+                    muted={!isActive}
+                    active={isActive}
+                    className={!isActive ? "bg-primary/10 text-primary/80 border-primary/20 dark:bg-primary/15 dark:text-primary/90" : undefined}
+                    onClick={toggleTag}
+                  />
+                );
+              })}
+              {hasOverflow && (
+                <button
+                  type="button"
+                  onClick={() => setManageOpen(true)}
+                  className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 px-1.5 h-5 rounded-full border border-border/50 bg-muted"
+                  data-testid="tag-filter-overflow"
+                  aria-label="Manage tags"
+                >
+                  <MoreHorizontal className="size-3" />
+                  +{allTags.length - INLINE_TAG_LIMIT}
+                </button>
+              )}
+            </div>
             {selectedTags.length > 0 && (
               <div
-                className="flex items-center gap-1.5 rounded-md bg-accent/40 px-2 py-1.5"
+                className="flex items-center justify-between rounded-md bg-primary/5 border border-primary/20 px-2 py-1"
                 data-testid="tag-filter-active"
               >
-                <span className="text-[10px] font-medium text-muted-foreground shrink-0">
-                  Filtering by
+                <span className="text-[10px] text-muted-foreground">
+                  {selectedTags.length === 1 ? `"${selectedTags[0]}"` : `${selectedTags.length} tags`} selected
                 </span>
-                <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                  {selectedTags.map((tag) => (
-                    <TagChip
-                      key={tag}
-                      tag={tag}
-                      size="xs"
-                      active
-                      onClick={toggleTag}
-                      onRemove={toggleTag}
-                      ariaLabel={`Remove ${tag} filter`}
-                    />
-                  ))}
-                </div>
                 <button
                   type="button"
                   onClick={() => setSelectedTags([])}
-                  className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 shrink-0 px-1.5 h-5 rounded-full hover:bg-background"
+                  className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 shrink-0"
                   data-testid="tag-filter-clear"
                   aria-label="Clear all filters"
                 >
@@ -170,41 +200,6 @@ export function NotesScreen() {
                 </button>
               </div>
             )}
-            <div className="flex flex-wrap gap-1 items-center">
-              {inlineTags.map(({ tag, count }) => (
-                <TagChip
-                  key={tag}
-                  tag={tag}
-                  count={count}
-                  size="xs"
-                  active={selectedTags.includes(tag)}
-                  onClick={toggleTag}
-                />
-              ))}
-              {hasOverflow && (
-                <button
-                  type="button"
-                  onClick={() => setManageOpen(true)}
-                  className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 px-1.5 h-5 rounded-full border border-dashed"
-                  data-testid="tag-filter-overflow"
-                  aria-label="Manage tags"
-                >
-                  <MoreHorizontal className="size-3" />
-                  +{allTags.length - INLINE_TAG_LIMIT}
-                </button>
-              )}
-              {!hasOverflow && allTags.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setManageOpen(true)}
-                  className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 px-1.5 h-5 rounded-full border border-dashed"
-                  data-testid="tag-filter-manage"
-                  aria-label="Manage tags"
-                >
-                  Manage
-                </button>
-              )}
-            </div>
             {selectedTags.length >= 2 && (
               <div
                 className="inline-flex self-start items-center gap-0.5 text-[10px] rounded-full border"

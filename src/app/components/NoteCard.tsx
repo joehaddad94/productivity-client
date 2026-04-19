@@ -32,7 +32,7 @@ function NoteCardComponent({ note, isActive, onSelect }: NoteCardProps) {
       data-testid="note-card"
       data-note-id={note.id}
       className={cn(
-        "px-3 py-2.5 pr-10 rounded-lg cursor-pointer transition-colors",
+        "px-3 py-2.5 pr-10 rounded-lg cursor-pointer transition-colors min-h-[48px]",
         isActive
           ? "bg-muted"
           : "hover:bg-muted/50",
@@ -42,17 +42,17 @@ function NoteCardComponent({ note, isActive, onSelect }: NoteCardProps) {
         <p className="text-sm font-medium truncate leading-snug">{note.title || "Untitled"}</p>
         <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">{relativeDate(note.updatedAt)}</span>
       </div>
-      {preview && (
-        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{preview}</p>
-      )}
+      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 min-h-[16px]">
+        {preview || ""}
+      </p>
       {note.tags && note.tags.length > 0 && (
         <div className="flex gap-1 mt-1.5 flex-wrap" data-testid="note-card-tags">
           {note.tags.slice(0, 2).map((tag) => (
-            <TagChip key={tag} tag={tag} size="xs" />
+            <TagChip key={tag} tag={tag} size="xs" muted className="bg-primary/10 text-primary/80 border-primary/20 dark:bg-primary/15 dark:text-primary/90" />
           ))}
           {note.tags.length > 2 && (
             <span
-              className="text-[10px] h-5 px-1.5 rounded-full bg-muted text-muted-foreground inline-flex items-center"
+              className="text-[10px] h-5 px-1.5 rounded-full bg-muted text-muted-foreground border border-border/50 inline-flex items-center"
               data-testid="note-card-tag-overflow"
             >
               +{note.tags.length - 2}

@@ -15,7 +15,9 @@ import {
   List,
   ListOrdered,
   ListTodo,
+  Loader2,
   Minus,
+  MoreHorizontal,
   Quote,
   Redo2,
   Strikethrough,
@@ -32,21 +34,18 @@ import {
 
 interface Props {
   editor: Editor | null;
+  isSaving?: boolean;
 }
 
-// Keep pasted/dropped images small enough that the note (stored as HTML) stays
-// manageable. At ~1.5 MB as a data URL we're already at >2 MB of JSON on the
-// wire, which is well beyond a reasonable note payload.
 const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024;
 
-export function NoteEditorToolbar({ editor }: Props) {
+export function NoteEditorToolbar({ editor, isSaving }: Props) {
   const linkTriggerRef = useRef<HTMLButtonElement>(null);
-  const imageTriggerRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [linkUrl, setLinkUrl] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
-  const [imageOpen, setImageOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const insertLink = useCallback(() => {
     if (!editor) return;
@@ -68,7 +67,7 @@ export function NoteEditorToolbar({ editor }: Props) {
     if (!url) return;
     editor.chain().focus().setImage({ src: url }).run();
     setImageUrl("");
-    setImageOpen(false);
+    setMoreOpen(false);
   }, [editor, imageUrl]);
 
   const insertImageFromFile = useCallback(
@@ -102,6 +101,14 @@ export function NoteEditorToolbar({ editor }: Props) {
     setLinkOpen(true);
   };
 
+  const moreActive =
+    editor.isActive("heading", { level: 3 }) ||
+    editor.isActive("strike") ||
+    editor.isActive("code") ||
+    editor.isActive("taskList") ||
+    editor.isActive("blockquote") ||
+    editor.isActive("codeBlock");
+
   return (
     <div
       role="toolbar"
@@ -109,7 +116,25 @@ export function NoteEditorToolbar({ editor }: Props) {
       data-testid="editor-toolbar"
       className="flex flex-wrap items-center gap-0.5 px-3 py-1 border-b border-border/40 bg-background/70 backdrop-blur-sm sticky top-0 z-10"
     >
-      {/* Headings */}
+      {/* History — first */}
+      <ToolGroup>
+        <ToolButton
+          label="Undo (⌘Z)"
+          icon={Undo2}
+          disabled={!editor.can().chain().focus().undo().run()}
+          onClick={() => editor.chain().focus().undo().run()}
+        />
+        <ToolButton
+          label="Redo (⌘⇧Z)"
+          icon={Redo2}
+          disabled={!editor.can().chain().focus().redo().run()}
+          onClick={() => editor.chain().focus().redo().run()}
+        />
+      </ToolGroup>
+
+      <Divider />
+
+      {/* Headings — H1, H2 */}
       <ToolGroup>
         <ToolButton
           label="Heading 1"
@@ -123,17 +148,11 @@ export function NoteEditorToolbar({ editor }: Props) {
           active={editor.isActive("heading", { level: 2 })}
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         />
-        <ToolButton
-          label="Heading 3"
-          icon={Heading3}
-          active={editor.isActive("heading", { level: 3 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-        />
       </ToolGroup>
 
       <Divider />
 
-      {/* Inline */}
+      {/* Inline — Bold, Italic */}
       <ToolGroup>
         <ToolButton
           label="Bold (⌘B)"
@@ -147,23 +166,11 @@ export function NoteEditorToolbar({ editor }: Props) {
           active={editor.isActive("italic")}
           onClick={() => editor.chain().focus().toggleItalic().run()}
         />
-        <ToolButton
-          label="Strikethrough"
-          icon={Strikethrough}
-          active={editor.isActive("strike")}
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-        />
-        <ToolButton
-          label="Inline code"
-          icon={Code}
-          active={editor.isActive("code")}
-          onClick={() => editor.chain().focus().toggleCode().run()}
-        />
       </ToolGroup>
 
       <Divider />
 
-      {/* Lists */}
+      {/* Lists — Bullet, Numbered */}
       <ToolGroup>
         <ToolButton
           label="Bullet list"
@@ -176,35 +183,6 @@ export function NoteEditorToolbar({ editor }: Props) {
           icon={ListOrdered}
           active={editor.isActive("orderedList")}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        />
-        <ToolButton
-          label="Task list"
-          icon={ListTodo}
-          active={editor.isActive("taskList")}
-          onClick={() => editor.chain().focus().toggleTaskList().run()}
-        />
-      </ToolGroup>
-
-      <Divider />
-
-      {/* Blocks */}
-      <ToolGroup>
-        <ToolButton
-          label="Quote"
-          icon={Quote}
-          active={editor.isActive("blockquote")}
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        />
-        <ToolButton
-          label="Code block"
-          icon={Code2}
-          active={editor.isActive("codeBlock")}
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-        />
-        <ToolButton
-          label="Divider"
-          icon={Minus}
-          onClick={() => editor.chain().focus().setHorizontalRule().run()}
         />
       </ToolGroup>
 
@@ -269,98 +247,137 @@ export function NoteEditorToolbar({ editor }: Props) {
         </PopoverContent>
       </Popover>
 
-      {/* Image */}
-      <Popover open={imageOpen} onOpenChange={setImageOpen}>
+      {/* More — H3, Strike, Code, Task list, Quote, Code block, Divider, Image */}
+      <Popover open={moreOpen} onOpenChange={setMoreOpen}>
         <PopoverTrigger asChild>
           <button
-            ref={imageTriggerRef}
             type="button"
-            aria-label="Insert image"
-            title="Insert image"
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            aria-label="More formatting"
+            title="More formatting"
+            className={cn(
+              "p-1.5 rounded-md transition-colors",
+              moreActive
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+            )}
           >
-            <ImageIcon className="size-3.5" />
+            <MoreHorizontal className="size-3.5" />
           </button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-80 p-3 space-y-2" sideOffset={4}>
-          <div className="space-y-1">
-            <label className="text-[11px] font-medium text-muted-foreground">
-              Image URL
-            </label>
+        <PopoverContent align="start" className="w-60 p-2 space-y-2" sideOffset={4}>
+          <div className="flex items-center gap-0.5 flex-wrap">
+            <ToolButton
+              label="Heading 3"
+              icon={Heading3}
+              active={editor.isActive("heading", { level: 3 })}
+              onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+            />
+            <ToolButton
+              label="Strikethrough"
+              icon={Strikethrough}
+              active={editor.isActive("strike")}
+              onClick={() => editor.chain().focus().toggleStrike().run()}
+            />
+            <ToolButton
+              label="Inline code"
+              icon={Code}
+              active={editor.isActive("code")}
+              onClick={() => editor.chain().focus().toggleCode().run()}
+            />
+            <ToolButton
+              label="Task list"
+              icon={ListTodo}
+              active={editor.isActive("taskList")}
+              onClick={() => editor.chain().focus().toggleTaskList().run()}
+            />
+            <ToolButton
+              label="Quote"
+              icon={Quote}
+              active={editor.isActive("blockquote")}
+              onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            />
+            <ToolButton
+              label="Code block"
+              icon={Code2}
+              active={editor.isActive("codeBlock")}
+              onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+            />
+            <ToolButton
+              label="Divider"
+              icon={Minus}
+              onClick={() => {
+                editor.chain().focus().setHorizontalRule().run();
+                setMoreOpen(false);
+              }}
+            />
+          </div>
+
+          <div className="h-px bg-border/50" />
+
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-medium text-muted-foreground px-0.5">Image</p>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 insertImageFromUrl();
               }}
-              className="flex items-center gap-1.5"
+              className="space-y-1.5"
             >
               <input
-                autoFocus
                 type="url"
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 placeholder="https://example.com/photo.png"
-                className="flex-1 text-xs bg-transparent border border-border/60 rounded-md px-2 h-7 outline-none focus:border-primary/60"
+                className="w-full text-xs bg-transparent border border-border/60 rounded-md px-2 h-7 outline-none focus:border-primary/60"
               />
               <button
                 type="submit"
-                className="text-xs px-2 h-7 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+                className="w-full text-xs h-7 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Insert
               </button>
             </form>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full text-xs h-7 rounded-md border border-dashed border-border/60 text-muted-foreground hover:text-foreground hover:border-border transition-colors"
+            >
+              Upload from device
+            </button>
           </div>
-
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70">
-            <div className="flex-1 h-px bg-border/50" />
-            or
-            <div className="flex-1 h-px bg-border/50" />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full text-xs h-7 rounded-md border border-dashed border-border/60 text-muted-foreground hover:text-foreground hover:border-border transition-colors"
-          >
-            Upload from this device
-          </button>
-          <p className="text-[10px] text-muted-foreground/70">
-            Tip: you can also paste or drop an image directly into the note.
-          </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                insertImageFromFile(file);
-                setImageOpen(false);
-              }
-              e.target.value = "";
-            }}
-          />
         </PopoverContent>
       </Popover>
 
       <div className="flex-1" />
 
-      {/* History */}
-      <ToolGroup>
-        <ToolButton
-          label="Undo (⌘Z)"
-          icon={Undo2}
-          disabled={!editor.can().chain().focus().undo().run()}
-          onClick={() => editor.chain().focus().undo().run()}
-        />
-        <ToolButton
-          label="Redo (⌘⇧Z)"
-          icon={Redo2}
-          disabled={!editor.can().chain().focus().redo().run()}
-          onClick={() => editor.chain().focus().redo().run()}
-        />
-      </ToolGroup>
+      {/* Save status */}
+      {isSaving !== undefined && (
+        <span className="flex items-center gap-1 text-[10px] text-muted-foreground/50 pr-0.5 select-none">
+          {isSaving ? (
+            <>
+              <Loader2 className="size-2.5 animate-spin" />
+              Saving…
+            </>
+          ) : (
+            "Saved"
+          )}
+        </span>
+      )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            insertImageFromFile(file);
+            setMoreOpen(false);
+          }
+          e.target.value = "";
+        }}
+      />
     </div>
   );
 }

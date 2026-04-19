@@ -326,16 +326,29 @@ export function NoteEditor({
 
   return (
     <div ref={paneRef} tabIndex={-1} className="flex flex-col h-full outline-none">
-      <div className="flex items-center justify-between gap-3 px-5 py-2.5 border-b border-border/40 shrink-0">
+      <NoteEditorToolbar editor={editor} isSaving={isSaving} />
+
+      <div className="flex-1 overflow-y-auto px-6 py-5">
+        <input
+          value={title}
+          onChange={handleTitleChange}
+          onBlur={handleTitleBlur}
+          placeholder="Untitled"
+          className="w-full text-2xl font-semibold bg-transparent outline-none placeholder:text-muted-foreground/30 mb-3 leading-tight"
+        />
+
+        {/* Tags row */}
         <div
-          className="flex flex-wrap gap-1.5 items-center flex-1 min-w-0"
+          className="flex flex-wrap gap-1 items-center mb-2 min-h-[20px]"
           data-testid="editor-tag-row"
         >
           {note.tags?.map((tag) => (
             <TagChip
               key={tag}
               tag={tag}
-              size="sm"
+              size="xs"
+              muted
+              className="bg-primary/10 text-primary/80 border-primary/20 dark:bg-primary/15 dark:text-primary/90"
               onClick={onTagClick ? (t) => onTagClick(t) : undefined}
               onRemove={handleRemove}
             />
@@ -350,7 +363,9 @@ export function NoteEditor({
           />
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* Links row — visually separated from tags */}
+        <div className="flex items-center gap-2 mb-5 pt-2 border-t border-border/30">
+          <span className="text-[10px] text-muted-foreground/60 shrink-0 select-none">Links</span>
           <LinkedItems relations={linkRelations} />
           {!note.taskId && (
             <button
@@ -376,18 +391,6 @@ export function NoteEditor({
             </button>
           )}
         </div>
-      </div>
-
-      <NoteEditorToolbar editor={editor} />
-
-      <div className="flex-1 overflow-y-auto px-6 py-5">
-        <input
-          value={title}
-          onChange={handleTitleChange}
-          onBlur={handleTitleBlur}
-          placeholder="Untitled"
-          className="w-full text-2xl font-semibold bg-transparent outline-none placeholder:text-muted-foreground/30 mb-4 leading-tight"
-        />
 
         {editor && (
           <BubbleMenu
@@ -475,16 +478,6 @@ export function NoteEditor({
         />
       </div>
 
-      <div className="px-6 py-2.5 border-t border-border/40 shrink-0">
-        {isSaving ? (
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Loader2 className="size-3 animate-spin" />
-            Saving…
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground/50">Saved</span>
-        )}
-      </div>
     </div>
   );
 }
