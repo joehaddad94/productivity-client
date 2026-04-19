@@ -4,6 +4,7 @@ import {
   useQuery,
   useMutation,
   useQueryClient,
+  type QueryKey,
   type UseQueryOptions,
   type UseMutationOptions,
 } from "@tanstack/react-query";
@@ -20,27 +21,46 @@ export const PROJECTS_QUERY_KEY = (workspaceId: string) =>
 export const PROJECT_QUERY_KEY = (workspaceId: string, id: string) =>
   ["projects", workspaceId, id] as const;
 
+// Partial-key matcher used by setQueriesData / getQueriesData
+function projectsFilter(workspaceId: string) {
+  return { queryKey: PROJECTS_QUERY_KEY(workspaceId) };
+}
+
+function patchPage(
+  old: ProjectsPage | undefined,
+  fn: (projects: Project[]) => Project[],
+  totalDelta = 0,
+): ProjectsPage | undefined {
+  if (!old) return old;
+  return { projects: fn(old.projects), total: old.total + totalDelta };
+}
+
+// ─── List ─────────────────────────────────────────────────────────────────────
+
 export function useProjectsQuery(
   workspaceId: string | null | undefined,
   params?: { limit?: number; skip?: number },
   options?: Omit<UseQueryOptions<ProjectsPage>, "queryKey" | "queryFn"> & {
     enabled?: boolean;
-  }
+  },
 ) {
   return useQuery({
     queryKey: [...PROJECTS_QUERY_KEY(workspaceId ?? ""), params] as const,
     queryFn: () => projectsApi.list(workspaceId!, params),
     enabled: !!workspaceId,
+    staleTime: 30_000,
     ...options,
   });
 }
+
+// ─── Single ───────────────────────────────────────────────────────────────────
 
 export function useProjectQuery(
   workspaceId: string | null | undefined,
   id: string | null | undefined,
   options?: Omit<UseQueryOptions<Project | null>, "queryKey" | "queryFn"> & {
     enabled?: boolean;
-  }
+  },
 ) {
   return useQuery({
     queryKey: PROJECT_QUERY_KEY(workspaceId ?? "", id ?? ""),
@@ -50,60 +70,150 @@ export function useProjectQuery(
   });
 }
 
+// ─── Create ───────────────────────────────────────────────────────────────────
+
+type CreateCtx = { tempId: string };
+
 export function useCreateProjectMutation(
   workspaceId: string | null | undefined,
-  options?: UseMutationOptions<Project, Error, CreateProjectBody>
+  options?: Omit<
+    UseMutationOptions<Project, Error, CreateProjectBody, CreateCtx>,
+    "mutationFn" | "onMutate"
+  >,
 ) {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: CreateProjectBody) =>
-      projectsApi.create(workspaceId!, body),
-    ...options,
-    onSuccess: (data, variables, context, mutation) => {
-      options?.onSuccess?.(data, variables, context, mutation);
-      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY(workspaceId ?? "") });
+
+  return useMutation<Project, Error, CreateProjectBody, CreateCtx>({
+    mutationFn: (body) => projectsApi.create(workspaceId!, body),
+
+    onMutate: async (variables) => {
+      // Cancel in-flight refetches so they don't overwrite our optimistic insert
+      await queryClient.cancelQueries(projectsFilter(workspaceId ?? ""));
+
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const optimistic: Project = {
+        id: tempId,
+        workspaceId: workspaceId ?? "",
+        name: variables.name,
+        description: variables.description ?? null,
+        status: variables.status ?? "active",
+        color: variables.color ?? null,
+        createdAt: new Date().toISOString(),
+        _count: { notes: 0, tasks: 0 },
+      };
+
+      queryClient.setQueriesData<ProjectsPage>(
+        projectsFilter(workspaceId ?? ""),
+        (old) => patchPage(old, (ps) => [optimistic, ...ps], +1),
+      );
+
+      return { tempId };
     },
+
+    onSuccess: (real, variables, context) => {
+      // Swap temp with the real server record
+      queryClient.setQueriesData<ProjectsPage>(
+        projectsFilter(workspaceId ?? ""),
+        (old) => patchPage(old, (ps) => ps.map((p) => (p.id === context.tempId ? real : p))),
+      );
+      options?.onSuccess?.(real, variables, context);
+    },
+
+    onError: (err, variables, context) => {
+      // Roll back the optimistic insert
+      if (context) {
+        queryClient.setQueriesData<ProjectsPage>(
+          projectsFilter(workspaceId ?? ""),
+          (old) => patchPage(old, (ps) => ps.filter((p) => p.id !== context.tempId), -1),
+        );
+      }
+      options?.onError?.(err, variables, context);
+    },
+
+    onSettled: options?.onSettled,
   });
 }
+
+// ─── Update ───────────────────────────────────────────────────────────────────
+
+type UpdateCtx = { snapshot: [QueryKey, ProjectsPage | undefined][] };
 
 export function useUpdateProjectMutation(
   workspaceId: string | null | undefined,
-  options?: UseMutationOptions<
-    Project,
-    Error,
-    { id: string; body: UpdateProjectBody }
-  >
+  options?: Omit<
+    UseMutationOptions<Project, Error, { id: string; body: UpdateProjectBody }, UpdateCtx>,
+    "mutationFn" | "onMutate"
+  >,
 ) {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, body }: { id: string; body: UpdateProjectBody }) =>
-      projectsApi.update(workspaceId!, id, body),
-    ...options,
-    onSuccess: (data, variables, context, mutation) => {
-      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY(workspaceId ?? "") });
-      options?.onSuccess?.(data, variables, context, mutation);
+
+  return useMutation<Project, Error, { id: string; body: UpdateProjectBody }, UpdateCtx>({
+    mutationFn: ({ id, body }) => projectsApi.update(workspaceId!, id, body),
+
+    onMutate: async ({ id, body }) => {
+      await queryClient.cancelQueries(projectsFilter(workspaceId ?? ""));
+
+      // Snapshot all pages (for rollback)
+      const snapshot = queryClient.getQueriesData<ProjectsPage>(
+        projectsFilter(workspaceId ?? ""),
+      );
+
+      // Apply patch immediately
+      queryClient.setQueriesData<ProjectsPage>(
+        projectsFilter(workspaceId ?? ""),
+        (old) =>
+          patchPage(old, (ps) =>
+            ps.map((p) => (p.id === id ? { ...p, ...body } : p)),
+          ),
+      );
+
+      return { snapshot };
     },
+
+    onSuccess: (real, { id }, context) => {
+      // Sync with exact server data
+      queryClient.setQueriesData<ProjectsPage>(
+        projectsFilter(workspaceId ?? ""),
+        (old) => patchPage(old, (ps) => ps.map((p) => (p.id === id ? real : p))),
+      );
+      // Also update the single-project cache if present
+      queryClient.setQueryData(PROJECT_QUERY_KEY(workspaceId ?? "", id), real);
+      options?.onSuccess?.(real, { id, body: {} }, context);
+    },
+
+    onError: (err, variables, context) => {
+      // Restore snapshot
+      context?.snapshot.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      options?.onError?.(err, variables, context);
+    },
+
+    onSettled: options?.onSettled,
   });
 }
 
+// ─── Delete ───────────────────────────────────────────────────────────────────
+
 export function useDeleteProjectMutation(
   workspaceId: string | null | undefined,
-  options?: UseMutationOptions<void, Error, string>
+  options?: UseMutationOptions<void, Error, string>,
 ) {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => projectsApi.delete(workspaceId!, id),
-    ...options,
-    onSuccess: (_, id, context, mutation) => {
+
+  return useMutation<void, Error, string>({
+    mutationFn: (id) => projectsApi.delete(workspaceId!, id),
+
+    onSuccess: (_, id) => {
+      // Drop the individual-project cache entry
       queryClient.removeQueries({
         queryKey: PROJECT_QUERY_KEY(workspaceId ?? "", id),
       });
-      queryClient.setQueryData(
-        PROJECTS_QUERY_KEY(workspaceId ?? ""),
-        (prev: Project[] | undefined) =>
-          prev ? prev.filter((p) => p.id !== id) : []
-      );
-      options?.onSuccess?.(_, id, context, mutation);
+      options?.onSuccess?.(_, id, undefined);
     },
+
+    onError: (err, id, context) => {
+      options?.onError?.(err, id, context);
+    },
+
+    onSettled: options?.onSettled,
   });
 }

@@ -3,7 +3,7 @@
 import { Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { ActivityHeatmap } from "@/app/components/ActivityHeatmap";
-import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
+import { ScreenLoader } from "@/app/components/ScreenLoader";
 import {
   BarChart,
   Bar,
@@ -69,7 +69,7 @@ export function AnalyticsScreen() {
   } = useAnalyticsScreen();
 
   if (isLoading) {
-    return <ScreenSkeleton variant="analytics" />;
+    return <ScreenLoader variant="app" />;
   }
 
   return (

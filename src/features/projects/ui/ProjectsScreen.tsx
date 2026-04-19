@@ -6,7 +6,7 @@ import { Plus, Pencil, Trash2, Loader2, FolderOpen, FileText, SquareCheck } from
 import type { Project } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
-import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
+import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { toast } from "sonner";
 import { useProjectsScreen } from "../hooks/useProjectsScreen";
@@ -233,7 +233,7 @@ export function ProjectsScreen() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   if (isLoading) {
-    return <ScreenSkeleton variant="projects" />;
+    return <ScreenLoader variant="app" />;
   }
 
   return (
@@ -261,6 +261,7 @@ export function ProjectsScreen() {
           isPending={createMutation.isPending}
           onCancel={() => setShowCreate(false)}
           onSubmit={({ name, description, status, color }) => {
+            setShowCreate(false); // close immediately — list updates optimistically
             createMutation.mutate({ name, description: description || undefined, status, color });
           }}
         />
@@ -302,12 +303,13 @@ export function ProjectsScreen() {
                   submitLabel="Save"
                   isPending={updateMutation.isPending}
                   onCancel={() => setEditing(null)}
-                  onSubmit={({ name, description, status, color }) =>
+                  onSubmit={({ name, description, status, color }) => {
+                    setEditing(null); // close immediately — card updates optimistically
                     updateMutation.mutate({
                       id: project.id,
                       body: { name, description: description || undefined, status, color },
-                    })
-                  }
+                    });
+                  }}
                 />
               ) : (
                 <ProjectCard

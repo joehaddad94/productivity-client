@@ -15,7 +15,7 @@ import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
 import { cn } from "@/app/components/ui/utils";
-import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
+import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ManageTagsDialog } from "@/app/components/tags/ManageTagsDialog";
 import { useNotesScreen } from "../hooks/useNotesScreen";
 import { NoteEditor } from "./NoteEditor";
@@ -134,7 +134,7 @@ export function NotesScreen() {
     }
   }
 
-  if (isLoading) return <ScreenSkeleton variant="notes" />;
+  if (isLoading) return <ScreenLoader variant="app" />;
 
   const navProjects = allProjects.slice(0, MAX_NAV_PROJECTS);
   const hiddenProjectCount = Math.max(0, allProjects.length - MAX_NAV_PROJECTS);

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
-import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
+import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { useProjectQuery } from "@/app/hooks/useProjectsApi";
 import { useProjectNoteEditorScreen } from "../hooks/useProjectNoteEditorScreen";
 import { NoteEditor } from "./NoteEditor";
@@ -51,7 +51,7 @@ export function ProjectNoteEditorScreen({
   }, [note?.projectId, projectId, noteId, router, note]);
 
   if (isLoading) {
-    return <ScreenSkeleton variant="notes" />;
+    return <ScreenLoader variant="app" />;
   }
 
   if (isError) {
