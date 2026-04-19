@@ -44,7 +44,7 @@ export function DashboardScreen() {
   } = useDashboardScreen();
 
   return (
-    <div className="max-w-3xl space-y-8">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

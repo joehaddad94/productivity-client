@@ -5,7 +5,7 @@
  * All routes require auth (cookie).
  *
  * Method   Path                                        Description
- * GET      /workspaces/:wid/tasks                      List top-level tasks (with subtasks nested)
+ * GET      /workspaces/:wid/tasks                      List top-level tasks (with subtasks nested; projectId?, …)
  * POST     /workspaces/:wid/tasks                      Create task
  * GET      /workspaces/:wid/tasks/:id                  Get one task with subtasks
  * PATCH    /workspaces/:wid/tasks/:id                  Update task
@@ -55,6 +55,7 @@ export type ListTasksParams = {
   dueBefore?: string;
   dueAfter?: string;
   search?: string;
+  projectId?: string;
   limit?: number;
   skip?: number;
 };
@@ -68,6 +69,7 @@ export type CreateTaskBody = {
   status?: "pending" | "in_progress" | "completed";
   parentTaskId?: string;
   recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY";
+  projectId?: string;
 };
 
 export type UpdateTaskBody = Partial<CreateTaskBody>;
@@ -85,6 +87,7 @@ export const tasksApi = {
     if (params?.dueBefore) qs.set("dueBefore", params.dueBefore);
     if (params?.dueAfter) qs.set("dueAfter", params.dueAfter);
     if (params?.search) qs.set("search", params.search);
+    if (params?.projectId) qs.set("projectId", params.projectId);
     if (params?.limit !== undefined) qs.set("limit", String(params.limit));
     if (params?.skip !== undefined) qs.set("skip", String(params.skip));
     const query = qs.toString() ? `?${qs.toString()}` : "";

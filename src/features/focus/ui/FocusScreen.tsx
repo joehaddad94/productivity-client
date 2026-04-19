@@ -56,7 +56,7 @@ export function FocusScreen() {
         </div>
 
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-3xl space-y-12">
+          <div className="w-full space-y-12">
             <div className="text-center space-y-4">
               <h1 className="text-4xl md:text-5xl font-bold">{task.title}</h1>
               {task.description && <p className="text-lg text-gray-600 dark:text-gray-400">{task.description}</p>}

@@ -35,9 +35,13 @@ export interface Project {
   id: string;
   workspaceId: string;
   name: string;
+  description?: string | null;
+  status: string;
+  color?: string | null;
   createdAt: string;
   _count?: {
     notes: number;
+    tasks: number;
   };
 }
 
@@ -56,6 +60,7 @@ export interface Task {
   sortOrder?: number;
   recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY" | null;
   recurrenceParentId?: string | null;
+  projectId?: string | null;
   completedAt?: string | null;
   deletedAt?: string | null;
   createdAt: string;

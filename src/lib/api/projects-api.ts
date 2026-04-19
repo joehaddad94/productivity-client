@@ -51,10 +51,16 @@ async function parseJson(res: Response): Promise<unknown> {
 
 export type CreateProjectBody = {
   name: string;
+  description?: string;
+  status?: string;
+  color?: string;
 };
 
 export type UpdateProjectBody = {
   name?: string;
+  description?: string;
+  status?: string;
+  color?: string;
 };
 
 export type ProjectsPage = { projects: Project[]; total: number };

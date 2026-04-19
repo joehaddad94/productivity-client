@@ -73,7 +73,7 @@ export function AnalyticsScreen() {
   }
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
       {error && <p className="text-sm text-destructive py-8 text-center">Failed to load analytics</p>}
 
