@@ -138,7 +138,7 @@ export function ManageTagsDialog({ open, onOpenChange, workspaceId }: ManageTags
             />
           </div>
 
-          <div className="max-h-[min(50vh,22rem)] overflow-y-auto rounded-lg border border-border/50 bg-muted/25 p-1.5 shadow-inner">
+          <div className="max-h-[min(50vh,22rem)] overflow-y-auto rounded-lg border border-border/40 p-1">
             {isLoading ? (
               <p className="text-sm text-muted-foreground py-8 text-center">Loading…</p>
             ) : visibleTags.length === 0 ? (
@@ -173,7 +173,13 @@ export function ManageTagsDialog({ open, onOpenChange, workspaceId }: ManageTags
                         />
                       ) : (
                         <div className="min-w-0 flex-1">
-                          <TagChip tag={tag} count={count} size="sm" />
+                          <TagChip
+                            tag={tag}
+                            count={count}
+                            size="sm"
+                            muted
+                            className="bg-primary/10 text-primary/80 border-primary/20 dark:bg-primary/15 dark:text-primary/90"
+                          />
                         </div>
                       )}
 
@@ -205,7 +211,7 @@ export function ManageTagsDialog({ open, onOpenChange, workspaceId }: ManageTags
                           </Button>
                         </div>
                       ) : (
-                        <div className="flex shrink-0 items-center gap-0.5 opacity-80 group-hover:opacity-100">
+                        <div className="flex shrink-0 items-center gap-0.5 opacity-40 group-hover:opacity-100 transition-opacity">
                           <Button
                             type="button"
                             size="icon"
