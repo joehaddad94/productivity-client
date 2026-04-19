@@ -12,7 +12,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { createRoot, type Root } from "react-dom/client";
 import { flushSync } from "react-dom";
-import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
+import { ScreenLoader } from "@/app/components/ScreenLoader";
 
 /**
  * Global navigation state + an imperative, route-aware skeleton overlay.
@@ -39,16 +39,6 @@ import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
  *   - Programmatic `router.push` / `router.replace` (patched once at mount)
  */
 
-type SkeletonVariant =
-  | "generic"
-  | "notes"
-  | "tasks"
-  | "projects"
-  | "analytics"
-  | "dashboard"
-  | "calendar"
-  | "settings";
-
 type NavigationContextValue = {
   pendingNavPath: string | null;
   setPendingNavigation: (path: string | null) => void;
@@ -59,19 +49,6 @@ const NavigationContext = createContext<NavigationContextValue | null>(null);
 
 const SAFETY_TIMEOUT_MS = 10_000;
 const POST_COMMIT_SETTLE_MS = 60;
-
-function routeToVariant(path: string | null | undefined): SkeletonVariant {
-  if (!path) return "generic";
-  const stripped = path.split("?")[0]?.split("#")[0] ?? path;
-  if (stripped.startsWith("/notes")) return "notes";
-  if (stripped.startsWith("/tasks")) return "tasks";
-  if (stripped.startsWith("/projects")) return "projects";
-  if (stripped.startsWith("/analytics")) return "analytics";
-  if (stripped.startsWith("/dashboard")) return "dashboard";
-  if (stripped.startsWith("/calendar")) return "calendar";
-  if (stripped.startsWith("/settings")) return "settings";
-  return "generic";
-}
 
 function isInternalAnchor(anchor: HTMLAnchorElement): boolean {
   if (!anchor.href) return false;
@@ -223,16 +200,13 @@ function createOverlayController(): OverlayController {
       if (!el.isConnected) document.body.appendChild(el);
       document.body.setAttribute("data-navigating", "true");
 
-      // Render the skeleton into the independent React root. We use
-      // queueMicrotask so this runs after any active React flush (avoiding
-      // the "flushSync inside lifecycle" warning when show() is called from a
-      // useEffect via the patched router). The overlay element is already
-      // attached with a solid background, so there is no visible flash.
-      const variant = routeToVariant(path);
+      // Use auth variant when there is no app layout yet (e.g. login → dashboard),
+      // and the lighter app variant when navigating between in-app pages.
+      const loaderVariant = document.querySelector("main") ? "app" : "auth";
       const root = ensureRoot();
       queueMicrotask(() => {
         flushSync(() => {
-          root.render(<ScreenSkeleton variant={variant} />);
+          root.render(<ScreenLoader variant={loaderVariant} />);
         });
       });
 
