@@ -110,16 +110,16 @@ export function useCreateProjectMutation(
       return { tempId };
     },
 
-    onSuccess: (real, variables, context) => {
+    onSuccess: (real, variables, context, mutation) => {
       // Swap temp with the real server record
       queryClient.setQueriesData<ProjectsPage>(
         projectsFilter(workspaceId ?? ""),
         (old) => patchPage(old, (ps) => ps.map((p) => (p.id === context.tempId ? real : p))),
       );
-      options?.onSuccess?.(real, variables, context);
+      options?.onSuccess?.(real, variables, context, mutation);
     },
 
-    onError: (err, variables, context) => {
+    onError: (err, variables, context, mutation) => {
       // Roll back the optimistic insert
       if (context) {
         queryClient.setQueriesData<ProjectsPage>(
@@ -127,7 +127,7 @@ export function useCreateProjectMutation(
           (old) => patchPage(old, (ps) => ps.filter((p) => p.id !== context.tempId), -1),
         );
       }
-      options?.onError?.(err, variables, context);
+      options?.onError?.(err, variables, context, mutation);
     },
 
     onSettled: options?.onSettled,
@@ -170,7 +170,8 @@ export function useUpdateProjectMutation(
       return { snapshot };
     },
 
-    onSuccess: (real, { id }, context) => {
+    onSuccess: (real, variables, context, mutation) => {
+      const { id } = variables;
       // Sync with exact server data
       queryClient.setQueriesData<ProjectsPage>(
         projectsFilter(workspaceId ?? ""),
@@ -178,13 +179,13 @@ export function useUpdateProjectMutation(
       );
       // Also update the single-project cache if present
       queryClient.setQueryData(PROJECT_QUERY_KEY(workspaceId ?? "", id), real);
-      options?.onSuccess?.(real, { id, body: {} }, context);
+      options?.onSuccess?.(real, variables, context, mutation);
     },
 
-    onError: (err, variables, context) => {
+    onError: (err, variables, context, mutation) => {
       // Restore snapshot
       context?.snapshot.forEach(([key, data]) => queryClient.setQueryData(key, data));
-      options?.onError?.(err, variables, context);
+      options?.onError?.(err, variables, context, mutation);
     },
 
     onSettled: options?.onSettled,
@@ -202,16 +203,16 @@ export function useDeleteProjectMutation(
   return useMutation<void, Error, string>({
     mutationFn: (id) => projectsApi.delete(workspaceId!, id),
 
-    onSuccess: (_, id) => {
+    onSuccess: (_, id, context, mutation) => {
       // Drop the individual-project cache entry
       queryClient.removeQueries({
         queryKey: PROJECT_QUERY_KEY(workspaceId ?? "", id),
       });
-      options?.onSuccess?.(_, id, undefined);
+      options?.onSuccess?.(_, id, context, mutation);
     },
 
-    onError: (err, id, context) => {
-      options?.onError?.(err, id, context);
+    onError: (err, id, context, mutation) => {
+      options?.onError?.(err, id, context, mutation);
     },
 
     onSettled: options?.onSettled,
