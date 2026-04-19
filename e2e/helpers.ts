@@ -5,6 +5,7 @@ import { type Page, expect } from '@playwright/test';
 import { API } from "./env";
 
 export { API };
+export { PLAYWRIGHT_BASE_URL } from "./env";
 
 /** Wait for the page to finish loading (no spinners). */
 export async function waitForReady(page: Page) {

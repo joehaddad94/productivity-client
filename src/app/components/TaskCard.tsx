@@ -1,4 +1,4 @@
-import { Calendar, RefreshCw } from "lucide-react";
+import { Calendar, CheckSquare, RefreshCw, Square } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
 import { cn } from "./ui/utils";
@@ -20,30 +20,67 @@ const PRIORITY_DOT: Record<string, string> = {
 
 interface TaskCardProps {
   task: Task;
-  onToggle: (id: string) => void;
+  /** Completion toggle; omit when `showCheckbox` is false. */
+  onToggle?: (id: string) => void;
   onSelect?: (task: Task) => void;
+  /** When false, row opens details via `onSelect` (no inline complete checkbox). Default true. */
+  showCheckbox?: boolean;
+  /** Multi-select for bulk actions (e.g. delete). */
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
-export function TaskCard({ task, onToggle, onSelect }: TaskCardProps) {
+export function TaskCard({
+  task,
+  onToggle,
+  onSelect,
+  showCheckbox = true,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
+}: TaskCardProps) {
   const isCompleted = task.status === "completed";
   const todayStr = new Date().toISOString().slice(0, 10);
   const isOverdue = !isCompleted && !!task.dueDate && task.dueDate.slice(0, 10) < todayStr;
 
+  const rowClick = () => {
+    if (selectionMode) onToggleSelect?.(task.id);
+    else onSelect?.(task);
+  };
+
   return (
     <div
-      onClick={() => onSelect?.(task)}
+      data-testid="task-card"
+      onClick={rowClick}
       className={cn(
         "group flex items-start gap-3 px-3 py-2.5 rounded-lg border border-border/50 bg-card hover:border-border transition-colors cursor-pointer",
         isCompleted && "opacity-60",
-        onSelect && "hover:bg-muted/40",
+        (onSelect || selectionMode) && "hover:bg-muted/40",
+        selectionMode && selected && "bg-primary/5 border-primary/20",
       )}
     >
-      <Checkbox
-        checked={isCompleted}
-        onCheckedChange={() => onToggle(task.id)}
-        className="mt-0.5 shrink-0"
-        onClick={(e) => e.stopPropagation()}
-      />
+      {selectionMode ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect?.(task.id);
+          }}
+          className="text-primary mt-0.5 shrink-0"
+          aria-pressed={selected}
+          aria-label={selected ? "Deselect task" : "Select task"}
+        >
+          {selected ? <CheckSquare className="size-4" /> : <Square className="size-4 text-muted-foreground" />}
+        </button>
+      ) : showCheckbox ? (
+        <Checkbox
+          checked={isCompleted}
+          onCheckedChange={() => onToggle?.(task.id)}
+          className="mt-0.5 shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : null}
       <div className="flex-1 min-w-0">
         <p className={cn("text-sm font-medium leading-snug", isCompleted && "line-through text-muted-foreground")}>
           {task.title}

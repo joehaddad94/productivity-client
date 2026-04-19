@@ -1,4 +1,4 @@
-import type { Note, Task } from "@/lib/types";
+import type { Note, Project, Task } from "@/lib/types";
 import type { WorkspaceTag } from "@/lib/api/tags-api";
 
 export type NoteUpdateChanges = { title?: string; content?: string };
@@ -14,6 +14,12 @@ export interface NoteEditorProps {
   onLinkTask: (id: string, taskId: string | null) => void;
   onOpenTaskPicker?: () => void;
   isLinkingTask?: boolean;
+  /** When set, shows project link chip + picker (main Notes + project note editor). */
+  onLinkProject?: (id: string, projectId: string | null) => void;
+  onOpenProjectPicker?: () => void;
+  isLinkingProject?: boolean;
+  projects?: Project[];
+  projectsLoading?: boolean;
   onConvertToTask: (id: string) => void;
   isConvertingToTask?: boolean;
   isSaving: boolean;
@@ -32,6 +38,9 @@ export interface UseNotesScreenResult {
   toggleTag: (tag: string) => void;
   tagMode: TagMode;
   setTagMode: (mode: TagMode) => void;
+  /** When set, list API returns only notes linked to this project. */
+  filterProjectId: string | null;
+  setFilterProjectId: (id: string | null) => void;
   allTags: WorkspaceTag[];
   notes: Note[];
   total: number;
@@ -49,6 +58,11 @@ export interface UseNotesScreenResult {
   handleLinkTask: (id: string, taskId: string | null) => void;
   linkingTaskNoteIds: Set<string>;
   ensureTasksLoaded: () => void;
+  allProjects: Project[];
+  projectsLoading: boolean;
+  handleLinkProject: (id: string, projectId: string | null) => void;
+  linkingProjectNoteIds: Set<string>;
+  ensureProjectsLoaded: () => void;
   handleConvertToTask: (id: string) => void;
   convertingNoteIds: Set<string>;
   handleDelete: (id: string) => void;

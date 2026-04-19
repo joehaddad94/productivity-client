@@ -35,7 +35,7 @@ export function CalendarScreen() {
         });
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

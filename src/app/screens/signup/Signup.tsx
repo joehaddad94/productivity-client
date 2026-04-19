@@ -61,7 +61,7 @@ export function Signup() {
                 <input
                   id="name"
                   type="text"
-                  placeholder="Joe Haddad"
+                  placeholder="John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full h-9 pl-9 pr-3 text-sm bg-transparent border border-border/60 rounded-lg outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-colors placeholder:text-muted-foreground/40"

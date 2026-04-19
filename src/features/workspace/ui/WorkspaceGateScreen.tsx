@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
-import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 import { CreateFirstWorkspace } from "@/app/screens/workspace/CreateFirstWorkspace";
 import { AuthScreenWrap } from "@/app/components/auth/AuthScreenWrap";
 import type { Workspace } from "@/lib/types";
@@ -42,7 +41,7 @@ export function WorkspaceGateScreen() {
   if (!isFetched || isLoading) {
     return (
       <AuthScreenWrap>
-        <ScreenSkeleton />
+        <ScreenLoader variant="auth" message="Loading…" />
       </AuthScreenWrap>
     );
   }
@@ -68,7 +67,7 @@ export function WorkspaceGateScreen() {
 
   return (
     <AuthScreenWrap>
-      <ScreenSkeleton />
+      <ScreenLoader variant="auth" message="Loading…" />
     </AuthScreenWrap>
   );
 }

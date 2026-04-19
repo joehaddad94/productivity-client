@@ -11,7 +11,7 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 1,
+  retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
 
@@ -32,7 +32,7 @@ export default defineConfig({
     },
     {
       name: 'chromium',
-      testMatch: /(auth|notes)\.spec\.ts/,
+      testMatch: /(auth|notes|projects)\.spec\.ts/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },

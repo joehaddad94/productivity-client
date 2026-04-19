@@ -19,6 +19,7 @@ interface ScreenSkeletonProps {
     | "notes"
     | "tasks"
     | "projects"
+    | "project-detail"
     | "analytics"
     | "dashboard"
     | "calendar"
@@ -305,6 +306,44 @@ function CalendarSkeleton({ className }: { className?: string }) {
   );
 }
 
+function ProjectDetailSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn("max-w-3xl space-y-6", className)} role="status" aria-live="polite">
+      {/* Back + actions */}
+      <div className="flex items-center justify-between">
+        <Block className="h-4 w-24" delay={0} />
+        <div className="flex gap-2">
+          <Block className="h-8 w-16" delay={80} />
+          <Block className="h-8 w-16" delay={140} />
+        </div>
+      </div>
+      {/* Header: color dot + name + status */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <Block className="h-4 w-4 rounded-full" delay={180} />
+          <Block className="h-8 w-56" delay={200} />
+          <Block className="h-5 w-16 rounded-full ml-auto" delay={260} />
+        </div>
+        <Block className="h-4 w-full max-w-md" delay={320} />
+        <Block className="h-4 w-2/3" delay={360} />
+      </div>
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border/50 pb-0">
+        <Block className="h-8 w-20 rounded-t-md" delay={400} />
+        <Block className="h-8 w-20 rounded-t-md" delay={440} />
+      </div>
+      {/* Quick-add bar */}
+      <Block className="h-9 w-full rounded-lg" delay={480} />
+      {/* Task rows */}
+      <div className="space-y-2">
+        {[1, 2, 3, 4].map((i) => (
+          <Block key={i} className="h-10 w-full rounded-lg" delay={520 + i * 60} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SettingsSkeleton({ className }: { className?: string }) {
   return (
     <div
@@ -347,6 +386,7 @@ export function ScreenSkeleton({ className, variant = "generic" }: ScreenSkeleto
   if (variant === "notes") return <NotesSkeleton className={className} />;
   if (variant === "tasks") return <TasksSkeleton className={className} />;
   if (variant === "projects") return <ProjectsSkeleton className={className} />;
+  if (variant === "project-detail") return <ProjectDetailSkeleton className={className} />;
   if (variant === "analytics") return <AnalyticsSkeleton className={className} />;
   if (variant === "dashboard") return <DashboardSkeleton className={className} />;
   if (variant === "calendar") return <CalendarSkeleton className={className} />;
