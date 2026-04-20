@@ -94,9 +94,9 @@ function ProjectCard({
         isSaving ? "opacity-70 cursor-default" : "hover:border-primary/30",
       )}
     >
-      {/* Action buttons — hover only, hidden while saving */}
+      {/* Action buttons — always visible on touch, hover-only on pointer devices */}
       {!isSaving && (
-        <div className="absolute top-3 right-3 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <div className="absolute top-3 right-3 flex items-center gap-0.5 opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity z-10">
           <button
             aria-label="Edit project"
             onClick={(e) => { e.preventDefault(); onEdit(project); }}
