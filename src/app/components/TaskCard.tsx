@@ -79,8 +79,13 @@ export function TaskCard({
         <p className={cn("text-sm font-medium leading-snug", isCompleted && "line-through text-muted-foreground")}>
           {task.title}
         </p>
-        {(task.priority || task.dueDate || task.recurrenceRule) && (
+        {(task.priority || task.dueDate || task.recurrenceRule || !task.projectId) && (
           <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            {!task.projectId && (
+              <span className="text-[11px] text-muted-foreground/70" title="Not linked to a project">
+                No project
+              </span>
+            )}
             {task.priority && (
               <span className="flex items-center gap-1">
                 <span className={cn("size-1.5 rounded-full shrink-0", PRIORITY_DOT[task.priority])} />

@@ -158,8 +158,8 @@ function TaskRow({
           {task.title}
         </span>
 
-        {/* Meta */}
-        <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+        {/* Meta (project label visible on all widths; other chips may wrap) */}
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0 sm:flex-nowrap">
           {task.projectId && projectName && (
             <Link
               href={`/projects/${task.projectId}`}
@@ -171,6 +171,11 @@ function TaskRow({
           )}
           {task.projectId && !projectName && (
             <span className="text-[11px] text-muted-foreground truncate max-w-[140px]">Unknown project</span>
+          )}
+          {!task.projectId && (
+            <span className="text-[11px] text-muted-foreground/70 truncate max-w-[140px]" title="Not linked to a project">
+              No project
+            </span>
           )}
           {task.priority && (
             <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", PRIORITY_PILL[task.priority])}>
