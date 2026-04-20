@@ -150,13 +150,18 @@ function TaskRow({
           </div>
         )}
 
-        {/* Title */}
-        <span className={cn(
-          "flex-1 text-sm truncate",
-          isCompleted && "line-through text-muted-foreground",
-        )}>
-          {task.title}
-        </span>
+        {/* Title + description */}
+        <div className="flex-1 min-w-0">
+          <span className={cn(
+            "text-sm truncate block",
+            isCompleted && "line-through text-muted-foreground",
+          )}>
+            {task.title}
+          </span>
+          {task.description && (
+            <span className="text-xs text-muted-foreground/70 truncate block">{task.description}</span>
+          )}
+        </div>
 
         {/* Meta (project label visible on all widths; other chips may wrap) */}
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0 sm:flex-nowrap">

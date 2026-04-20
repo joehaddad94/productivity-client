@@ -155,6 +155,7 @@ export function CreateTaskModal({
   defaultProjectId,
 }: CreateTaskModalProps) {
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high" | undefined>();
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
@@ -177,6 +178,7 @@ export function CreateTaskModal({
 
   function reset() {
     setTitle("");
+    setDescription("");
     setPriority(undefined);
     setDueDate("");
     setDueTime("");
@@ -188,6 +190,7 @@ export function CreateTaskModal({
     if (!title.trim()) return;
     onSubmit({
       title: title.trim(),
+      description: description.trim() || undefined,
       priority,
       dueDate: dueDate || undefined,
       dueTime: dueTime || undefined,
@@ -250,6 +253,25 @@ export function CreateTaskModal({
                 controlRing,
                 controlFocus,
                 "placeholder:text-muted-foreground/60",
+              )}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="new-task-desc" className={fieldLabel}>
+              Description
+            </Label>
+            <textarea
+              id="new-task-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Add more detail… (optional)"
+              rows={3}
+              className={cn(
+                "w-full rounded-md px-3 py-2 text-sm resize-none",
+                controlRing,
+                controlFocus,
+                "placeholder:text-muted-foreground/50",
               )}
             />
           </div>

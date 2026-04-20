@@ -14,6 +14,42 @@ import type { Task, TaskStatusDefinition } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 import { activeTaskStatuses, isTaskStatusTerminal } from "../lib/taskStatusHelpers";
 
+function InlineDescription({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <textarea
+        autoFocus
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => setEditing(false)}
+        rows={3}
+        className="w-full text-sm text-muted-foreground bg-transparent resize-none outline-none leading-relaxed border-b border-primary/30 pb-0.5 placeholder:text-muted-foreground/40"
+        placeholder="Add a description…"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className="w-full text-left"
+    >
+      {value ? (
+        <p className="text-sm text-muted-foreground leading-relaxed hover:opacity-70 transition-opacity">
+          {value}
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground/40 italic hover:text-muted-foreground/60 transition-colors">
+          Add a description…
+        </p>
+      )}
+    </button>
+  );
+}
+
 interface TaskDrawerProps {
   task: Task | null;
   open: boolean;
@@ -40,6 +76,7 @@ export function TaskDrawer({
   isDeleting,
 }: TaskDrawerProps) {
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [status, setStatus] = useState<string>("");
   const [priority, setPriority] = useState<"low" | "medium" | "high" | "none">("none");
   const [dueDate, setDueDate] = useState("");
@@ -50,6 +87,7 @@ export function TaskDrawer({
   useEffect(() => {
     if (!task) return;
     setTitle(task.title);
+    setDescription(task.description ?? "");
     setStatus(task.status);
     setPriority(task.priority ?? "none");
     setDueDate(task.dueDate ? task.dueDate.slice(0, 10) : "");
@@ -74,6 +112,7 @@ export function TaskDrawer({
     if (!task) return;
     onSave(task.id, {
       title: title.trim() || task.title,
+      description: description || undefined,
       status,
       priority: priority === "none" ? undefined : priority,
       dueDate: dueDate || undefined,
@@ -94,6 +133,10 @@ export function TaskDrawer({
             className="w-full text-base font-semibold bg-transparent resize-none outline-none leading-snug mt-1 placeholder:text-muted-foreground/50"
             rows={2}
             placeholder="Task title…"
+          />
+          <InlineDescription
+            value={description}
+            onChange={(v) => { setDescription(v); setIsDirty(true); }}
           />
         </SheetHeader>
 

@@ -79,6 +79,9 @@ export function TaskCard({
         <p className={cn("text-sm font-medium leading-snug", isCompleted && "line-through text-muted-foreground")}>
           {task.title}
         </p>
+        {task.description && (
+          <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{task.description}</p>
+        )}
         {(task.priority || task.dueDate || task.recurrenceRule || !task.projectId) && (
           <div className="flex flex-wrap items-center gap-1.5 mt-1">
             {!task.projectId && (
