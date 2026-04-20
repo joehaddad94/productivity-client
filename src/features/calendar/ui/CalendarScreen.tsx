@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
+import { isTaskStatusTerminal } from "@/features/tasks/lib/taskStatusHelpers";
 import { DAY_LABELS, MONTH_NAMES, PRIORITY_DOT, useCalendarScreen } from "../hooks/useCalendarScreen";
 
 export function CalendarScreen() {
@@ -23,6 +24,7 @@ export function CalendarScreen() {
     selectedTasks,
     selectedExternalEvents,
     upcomingTasks,
+    taskStatuses,
   } = useCalendarScreen();
 
   const selectedLabel =
@@ -103,7 +105,9 @@ export function CalendarScreen() {
                           key={t.id}
                           className={cn(
                             "size-1 rounded-full",
-                            t.status === "completed" ? "bg-emerald-400" : PRIORITY_DOT[t.priority ?? ""] ?? "bg-primary",
+                            isTaskStatusTerminal(t.status, taskStatuses)
+                              ? "bg-emerald-400"
+                              : PRIORITY_DOT[t.priority ?? ""] ?? "bg-primary",
                             isSelected && "opacity-80",
                           )}
                         />
@@ -147,10 +151,17 @@ export function CalendarScreen() {
                     <span
                       className={cn(
                         "size-1.5 rounded-full shrink-0",
-                        task.status === "completed" ? "bg-emerald-400" : PRIORITY_DOT[task.priority ?? ""] ?? "bg-primary",
+                        isTaskStatusTerminal(task.status, taskStatuses)
+                          ? "bg-emerald-400"
+                          : PRIORITY_DOT[task.priority ?? ""] ?? "bg-primary",
                       )}
                     />
-                    <span className={cn("text-xs truncate flex-1", task.status === "completed" && "line-through text-muted-foreground")}>
+                    <span
+                      className={cn(
+                        "text-xs truncate flex-1",
+                        isTaskStatusTerminal(task.status, taskStatuses) && "line-through text-muted-foreground",
+                      )}
+                    >
                       {task.title}
                     </span>
                     {task.dueDate && (

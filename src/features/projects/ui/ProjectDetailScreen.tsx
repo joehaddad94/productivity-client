@@ -60,6 +60,7 @@ export function ProjectDetailScreen({
     setIsSelectMode,
     selectedIds,
     setSelectedIds,
+    taskStatuses,
   } = useProjectDetailScreen(projectId, { initialTab });
 
   function openTask(task: Task) {
@@ -124,6 +125,7 @@ export function ProjectDetailScreen({
       {activeTab === "tasks" && (
         <ProjectDetailTasksPanel
           tasks={tasks}
+          taskStatuses={taskStatuses}
           tasksLoading={tasksLoading}
           newTaskTitle={newTaskTitle}
           setNewTaskTitle={setNewTaskTitle}
@@ -167,6 +169,7 @@ export function ProjectDetailScreen({
         onDelete={handleDeleteDrawer}
         onToggleSubtask={handleToggleSubtask}
         workspaceId={workspaceId}
+        taskStatuses={taskStatuses}
         isSaving={updateTaskMutation.isPending}
         isDeleting={deleteTaskMutation.isPending}
       />

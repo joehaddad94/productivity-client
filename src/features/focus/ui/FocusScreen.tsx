@@ -5,12 +5,14 @@ import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Progress } from "@/app/components/ui/progress";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
+import { isTaskStatusTerminal } from "@/features/tasks/lib/taskStatusHelpers";
 import { useFocusScreen } from "../hooks/useFocusScreen";
 
 export function FocusScreen() {
   const {
     router,
     task,
+    taskStatuses,
     isLoading,
     error,
     timerSeconds,
@@ -36,7 +38,7 @@ export function FocusScreen() {
   }
 
   const subtasks = task.subtasks ?? [];
-  const completedSubtasks = subtasks.filter((t) => t.status === "completed").length;
+  const completedSubtasks = subtasks.filter((t) => isTaskStatusTerminal(t.status, taskStatuses)).length;
   const totalSubtasks = subtasks.length;
   const progress = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
 
@@ -94,7 +96,7 @@ export function FocusScreen() {
                 <h2 className="text-2xl font-semibold">Subtasks</h2>
                 <div className="space-y-3">
                   {subtasks.map((subtask) => {
-                    const isDone = subtask.status === "completed";
+                    const isDone = isTaskStatusTerminal(subtask.status, taskStatuses);
                     return (
                       <div key={subtask.id} className="flex items-center gap-4 p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 transition-all hover:shadow-md">
                         <Checkbox checked={isDone} onCheckedChange={(checked) => handleToggleSubtask(subtask.id, !!checked)} className="size-6" />

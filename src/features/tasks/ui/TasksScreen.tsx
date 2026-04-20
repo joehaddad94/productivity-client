@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Plus,
@@ -14,8 +14,10 @@ import {
   GripVertical,
   CheckSquare,
   Square,
+  ListChecks,
 } from "lucide-react";
-import type { Task } from "@/lib/types";
+import type { Task, TaskStatusDefinition } from "@/lib/types";
+import { isTaskStatusTerminal } from "../lib/taskStatusHelpers";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
@@ -36,6 +38,14 @@ import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { useTasksScreen } from "../hooks/useTasksScreen";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TaskDrawer } from "./TaskDrawer";
+import { TaskStatusesSettings } from "./TaskStatusesSettings";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/app/components/ui/sheet";
 import type { CreateTaskBody } from "@/lib/api/tasks-api";
 
 const PRIORITY_PILL: Record<string, string> = {
@@ -66,6 +76,7 @@ function TaskRow({
   onDragOver,
   onDrop,
   getProjectName,
+  taskStatuses,
 }: {
   task: Task;
   depth?: number;
@@ -82,10 +93,11 @@ function TaskRow({
   onDragOver?: (id: string) => void;
   onDrop?: (id: string) => void;
   getProjectName: (projectId: string | null | undefined) => string | null;
+  taskStatuses: TaskStatusDefinition[];
 }) {
   const hasSubtasks = task.subtasks && task.subtasks.length > 0;
   const projectName = getProjectName(task.projectId);
-  const isCompleted = task.status === "completed";
+  const isCompleted = isTaskStatusTerminal(task.status, taskStatuses);
   const todayStr = new Date().toISOString().slice(0, 10);
   const isOverdue = !isCompleted && !!task.dueDate && task.dueDate.slice(0, 10) < todayStr;
 
@@ -131,7 +143,7 @@ function TaskRow({
             )}
             <Checkbox
               checked={isCompleted}
-              onCheckedChange={(checked) => onToggle(task.id, !!checked)}
+              onCheckedChange={(checked) => onToggle(task.id, checked === true)}
               onClick={(e) => e.stopPropagation()}
               className="rounded-full"
             />
@@ -180,7 +192,8 @@ function TaskRow({
           )}
           {hasSubtasks && (
             <span className="text-[11px] text-muted-foreground">
-              {task.subtasks!.filter((s) => s.status === "completed").length}/{task.subtasks!.length}
+              {task.subtasks!.filter((s) => isTaskStatusTerminal(s.status, taskStatuses)).length}/
+              {task.subtasks!.length}
             </span>
           )}
         </div>
@@ -209,6 +222,7 @@ function TaskRow({
           isSelected={false}
           onToggleSelect={onToggleSelect}
           getProjectName={getProjectName}
+          taskStatuses={taskStatuses}
         />
       ))}
     </>
@@ -235,6 +249,7 @@ export function TasksScreen() {
   const [drawerTask, setDrawerTask] = useState<Task | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [projectFilterOpen, setProjectFilterOpen] = useState(false);
+  const [statusesSheetOpen, setStatusesSheetOpen] = useState(false);
 
   const {
     workspaceId,
@@ -248,9 +263,8 @@ export function TasksScreen() {
     projectsLoading,
     tasks,
     total,
-    pendingTasks,
-    inProgressTasks,
-    completedTasks,
+    taskStatuses,
+    statusColumns,
     isLoading,
     error,
     isFiltered,
@@ -288,6 +302,15 @@ export function TasksScreen() {
     filterProjectId === "all"
       ? "All projects"
       : projectNameById.get(filterProjectId) ?? "Project";
+
+  const [activeStatusTab, setActiveStatusTab] = useState("");
+  useEffect(() => {
+    const ids = statusColumns.map((c) => c.status.id);
+    if (ids.length === 0) return;
+    if (!activeStatusTab || !ids.includes(activeStatusTab)) {
+      setActiveStatusTab(ids[0]!);
+    }
+  }, [statusColumns, activeStatusTab]);
 
   function handleCreate(body: CreateTaskBody) {
     createMutation.mutate(body);
@@ -338,6 +361,7 @@ export function TasksScreen() {
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               getProjectName={(id) => (id ? projectNameById.get(id) ?? null : null)}
+              taskStatuses={taskStatuses}
             />
           ))}
         </div>
@@ -356,6 +380,29 @@ export function TasksScreen() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="hidden sm:inline-flex"
+              onClick={() => setStatusesSheetOpen(true)}
+              disabled={!workspaceId}
+              aria-label="Edit task statuses"
+            >
+              <ListChecks className="size-3.5" />
+              Statuses
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="sm:hidden size-8"
+              onClick={() => setStatusesSheetOpen(true)}
+              disabled={!workspaceId}
+              aria-label="Edit task statuses"
+            >
+              <ListChecks className="size-3.5" />
+            </Button>
             <Button
               variant={isSelectMode ? "secondary" : "ghost"}
               size="sm"
@@ -476,25 +523,27 @@ export function TasksScreen() {
         {error && <p className="text-sm text-destructive">Failed to load tasks</p>}
 
         {/* Tabs */}
-        {!error && (
-          <Tabs defaultValue="pending">
-            <TabsList className="h-9 bg-muted/40 border border-border/50 p-0.5 rounded-lg">
-              <TabsTrigger value="pending" className="text-xs h-8 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                Pending
-                <Badge variant="secondary" className="ml-1.5 text-[10px] h-4 px-1.5">{pendingTasks.length}</Badge>
-              </TabsTrigger>
-              <TabsTrigger value="in_progress" className="text-xs h-8 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                In Progress
-                <Badge variant="secondary" className="ml-1.5 text-[10px] h-4 px-1.5">{inProgressTasks.length}</Badge>
-              </TabsTrigger>
-              <TabsTrigger value="completed" className="text-xs h-8 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                Completed
-                <Badge variant="secondary" className="ml-1.5 text-[10px] h-4 px-1.5">{completedTasks.length}</Badge>
-              </TabsTrigger>
+        {!error && statusColumns.length > 0 && (
+          <Tabs value={activeStatusTab} onValueChange={setActiveStatusTab} className="min-w-0">
+            <TabsList className="flex h-auto min-h-9 w-full flex-wrap gap-0.5 bg-muted/40 border border-border/50 p-0.5 rounded-lg sm:flex-nowrap sm:overflow-x-auto">
+              {statusColumns.map(({ status: s, tasks: colTasks }) => (
+                <TabsTrigger
+                  key={s.id}
+                  value={s.id}
+                  className="cursor-pointer text-xs h-8 shrink-0 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm max-w-[10rem]"
+                >
+                  <span className="truncate">{s.name}</span>
+                  <Badge variant="secondary" className="ml-1.5 shrink-0 text-[10px] h-4 px-1.5">
+                    {colTasks.length}
+                  </Badge>
+                </TabsTrigger>
+              ))}
             </TabsList>
-            <TabsContent value="pending"><TaskList items={pendingTasks} tab="pending" /></TabsContent>
-            <TabsContent value="in_progress"><TaskList items={inProgressTasks} tab="in progress" /></TabsContent>
-            <TabsContent value="completed"><TaskList items={completedTasks} tab="completed" /></TabsContent>
+            {statusColumns.map(({ status: s, tasks: colTasks }) => (
+              <TabsContent key={s.id} value={s.id} className="min-w-0">
+                <TaskList items={colTasks} tab={s.name} />
+              </TabsContent>
+            ))}
           </Tabs>
         )}
 
@@ -526,9 +575,28 @@ export function TasksScreen() {
         onDelete={handleDeleteDrawer}
         onToggleSubtask={handleToggle}
         workspaceId={workspaceId}
+        taskStatuses={taskStatuses}
         isSaving={updateMutation.isPending}
         isDeleting={deleteMutation.isPending}
       />
+
+      <Sheet open={statusesSheetOpen} onOpenChange={setStatusesSheetOpen}>
+        <SheetContent
+          side="right"
+          className="flex w-full max-w-[100vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
+        >
+          <SheetHeader className="shrink-0 space-y-1 border-b border-border/60 p-4 pb-3 text-left">
+            <SheetTitle>Task statuses</SheetTitle>
+            <SheetDescription>
+              Columns and check-off behavior for this workspace. The server must implement{" "}
+              <code className="rounded bg-muted px-1 text-[11px]">/workspaces/…/task-statuses</code> for changes to persist.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <TaskStatusesSettings hideTitle />
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

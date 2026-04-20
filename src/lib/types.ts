@@ -45,6 +45,18 @@ export interface Project {
   };
 }
 
+/** Workspace-defined task workflow status (see task-statuses API). */
+export interface TaskStatusDefinition {
+  id: string;
+  workspaceId: string;
+  name: string;
+  sortOrder: number;
+  isTerminal: boolean;
+  color?: string | null;
+  archivedAt?: string | null;
+  createdAt?: string;
+}
+
 export interface Task {
   id: string;
   workspaceId: string;
@@ -53,7 +65,8 @@ export interface Task {
   dueDate?: string | null;
   dueTime?: string | null;
   priority?: "low" | "medium" | "high" | null;
-  status: "pending" | "in_progress" | "completed";
+  /** Task status id (legacy slugs pending | in_progress | completed or server UUIDs). */
+  status: string;
   parentTaskId?: string | null;
   subtasks?: Task[];
   focusMinutes?: number;

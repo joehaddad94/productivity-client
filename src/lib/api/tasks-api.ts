@@ -66,7 +66,8 @@ export type CreateTaskBody = {
   dueDate?: string;
   dueTime?: string;
   priority?: "low" | "medium" | "high";
-  status?: "pending" | "in_progress" | "completed";
+  /** Task status id from workspace task-statuses (or legacy slugs). */
+  status?: string;
   parentTaskId?: string;
   recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY";
   projectId?: string;

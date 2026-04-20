@@ -10,8 +10,9 @@ import { Checkbox } from "@/app/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { cn } from "@/app/components/ui/utils";
 import { useNotesQuery, useCreateNoteMutation } from "@/app/hooks/useNotesApi";
-import type { Task } from "@/lib/types";
+import type { Task, TaskStatusDefinition } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
+import { activeTaskStatuses, isTaskStatusTerminal } from "../lib/taskStatusHelpers";
 
 interface TaskDrawerProps {
   task: Task | null;
@@ -21,6 +22,7 @@ interface TaskDrawerProps {
   onDelete: (id: string) => void;
   onToggleSubtask: (id: string, completed: boolean) => void;
   workspaceId: string | null;
+  taskStatuses: TaskStatusDefinition[];
   isSaving?: boolean;
   isDeleting?: boolean;
 }
@@ -33,18 +35,18 @@ export function TaskDrawer({
   onDelete,
   onToggleSubtask,
   workspaceId,
+  taskStatuses,
   isSaving,
   isDeleting,
 }: TaskDrawerProps) {
   const [title, setTitle] = useState("");
-  const [status, setStatus] = useState<Task["status"]>("pending");
+  const [status, setStatus] = useState<string>("");
   const [priority, setPriority] = useState<"low" | "medium" | "high" | "none">("none");
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
   const [recurrenceRule, setRecurrenceRule] = useState<"DAILY" | "WEEKLY" | "MONTHLY" | "none">("none");
   const [isDirty, setIsDirty] = useState(false);
 
-  // Sync local state when the task changes
   useEffect(() => {
     if (!task) return;
     setTitle(task.title);
@@ -66,6 +68,8 @@ export function TaskDrawer({
 
   if (!task) return null;
 
+  const statusOptions = activeTaskStatuses(taskStatuses);
+
   function handleSave() {
     if (!task) return;
     onSave(task.id, {
@@ -84,7 +88,6 @@ export function TaskDrawer({
       <SheetContent side="right" className="w-full sm:w-[420px] flex flex-col p-0 gap-0">
         <SheetHeader className="px-5 pt-5 pb-4 border-b border-border/40">
           <SheetTitle className="text-sm font-medium text-muted-foreground">Task details</SheetTitle>
-          {/* Editable title */}
           <textarea
             value={title}
             onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
@@ -95,18 +98,22 @@ export function TaskDrawer({
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto">
-          {/* Status + Priority row */}
           <div className="px-5 py-4 grid grid-cols-2 gap-3">
             <div>
               <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Status</Label>
-              <Select value={status} onValueChange={(v) => { setStatus(v as Task["status"]); setIsDirty(true); }}>
+              <Select
+                value={status || statusOptions[0]?.id}
+                onValueChange={(v) => { setStatus(v); setIsDirty(true); }}
+              >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  {statusOptions.map((s) => (
+                    <SelectItem key={s.id} value={s.id} className="text-xs">
+                      {s.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -128,7 +135,6 @@ export function TaskDrawer({
 
           <Separator className="opacity-50" />
 
-          {/* Due date + time */}
           <div className="px-5 py-4 grid grid-cols-2 gap-3">
             <div>
               <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Due date</Label>
@@ -151,7 +157,6 @@ export function TaskDrawer({
             </div>
           </div>
 
-          {/* Repeat */}
           <div className="px-5 pb-4">
             <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Repeat</Label>
             <Select value={recurrenceRule} onValueChange={(v) => { setRecurrenceRule(v as typeof recurrenceRule); setIsDirty(true); }}>
@@ -169,29 +174,30 @@ export function TaskDrawer({
 
           <Separator className="opacity-50" />
 
-          {/* Subtasks */}
           {task.subtasks && task.subtasks.length > 0 && (
             <div className="px-5 py-4">
               <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
-                Subtasks ({task.subtasks.filter((s) => s.status === "completed").length}/{task.subtasks.length})
+                Subtasks ({task.subtasks.filter((s) => isTaskStatusTerminal(s.status, taskStatuses)).length}/{task.subtasks.length})
               </Label>
               <div className="space-y-1.5">
-                {task.subtasks.map((sub) => (
-                  <div key={sub.id} className="flex items-center gap-2.5">
-                    <Checkbox
-                      checked={sub.status === "completed"}
-                      onCheckedChange={(checked) => onToggleSubtask(sub.id, !!checked)}
-                    />
-                    <span className={cn("text-sm", sub.status === "completed" && "line-through text-muted-foreground")}>
-                      {sub.title}
-                    </span>
-                  </div>
-                ))}
+                {task.subtasks.map((sub) => {
+                  const done = isTaskStatusTerminal(sub.status, taskStatuses);
+                  return (
+                    <div key={sub.id} className="flex items-center gap-2.5">
+                      <Checkbox
+                        checked={done}
+                        onCheckedChange={(checked) => onToggleSubtask(sub.id, checked === true)}
+                      />
+                      <span className={cn("text-sm", done && "line-through text-muted-foreground")}>
+                        {sub.title}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Focus time */}
           {(task.focusMinutes ?? 0) > 0 && (
             <div className="px-5 pb-4">
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10">
@@ -203,7 +209,6 @@ export function TaskDrawer({
 
           <Separator className="opacity-50" />
 
-          {/* Linked notes */}
           <div className="px-5 py-4">
             <div className="flex items-center justify-between mb-2">
               <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -235,7 +240,6 @@ export function TaskDrawer({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-5 py-4 border-t border-border/40 flex items-center gap-2">
           <Button
             className="flex-1"

@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Task } from "@/lib/types";
+import type { Task, TaskStatusDefinition } from "@/lib/types";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { useTasksQuery } from "@/app/hooks/useTasksApi";
+import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
+import { ensureTaskStatuses, isTaskStatusTerminal } from "@/features/tasks/lib/taskStatusHelpers";
 import { useCalendarEventsQuery } from "@/app/hooks/useCalendarConnectionsApi";
 import type { ExternalCalendarEvent } from "@/lib/api/calendar-connections-api";
 
@@ -40,6 +42,11 @@ export function useCalendarScreen() {
 
   const { data: page } = useTasksQuery(workspaceId, { limit: 200 });
   const allTasks = page?.tasks ?? [];
+  const { data: rawStatuses = [] } = useTaskStatusesQuery(workspaceId);
+  const taskStatuses: TaskStatusDefinition[] = useMemo(
+    () => ensureTaskStatuses(workspaceId, rawStatuses),
+    [workspaceId, rawStatuses],
+  );
 
   // External calendar events: fetch current visible month + neighbours
   const rangeStart = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-01`;
@@ -98,7 +105,12 @@ export function useCalendarScreen() {
   const selectedTasks = tasksByDate.get(selectedDate) ?? [];
   const selectedExternalEvents = externalByDate.get(selectedDate) ?? [];
   const upcomingTasks = allTasks
-    .filter((t) => t.dueDate && t.status !== "completed" && t.dueDate.slice(0, 10) > todayYMD)
+    .filter(
+      (t) =>
+        t.dueDate &&
+        !isTaskStatusTerminal(t.status, taskStatuses) &&
+        t.dueDate.slice(0, 10) > todayYMD,
+    )
     .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))
     .slice(0, 8);
 
@@ -119,5 +131,6 @@ export function useCalendarScreen() {
     selectedTasks,
     selectedExternalEvents,
     upcomingTasks,
+    taskStatuses,
   };
 }

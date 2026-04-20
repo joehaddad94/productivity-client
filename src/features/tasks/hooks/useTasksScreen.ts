@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -13,10 +13,17 @@ import {
   useTasksQuery,
   useUpdateTaskMutation,
 } from "@/app/hooks/useTasksApi";
+import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
 import { useProjectsQuery } from "@/app/hooks/useProjectsApi";
 import { useDebounce } from "@/app/hooks/useDebounce";
-import type { Task } from "@/lib/types";
+import type { Task, TaskStatusDefinition } from "@/lib/types";
 import type { PriorityFilter, TaskFormData } from "../model/types";
+import {
+  activeTaskStatuses,
+  defaultNonTerminalStatusId,
+  ensureTaskStatuses,
+  firstTerminalStatusId,
+} from "../lib/taskStatusHelpers";
 
 export function useTasksScreen() {
   const { currentWorkspace } = useWorkspace();
@@ -51,6 +58,21 @@ export function useTasksScreen() {
   });
   const projectsForPicker =
     projectsPage?.projects.map((p) => ({ id: p.id, name: p.name })) ?? [];
+
+  const { data: rawTaskStatuses = [] } = useTaskStatusesQuery(workspaceId);
+  const taskStatuses: TaskStatusDefinition[] = useMemo(
+    () => ensureTaskStatuses(workspaceId, rawTaskStatuses),
+    [workspaceId, rawTaskStatuses],
+  );
+
+  const statusColumns = useMemo(
+    () =>
+      activeTaskStatuses(taskStatuses).map((s) => ({
+        status: s,
+        tasks: (page?.tasks ?? []).filter((t) => t.status === s.id),
+      })),
+    [page?.tasks, taskStatuses],
+  );
 
   const tasks = page?.tasks ?? [];
   const total = page?.total ?? 0;
@@ -151,9 +173,11 @@ export function useTasksScreen() {
   }, []);
 
   const handleToggle = (id: string, completed: boolean) => {
+    const terminalId = firstTerminalStatusId(taskStatuses);
+    const openId = defaultNonTerminalStatusId(taskStatuses);
     updateMutation.mutate({
       id,
-      body: { status: completed ? "completed" : "pending" },
+      body: { status: completed ? terminalId : openId },
     });
   };
 
@@ -210,9 +234,6 @@ export function useTasksScreen() {
     createMutation.mutate(data);
   };
 
-  const pendingTasks = tasks.filter((t) => t.status === "pending");
-  const inProgressTasks = tasks.filter((t) => t.status === "in_progress");
-  const completedTasks = tasks.filter((t) => t.status === "completed");
   const isFiltered =
     debouncedSearch.length > 0 || filterPriority !== "all" || filterProjectId !== "all";
 
@@ -233,9 +254,8 @@ export function useTasksScreen() {
     setShowDetail,
     tasks,
     total,
-    pendingTasks,
-    inProgressTasks,
-    completedTasks,
+    taskStatuses,
+    statusColumns,
     isLoading,
     error,
     isFiltered,

@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { useTaskQuery, useUpdateTaskMutation } from "@/app/hooks/useTasksApi";
+import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
+import type { TaskStatusDefinition } from "@/lib/types";
+import {
+  defaultNonTerminalStatusId,
+  ensureTaskStatuses,
+  firstTerminalStatusId,
+} from "@/features/tasks/lib/taskStatusHelpers";
 
 export function useFocusScreen() {
   const router = useRouter();
@@ -17,6 +24,11 @@ export function useFocusScreen() {
   const [isPomodoroMode, setIsPomodoroMode] = useState(false);
 
   const { data: task, isLoading, error } = useTaskQuery(workspaceId, taskId);
+  const { data: rawStatuses = [] } = useTaskStatusesQuery(workspaceId);
+  const taskStatuses: TaskStatusDefinition[] = useMemo(
+    () => ensureTaskStatuses(workspaceId, rawStatuses),
+    [workspaceId, rawStatuses],
+  );
   const updateMutation = useUpdateTaskMutation(workspaceId, {
     onError: (err) => toast.error(err.message),
   });
@@ -33,7 +45,8 @@ export function useFocusScreen() {
   }, [isTimerRunning, timerSeconds, isPomodoroMode]);
 
   const handleToggleSubtask = (id: string, completed: boolean) => {
-    updateMutation.mutate({ id, body: { status: completed ? "completed" : "pending" } });
+    const next = completed ? firstTerminalStatusId(taskStatuses) : defaultNonTerminalStatusId(taskStatuses);
+    updateMutation.mutate({ id, body: { status: next } });
   };
 
   const handleToggleTimer = () => {
@@ -55,6 +68,7 @@ export function useFocusScreen() {
   return {
     router,
     task,
+    taskStatuses,
     isLoading,
     error,
     timerSeconds,
