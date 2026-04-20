@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Plus,
@@ -66,6 +66,7 @@ function TaskRow({
   expanded,
   onToggleExpand,
   onToggle,
+  onStatusChange,
   onSelect,
   onDelete,
   isSelectMode = false,
@@ -83,6 +84,7 @@ function TaskRow({
   expanded: boolean;
   onToggleExpand: (id: string) => void;
   onToggle: (id: string, completed: boolean) => void;
+  onStatusChange: (id: string, status: string) => void;
   onSelect: (task: Task) => void;
   onDelete: (id: string) => void;
   isSelectMode?: boolean;
@@ -109,9 +111,10 @@ function TaskRow({
         onDragStart={(e) => { e.stopPropagation(); onDragStart?.(task.id); }}
         onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOver?.(task.id); }}
         onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop?.(task.id); }}
-        style={depth > 0 ? { marginLeft: `${depth * 20}px` } : undefined}
+        style={depth > 0 ? { marginLeft: `${depth * 60}px` } : undefined}
         className={cn(
-          "group flex items-center gap-2 px-2 py-2 rounded-lg transition-colors cursor-pointer",
+          "group flex items-center gap-2 px-2 rounded-lg transition-colors cursor-pointer",
+          depth === 0 ? "py-2" : "py-1",
           isDragOver && "bg-primary/5 ring-1 ring-primary/30",
           isSelected && "bg-primary/5",
           !isDragOver && !isSelected && "hover:bg-muted/40",
@@ -124,47 +127,75 @@ function TaskRow({
           <GripVertical className="size-3.5 text-muted-foreground/30 shrink-0 opacity-0 group-hover:opacity-100 cursor-grab -ml-1" />
         )}
 
-        {/* Select or expand + checkbox */}
+        {/* Select checkbox (select mode) / expand chevron (normal mode) */}
         {isSelectMode ? (
           <button onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }} className="text-primary shrink-0">
             {isSelected ? <CheckSquare className="size-4" /> : <Square className="size-4 text-muted-foreground" />}
           </button>
+        ) : depth > 0 ? (
+          /* Subtask: binary checkbox */
+          <Checkbox
+            checked={isCompleted}
+            onCheckedChange={(checked) => onToggle(task.id, checked === true)}
+            onClick={(e) => e.stopPropagation()}
+            className="shrink-0"
+          />
         ) : (
-          <div className="flex items-center gap-1 shrink-0">
-            {hasSubtasks ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); onToggleExpand(task.id); }}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-              </button>
-            ) : (
-              <span className="w-3.5" />
-            )}
-            <Checkbox
-              checked={isCompleted}
-              onCheckedChange={(checked) => onToggle(task.id, checked === true)}
-              onClick={(e) => e.stopPropagation()}
-              className="rounded-full"
-            />
-          </div>
+          /* Parent task: expand chevron only */
+          hasSubtasks ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleExpand(task.id); }}
+              className="text-muted-foreground hover:text-foreground shrink-0"
+            >
+              {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+            </button>
+          ) : (
+            <span className="w-3.5 shrink-0" />
+          )
         )}
 
         {/* Title + description */}
         <div className="flex-1 min-w-0">
           <span className={cn(
-            "text-sm truncate block",
-            isCompleted && "line-through text-muted-foreground",
+            "truncate block",
+            depth === 0 ? "text-sm" : "text-xs text-muted-foreground",
+            isCompleted && "line-through opacity-50",
           )}>
             {task.title}
           </span>
-          {task.description && (
+          {task.description && depth === 0 && (
             <span className="text-xs text-muted-foreground/70 truncate block">{task.description}</span>
           )}
         </div>
 
-        {/* Meta (project label visible on all widths; other chips may wrap) */}
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0 sm:flex-nowrap">
+        {/* Meta — hidden on subtask rows */}
+        <div className={cn("flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0 sm:flex-nowrap", depth > 0 && "hidden")}>
+          {/* Status pill */}
+          <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+            <Select value={task.status} onValueChange={(v) => onStatusChange(task.id, v)}>
+              <SelectTrigger className={cn(
+                "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1.5 focus-visible:ring-0 w-auto [&_svg]:size-3 [&_svg]:opacity-40",
+                isCompleted
+                  ? "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5"
+                  : "border-border/60 text-muted-foreground",
+              )}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {taskStatuses.map((s) => (
+                  <SelectItem key={s.id} value={s.id} className="text-xs">
+                    <span className="flex items-center gap-2">
+                      <span className={cn(
+                        "size-1.5 rounded-full shrink-0",
+                        isTaskStatusTerminal(s.id, taskStatuses) ? "bg-green-500" : "bg-muted-foreground/40",
+                      )} />
+                      {s.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {task.projectId && projectName && (
             <Link
               href={`/projects/${task.projectId}`}
@@ -208,14 +239,16 @@ function TaskRow({
           )}
         </div>
 
-        {/* Delete */}
-        <button
-          title="Delete task"
-          onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
-          className="shrink-0 p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all"
-        >
-          <Trash2 className="size-3.5" />
-        </button>
+        {/* Delete — parent tasks only */}
+        {depth === 0 && (
+          <button
+            title="Delete task"
+            onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+            className="shrink-0 p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        )}
       </div>
 
       {hasSubtasks && expanded && task.subtasks!.map((sub) => (
@@ -226,6 +259,7 @@ function TaskRow({
           expanded={false}
           onToggleExpand={onToggleExpand}
           onToggle={onToggle}
+          onStatusChange={onStatusChange}
           onSelect={onSelect}
           onDelete={onDelete}
           isSelectMode={isSelectMode}
@@ -260,6 +294,7 @@ export function TasksScreen() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [projectFilterOpen, setProjectFilterOpen] = useState(false);
   const [statusesSheetOpen, setStatusesSheetOpen] = useState(false);
+  const savedExpandedIds = useRef<Set<string>>(new Set());
 
   const {
     workspaceId,
@@ -279,6 +314,7 @@ export function TasksScreen() {
     error,
     isFiltered,
     expandedIds,
+    setExpandedIds,
     isSelectMode,
     setIsSelectMode,
     selectedIds,
@@ -331,6 +367,10 @@ export function TasksScreen() {
     setDrawerOpen(true);
   }
 
+  function handleStatusChange(id: string, status: string) {
+    updateMutation.mutate({ id, body: { status } });
+  }
+
   function handleSaveDrawer(id: string, body: Parameters<typeof updateMutation.mutate>[0]["body"]) {
     updateMutation.mutate({ id, body }, {
       onSuccess: (updated) => {
@@ -361,6 +401,7 @@ export function TasksScreen() {
               expanded={expandedIds.has(task.id) ? false : true}
               onToggleExpand={handleToggleExpand}
               onToggle={handleToggle}
+              onStatusChange={handleStatusChange}
               onSelect={handleSelectTask}
               onDelete={handleDelete}
               isSelectMode={isSelectMode}
@@ -416,7 +457,21 @@ export function TasksScreen() {
             <Button
               variant={isSelectMode ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => { setIsSelectMode((p) => !p); setSelectedIds(new Set()); }}
+              onClick={() => {
+                if (!isSelectMode) {
+                  // Entering select mode: save current state, collapse all tasks with subtasks
+                  savedExpandedIds.current = new Set(expandedIds);
+                  const idsWithSubtasks = new Set(
+                    tasks.filter((t) => t.subtasks && t.subtasks.length > 0).map((t) => t.id)
+                  );
+                  setExpandedIds(idsWithSubtasks);
+                } else {
+                  // Exiting select mode: restore previous expanded state
+                  setExpandedIds(savedExpandedIds.current);
+                  setSelectedIds(new Set());
+                }
+                setIsSelectMode((p) => !p);
+              }}
               disabled={!workspaceId}
             >
               {isSelectMode ? "Cancel" : "Select"}

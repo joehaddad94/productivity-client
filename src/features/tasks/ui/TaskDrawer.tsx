@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trash2, Plus, FileText, Timer, Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/app/components/ui/sheet";
 import { Button } from "@/app/components/ui/button";
@@ -10,6 +10,7 @@ import { Checkbox } from "@/app/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { cn } from "@/app/components/ui/utils";
 import { useNotesQuery, useCreateNoteMutation } from "@/app/hooks/useNotesApi";
+import { useCreateTaskMutation, useDeleteTaskMutation } from "@/app/hooks/useTasksApi";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 import { activeTaskStatuses, isTaskStatusTerminal } from "../lib/taskStatusHelpers";
@@ -83,6 +84,9 @@ export function TaskDrawer({
   const [dueTime, setDueTime] = useState("");
   const [recurrenceRule, setRecurrenceRule] = useState<"DAILY" | "WEEKLY" | "MONTHLY" | "none">("none");
   const [isDirty, setIsDirty] = useState(false);
+  const [subtasks, setSubtasks] = useState<Task[]>([]);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+  const subtaskInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!task) return;
@@ -93,8 +97,44 @@ export function TaskDrawer({
     setDueDate(task.dueDate ? task.dueDate.slice(0, 10) : "");
     setDueTime(task.dueTime ?? "");
     setRecurrenceRule(task.recurrenceRule ?? "none");
+    setSubtasks(task.subtasks ?? []);
+    setNewSubtaskTitle("");
     setIsDirty(false);
   }, [task?.id, open]);
+
+  const createSubtaskMutation = useCreateTaskMutation(workspaceId, {
+    onError: () => {},
+  });
+
+  const deleteSubtaskMutation = useDeleteTaskMutation(workspaceId, {
+    onError: () => {},
+  });
+
+  function handleAddSubtask() {
+    if (!newSubtaskTitle.trim() || !task) return;
+    const title = newSubtaskTitle.trim();
+    setNewSubtaskTitle("");
+    createSubtaskMutation.mutate(
+      { title, parentTaskId: task.id },
+      {
+        onSuccess: (created) => {
+          setSubtasks((prev) => [...prev, created]);
+        },
+      },
+    );
+  }
+
+  function handleDeleteSubtask(id: string) {
+    setSubtasks((prev) => prev.filter((s) => s.id !== id));
+    deleteSubtaskMutation.mutate(id, {
+      onError: () => {
+        setSubtasks((prev) => {
+          const original = task?.subtasks?.find((s) => s.id === id);
+          return original ? [...prev, original] : prev;
+        });
+      },
+    });
+  }
 
   const { data: notesPage } = useNotesQuery(workspaceId, task ? { taskId: task.id, limit: 10 } : undefined, { enabled: !!task && open });
   const notes = notesPage?.notes ?? [];
@@ -217,29 +257,78 @@ export function TaskDrawer({
 
           <Separator className="opacity-50" />
 
-          {task.subtasks && task.subtasks.length > 0 && (
-            <div className="px-5 py-4">
-              <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
-                Subtasks ({task.subtasks.filter((s) => isTaskStatusTerminal(s.status, taskStatuses)).length}/{task.subtasks.length})
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                Subtasks{subtasks.length > 0 && ` (${subtasks.filter((s) => isTaskStatusTerminal(s.status, taskStatuses)).length}/${subtasks.length})`}
               </Label>
-              <div className="space-y-1.5">
-                {task.subtasks.map((sub) => {
-                  const done = isTaskStatusTerminal(sub.status, taskStatuses);
-                  return (
-                    <div key={sub.id} className="flex items-center gap-2.5">
-                      <Checkbox
-                        checked={done}
-                        onCheckedChange={(checked) => onToggleSubtask(sub.id, checked === true)}
-                      />
-                      <span className={cn("text-sm", done && "line-through text-muted-foreground")}>
-                        {sub.title}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              <button
+                type="button"
+                onClick={() => subtaskInputRef.current?.focus()}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Add subtask"
+              >
+                <Plus className="size-3.5" />
+              </button>
             </div>
-          )}
+
+            <div className="space-y-1.5">
+              {subtasks.map((sub) => {
+                const done = isTaskStatusTerminal(sub.status, taskStatuses);
+                return (
+                  <div key={sub.id} className="group flex items-center gap-2.5">
+                    <Checkbox
+                      checked={done}
+                      onCheckedChange={(checked) => {
+                        onToggleSubtask(sub.id, checked === true);
+                        setSubtasks((prev) =>
+                          prev.map((s) =>
+                            s.id === sub.id
+                              ? { ...s, status: checked ? "completed" : "pending" }
+                              : s,
+                          ),
+                        );
+                      }}
+                    />
+                    <span className={cn("flex-1 text-sm", done && "line-through text-muted-foreground")}>
+                      {sub.title}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSubtask(sub.id)}
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0"
+                      aria-label="Delete subtask"
+                    >
+                      <Trash2 className="size-3" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                ref={subtaskInputRef}
+                value={newSubtaskTitle}
+                onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); handleAddSubtask(); }
+                }}
+                placeholder="Add a subtask…"
+                className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground/40 border-b border-transparent focus:border-border/60 pb-0.5 transition-colors"
+              />
+              {newSubtaskTitle.trim() && (
+                <button
+                  type="button"
+                  onClick={handleAddSubtask}
+                  disabled={createSubtaskMutation.isPending}
+                  className="text-xs text-primary hover:opacity-70 transition-opacity shrink-0"
+                >
+                  {createSubtaskMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Add"}
+                </button>
+              )}
+            </div>
+          </div>
 
           {(task.focusMinutes ?? 0) > 0 && (
             <div className="px-5 pb-4">

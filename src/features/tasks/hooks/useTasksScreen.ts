@@ -260,6 +260,7 @@ export function useTasksScreen() {
     error,
     isFiltered,
     expandedIds,
+    setExpandedIds,
     isSelectMode,
     setIsSelectMode,
     selectedIds,
