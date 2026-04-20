@@ -15,58 +15,17 @@ import { useWorkspaceTagsQuery } from "@/app/hooks/useTagsApi";
 import { useNoteTagBatcher } from "@/app/hooks/useNoteTagBatcher";
 import { useProjectsQuery } from "@/app/hooks/useProjectsApi";
 import { useCreateTaskMutation, useTasksQuery } from "@/app/hooks/useTasksApi";
-import { useDebounce } from "@/app/hooks/useDebounce";
-import type { Note } from "@/lib/types";
-import type {
-  NoteUpdateChanges,
-  TagMode,
-  UseNotesScreenResult,
-} from "../model/types";
-
-type NoteListCache = { notes: Note[]; total: number };
-type PendingDeleteEntry = {
-  timer: ReturnType<typeof setTimeout>;
-  note: Note;
-  wasSelected: boolean;
-};
+import type { NoteUpdateChanges, UseNotesScreenResult } from "../model/types";
+import { useNotesConvertToTask } from "./useNotesConvertToTask";
+import { useNotesDeleteFlow } from "./useNotesDeleteFlow";
+import { useNotesEditorLinking } from "./useNotesEditorLinking";
+import { useNotesListFilters } from "./useNotesListFilters";
+import { useNotesScreenSelection } from "./useNotesScreenSelection";
 
 export function useNotesScreen(): UseNotesScreenResult {
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
   const queryClient = useQueryClient();
-
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTags, setSelectedTagsState] = useState<string[]>([]);
-  const [tagMode, setTagModeState] = useState<TagMode>("all");
-  const [shouldFetchTasks, setShouldFetchTasks] = useState(false);
-  const [filterProjectId, setFilterProjectId] = useState<string | null>(null);
-  const [limit, setLimit] = useState(50);
-  const pendingCreateTempIdsRef = useRef<Set<string>>(new Set());
-  const createStartRef = useRef<number | null>(null);
-  const noteSelectStartRef = useRef<number | null>(null);
-  const pendingDeletes = useRef<Map<string, PendingDeleteEntry>>(new Map());
-
-  const debouncedSearch = useDebounce(searchQuery, 300);
-
-  const { data: page, isLoading, error } = useNotesQuery(workspaceId, {
-    search: debouncedSearch || undefined,
-    tags: selectedTags.length ? selectedTags : undefined,
-    tagMode: selectedTags.length >= 2 ? tagMode : undefined,
-    projectId: filterProjectId ?? undefined,
-    limit,
-  });
-
-  const { data: workspaceTags = [] } = useWorkspaceTagsQuery(workspaceId);
-
-  const { data: tasksPage, isLoading: tasksLoading } = useTasksQuery(
-    workspaceId,
-    undefined,
-    {
-      enabled: !!workspaceId && shouldFetchTasks,
-    }
-  );
-  const allTasks = tasksPage?.tasks ?? [];
 
   const { data: projectsPage, isLoading: projectsLoading } = useProjectsQuery(
     workspaceId,
@@ -74,14 +33,42 @@ export function useNotesScreen(): UseNotesScreenResult {
     { enabled: !!workspaceId },
   );
   const allProjects = projectsPage?.projects ?? [];
+
+  const filters = useNotesListFilters(allProjects, projectsLoading);
+
+  const { data: page, isLoading, error } = useNotesQuery(workspaceId, {
+    search: filters.debouncedSearch || undefined,
+    tags: filters.selectedTags.length ? filters.selectedTags : undefined,
+    tagMode: filters.selectedTags.length >= 2 ? filters.tagMode : undefined,
+    projectId: filters.filterProjectId ?? undefined,
+    limit: filters.limit,
+  });
+
+  const { data: workspaceTags = [] } = useWorkspaceTagsQuery(workspaceId);
+
+  const [shouldFetchTasks, setShouldFetchTasks] = useState(false);
+  const { data: tasksPage, isLoading: tasksLoading } = useTasksQuery(
+    workspaceId,
+    undefined,
+    {
+      enabled: !!workspaceId && shouldFetchTasks,
+    },
+  );
+  const allTasks = tasksPage?.tasks ?? [];
+
   const notes = page?.notes ?? [];
   const total = page?.total ?? 0;
 
-  useEffect(() => {
-    if (!filterProjectId || projectsLoading) return;
-    if (allProjects.some((p) => p.id === filterProjectId)) return;
-    setFilterProjectId(null);
-  }, [filterProjectId, allProjects, projectsLoading]);
+  const {
+    selectedNoteId,
+    setSelectedNoteId,
+    handleSelectNote,
+    selectedNote,
+    noteSelectStartRef,
+  } = useNotesScreenSelection(notes);
+
+  const pendingCreateTempIdsRef = useRef<Set<string>>(new Set());
+  const createStartRef = useRef<number | null>(null);
 
   const createMutation = useCreateNoteMutation(workspaceId, {
     onSuccess: (note, variables) => {
@@ -96,7 +83,7 @@ export function useNotesScreen(): UseNotesScreenResult {
         pendingCreateTempIdsRef.current.delete(variables.clientTempId);
       }
       setSelectedNoteId((current) =>
-        current && current === variables.clientTempId ? note.id : current ?? note.id
+        current && current === variables.clientTempId ? note.id : current ?? note.id,
       );
       toast.success("Note created");
     },
@@ -104,7 +91,7 @@ export function useNotesScreen(): UseNotesScreenResult {
       if (variables.clientTempId) {
         pendingCreateTempIdsRef.current.delete(variables.clientTempId);
         setSelectedNoteId((current) =>
-          current === variables.clientTempId ? notes[0]?.id ?? null : current
+          current === variables.clientTempId ? notes[0]?.id ?? null : current,
         );
       }
       toast.error(err.message);
@@ -126,18 +113,28 @@ export function useNotesScreen(): UseNotesScreenResult {
     },
   });
 
-  useEffect(() => {
-    if (notes.length === 0) {
-      setSelectedNoteId(null);
-      return;
-    }
-    setSelectedNoteId((current) => {
-      if (current && notes.some((n) => n.id === current)) return current;
-      return notes[0].id;
-    });
-  }, [notes]);
+  const { handleDelete } = useNotesDeleteFlow({
+    workspaceId,
+    notes,
+    selectedNoteId,
+    setSelectedNoteId,
+    deleteMutation,
+  });
 
-  const selectedNote = notes.find((n) => n.id === selectedNoteId) ?? null;
+  const {
+    linkingTaskNoteIds,
+    linkingProjectNoteIds,
+    handleLinkTask,
+    handleLinkProject,
+  } = useNotesEditorLinking(notes, updateMutation);
+
+  const createTaskMutation = useCreateTaskMutation(workspaceId);
+  const { convertingNoteIds, handleConvertToTask } = useNotesConvertToTask(
+    notes,
+    workspaceId,
+    createTaskMutation,
+    updateMutation,
+  );
 
   const handleCreateNote = () => {
     if (!workspaceId) return;
@@ -151,26 +148,15 @@ export function useNotesScreen(): UseNotesScreenResult {
       title: "Untitled Note",
       tags: [],
       clientTempId: tempId,
-      ...(filterProjectId ? { projectId: filterProjectId } : {}),
+      ...(filters.filterProjectId ? { projectId: filters.filterProjectId } : {}),
     });
   };
-
-  const handleSelectNote = useCallback((id: string | null) => {
-    if (!id) {
-      setSelectedNoteId(null);
-      return;
-    }
-    if (typeof window !== "undefined") {
-      noteSelectStartRef.current = performance.now();
-    }
-    setSelectedNoteId(id);
-  }, []);
 
   const handleUpdate = useCallback(
     (id: string, changes: NoteUpdateChanges) => {
       updateMutation.mutate({ id, body: changes });
     },
-    [updateMutation]
+    [updateMutation],
   );
 
   const handleAddTags = useCallback(
@@ -178,121 +164,14 @@ export function useNotesScreen(): UseNotesScreenResult {
       if (!tags.length) return;
       tagBatcher.enqueueAdd(id, tags);
     },
-    [tagBatcher]
+    [tagBatcher],
   );
 
   const handleRemoveTag = useCallback(
     (id: string, tag: string) => {
       tagBatcher.enqueueRemove(id, tag);
     },
-    [tagBatcher]
-  );
-
-  const [linkingTaskNoteIds, setLinkingTaskNoteIds] = useState<Set<string>>(
-    () => new Set()
-  );
-  const [linkingProjectNoteIds, setLinkingProjectNoteIds] = useState<
-    Set<string>
-  >(() => new Set());
-
-  const handleLinkTask = useCallback(
-    (id: string, taskId: string | null) => {
-      const prevTaskId = notes.find((n) => n.id === id)?.taskId ?? null;
-      if (prevTaskId === taskId) return;
-
-      setLinkingTaskNoteIds((prev) => {
-        if (prev.has(id)) return prev;
-        const next = new Set(prev);
-        next.add(id);
-        return next;
-      });
-
-      updateMutation.mutate(
-        { id, body: { taskId } },
-        {
-          onSuccess: () => {
-            if (taskId === null) {
-              toast.success("Task unlinked", {
-                duration: 5000,
-                action: prevTaskId
-                  ? {
-                      label: "Undo",
-                      onClick: () =>
-                        updateMutation.mutate({
-                          id,
-                          body: { taskId: prevTaskId },
-                        }),
-                    }
-                  : undefined,
-              });
-            } else {
-              toast.success("Linked to task");
-            }
-          },
-          onError: (err) => {
-            toast.error(err.message);
-          },
-          onSettled: () => {
-            setLinkingTaskNoteIds((prev) => {
-              if (!prev.has(id)) return prev;
-              const next = new Set(prev);
-              next.delete(id);
-              return next;
-            });
-          },
-        },
-      );
-    },
-    [notes, updateMutation],
-  );
-
-  const handleLinkProject = useCallback(
-    (id: string, projectId: string | null) => {
-      const prevProjectId = notes.find((n) => n.id === id)?.projectId ?? null;
-      if (prevProjectId === projectId) return;
-
-      setLinkingProjectNoteIds((prev) => {
-        if (prev.has(id)) return prev;
-        const next = new Set(prev);
-        next.add(id);
-        return next;
-      });
-
-      updateMutation.mutate(
-        { id, body: { projectId } },
-        {
-          onSuccess: () => {
-            if (projectId === null) {
-              toast.success("Project unlinked", {
-                duration: 5000,
-                action: prevProjectId
-                  ? {
-                      label: "Undo",
-                      onClick: () =>
-                        updateMutation.mutate({
-                          id,
-                          body: { projectId: prevProjectId },
-                        }),
-                    }
-                  : undefined,
-              });
-            } else {
-              toast.success("Linked to project");
-            }
-          },
-          onError: (err) => toast.error(err.message),
-          onSettled: () => {
-            setLinkingProjectNoteIds((prev) => {
-              if (!prev.has(id)) return prev;
-              const next = new Set(prev);
-              next.delete(id);
-              return next;
-            });
-          },
-        },
-      );
-    },
-    [notes, updateMutation],
+    [tagBatcher],
   );
 
   const ensureTasksLoaded = useCallback(() => {
@@ -300,146 +179,6 @@ export function useNotesScreen(): UseNotesScreenResult {
   }, []);
 
   const ensureProjectsLoaded = useCallback(() => {}, []);
-
-  const createTaskMutation = useCreateTaskMutation(workspaceId);
-  const [convertingNoteIds, setConvertingNoteIds] = useState<Set<string>>(
-    () => new Set()
-  );
-
-  const handleConvertToTask = useCallback(
-    (noteId: string) => {
-      const note = notes.find((n) => n.id === noteId);
-      if (!note || !workspaceId) return;
-      if (convertingNoteIds.has(noteId)) return;
-
-      setConvertingNoteIds((prev) => {
-        const next = new Set(prev);
-        next.add(noteId);
-        return next;
-      });
-      const loadingToastId = toast.loading("Creating task…");
-
-      createTaskMutation.mutate(
-        { title: note.title },
-        {
-          onSuccess: (task) => {
-            updateMutation.mutate(
-              { id: noteId, body: { taskId: task.id } },
-              {
-                onSettled: () => {
-                  setConvertingNoteIds((prev) => {
-                    if (!prev.has(noteId)) return prev;
-                    const next = new Set(prev);
-                    next.delete(noteId);
-                    return next;
-                  });
-                },
-              }
-            );
-            toast.success("Converted to task", {
-              id: loadingToastId,
-              description: `"${task.title}" added to your tasks`,
-            });
-          },
-          onError: (err) => {
-            setConvertingNoteIds((prev) => {
-              if (!prev.has(noteId)) return prev;
-              const next = new Set(prev);
-              next.delete(noteId);
-              return next;
-            });
-            toast.error(err.message, { id: loadingToastId });
-          },
-        }
-      );
-    },
-    [notes, workspaceId, convertingNoteIds, createTaskMutation, updateMutation]
-  );
-
-  const handleDelete = useCallback(
-    (id: string) => {
-      const deletedNote = notes.find((n) => n.id === id);
-      if (!deletedNote) return;
-
-      queryClient.setQueriesData<NoteListCache>(
-        { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
-        (old) =>
-          old && Array.isArray(old.notes)
-            ? { notes: old.notes.filter((n) => n.id !== id), total: old.total - 1 }
-            : old
-      );
-
-      const wasSelected = selectedNoteId === id;
-      if (selectedNoteId === id) {
-        setSelectedNoteId(notes.find((n) => n.id !== id)?.id ?? null);
-      }
-
-      const timer = setTimeout(() => {
-        pendingDeletes.current.delete(id);
-        deleteMutation.mutate(id);
-      }, 5000);
-      pendingDeletes.current.set(id, {
-        timer,
-        note: deletedNote,
-        wasSelected,
-      });
-
-      toast.success("Note deleted", {
-        duration: 5000,
-        action: {
-          label: "Undo",
-          onClick: () => {
-            const pending = pendingDeletes.current.get(id);
-            if (!pending) return;
-            clearTimeout(pending.timer);
-            pendingDeletes.current.delete(id);
-
-            queryClient.setQueriesData<NoteListCache>(
-              { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
-              (old) => {
-                if (!old || !Array.isArray(old.notes)) return old;
-                if (old.notes.some((n) => n.id === id)) return old;
-                return { ...old, notes: [pending.note, ...old.notes], total: old.total + 1 };
-              }
-            );
-
-            if (pending.wasSelected) {
-              setSelectedNoteId(id);
-            }
-
-            queryClient.invalidateQueries({
-              queryKey: NOTES_QUERY_KEY(workspaceId ?? ""),
-              refetchType: "inactive",
-            });
-          },
-        },
-      });
-    },
-    [queryClient, workspaceId, selectedNoteId, notes, deleteMutation]
-  );
-
-  const handleLoadMore = useCallback(() => {
-    setLimit((value) => value + 50);
-  }, []);
-
-  const setSelectedTags = useCallback((tags: string[]) => {
-    const next = Array.from(
-      new Set(tags.map((t) => t.trim().toLowerCase()).filter(Boolean)),
-    );
-    setSelectedTagsState(next);
-  }, []);
-
-  const toggleTag = useCallback((tag: string) => {
-    const normalized = tag.trim().toLowerCase();
-    if (!normalized) return;
-    setSelectedTagsState((current) =>
-      current.includes(normalized)
-        ? current.filter((t) => t !== normalized)
-        : [...current, normalized],
-    );
-  }, []);
-
-  const setTagMode = useCallback((mode: TagMode) => setTagModeState(mode), []);
 
   useEffect(() => {
     if (createStartRef.current === null || createMutation.isPending || isLoading) return;
@@ -468,15 +207,15 @@ export function useNotesScreen(): UseNotesScreenResult {
     workspaceId,
     selectedNoteId,
     setSelectedNoteId: handleSelectNote,
-    searchQuery,
-    setSearchQuery,
-    selectedTags,
-    setSelectedTags,
-    toggleTag,
-    tagMode,
-    setTagMode,
-    filterProjectId,
-    setFilterProjectId,
+    searchQuery: filters.searchQuery,
+    setSearchQuery: filters.setSearchQuery,
+    selectedTags: filters.selectedTags,
+    setSelectedTags: filters.setSelectedTags,
+    toggleTag: filters.toggleTag,
+    tagMode: filters.tagMode,
+    setTagMode: filters.setTagMode,
+    filterProjectId: filters.filterProjectId,
+    setFilterProjectId: filters.setFilterProjectId,
     allTags: workspaceTags,
     notes,
     total,
@@ -502,6 +241,6 @@ export function useNotesScreen(): UseNotesScreenResult {
     handleConvertToTask,
     convertingNoteIds,
     handleDelete,
-    handleLoadMore,
+    handleLoadMore: filters.handleLoadMore,
   };
 }

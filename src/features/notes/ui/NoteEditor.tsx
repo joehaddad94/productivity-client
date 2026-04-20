@@ -13,33 +13,17 @@ import {
 } from "lucide-react";
 import { LinkedItems, renderRelation } from "@/app/components/linking/LinkPicker";
 import type { Project, Task } from "@/lib/types";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import StarterKit from "@tiptap/starter-kit";
-import Placeholder from "@tiptap/extension-placeholder";
-import Image from "@tiptap/extension-image";
-import TaskList from "@tiptap/extension-task-list";
-import TaskItem from "@tiptap/extension-task-item";
 import { toast } from "sonner";
 import { cn } from "@/app/components/ui/utils";
 import { TagChip } from "@/app/components/tags/TagChip";
 import { TagInput } from "@/app/components/tags/TagInput";
 import type { NoteEditorProps } from "../model/types";
+import { useNoteEditor } from "../hooks/useNoteEditor";
 import { NoteEditorToolbar } from "./NoteEditorToolbar";
 
-const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024;
-
-function readImageAsDataUrl(file: File): Promise<string | null> {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      resolve(typeof result === "string" ? result : null);
-    };
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
-}
+const TITLE_DEBOUNCE_MS = 1000;
 
 export function NoteEditor({
   note,
@@ -63,127 +47,25 @@ export function NoteEditor({
   tasks,
 }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
-  const contentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const paneRef = useRef<HTMLDivElement>(null);
   const linkedTask = tasks.find((t) => t.id === note.taskId) ?? null;
   const linkedProject = projects.find((p) => p.id === note.projectId) ?? null;
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({
-        // Provided by our own extensions below so we can style / configure them.
-        link: {
-          openOnClick: false,
-          autolink: true,
-          HTMLAttributes: {
-            rel: "noopener noreferrer",
-            target: "_blank",
-          },
-        },
-      }),
-      Placeholder.configure({ placeholder: "Start writing, or paste an image…" }),
-      Image.configure({
-        inline: false,
-        allowBase64: true,
-        HTMLAttributes: { class: "note-inline-image" },
-        resize: {
-          enabled: true,
-          minWidth: 80,
-          minHeight: 40,
-          alwaysPreserveAspectRatio: true,
-        },
-      }),
-      TaskList.configure({
-        HTMLAttributes: { class: "task-list" },
-      }),
-      TaskItem.configure({
-        nested: true,
-        HTMLAttributes: { class: "task-item" },
-      }),
-    ],
-    content: note.content ?? "",
-    editorProps: {
-      handlePaste(view, event) {
-        const items = event.clipboardData?.items;
-        if (!items) return false;
-        for (const item of Array.from(items)) {
-          if (item.kind === "file" && item.type.startsWith("image/")) {
-            const file = item.getAsFile();
-            if (!file) continue;
-            if (file.size > MAX_IMAGE_BYTES) {
-              toast.error("Image is too large (max 1.5 MB)");
-              return true;
-            }
-            event.preventDefault();
-            readImageAsDataUrl(file).then((src) => {
-              if (!src) {
-                toast.error("Could not read the pasted image");
-                return;
-              }
-              const { state, dispatch } = view;
-              const node = view.state.schema.nodes.image.create({ src });
-              dispatch(state.tr.replaceSelectionWith(node).scrollIntoView());
-            });
-            return true;
-          }
-        }
-        return false;
-      },
-      handleDrop(view, event) {
-        const files = event.dataTransfer?.files;
-        if (!files || files.length === 0) return false;
-        const file = files[0];
-        if (!file.type.startsWith("image/")) return false;
-        if (file.size > MAX_IMAGE_BYTES) {
-          toast.error("Image is too large (max 1.5 MB)");
-          return true;
-        }
-        event.preventDefault();
-        readImageAsDataUrl(file).then((src) => {
-          if (!src) {
-            toast.error("Could not read the dropped image");
-            return;
-          }
-          const coords = { left: event.clientX, top: event.clientY };
-          const pos = view.posAtCoords(coords);
-          const tr = view.state.tr;
-          const node = view.state.schema.nodes.image.create({ src });
-          if (pos) {
-            tr.insert(pos.pos, node);
-          } else {
-            tr.replaceSelectionWith(node);
-          }
-          view.dispatch(tr.scrollIntoView());
-        });
-        return true;
-      },
-    },
-    onUpdate: ({ editor }) => {
-      const html = editor.getHTML();
-      if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
-      contentDebounceRef.current = setTimeout(() => {
-        onUpdate(note.id, { content: html });
-      }, 1000);
-    },
+  const { editor } = useNoteEditor({
+    noteId: note.id,
+    contentHtml: note.content ?? "",
+    onHtmlDebounced: (id, html) => onUpdate(id, { content: html }),
   });
 
   useEffect(() => {
-    if (editor && note.content !== undefined) {
-      const current = editor.getHTML();
-      if (current !== (note.content ?? "")) {
-        editor.commands.setContent(note.content ?? "");
-      }
-    }
     setTitle(note.title);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 
   useEffect(() => {
     return () => {
-      if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
       if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
     };
   }, []);
@@ -209,7 +91,7 @@ export function NoteEditor({
       if (newTitle.trim() && newTitle.trim() !== note.title) {
         onUpdate(note.id, { title: newTitle.trim() });
       }
-    }, 1000);
+    }, TITLE_DEBOUNCE_MS);
   };
 
   const handleTitleBlur = () => {
@@ -240,10 +122,6 @@ export function NoteEditor({
     [note.id, onAddTags, onRemoveTag],
   );
 
-  // ---------------------------------------------------------------
-  // Relation configs for LinkedItems. Add more (e.g. Project) here
-  // without touching the JSX below.
-  // ---------------------------------------------------------------
   const taskRelation = useMemo(
     () => ({
       kind: "task",

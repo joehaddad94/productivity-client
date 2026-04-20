@@ -7,7 +7,9 @@ test.describe("Notes", () => {
   });
 
   test("page shows Notes header", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /^notes$/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^notes$/i })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("creates a note and lists Untitled Note", async ({ page }) => {

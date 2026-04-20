@@ -2,8 +2,6 @@
 
 import { useMemo, useState } from "react";
 import {
-  ChevronDown,
-  ChevronRight,
   Clock,
   FileText,
   FolderOpen,
@@ -14,12 +12,12 @@ import {
 import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
-import { cn } from "@/app/components/ui/utils";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ManageTagsDialog } from "@/app/components/tags/ManageTagsDialog";
 import { useNotesScreen } from "../hooks/useNotesScreen";
+import { groupNotesByDate } from "../lib/groupNotesByDate";
 import { NoteEditor } from "./NoteEditor";
-import type { Note } from "@/lib/types";
+import { NotesSidebarNavItem, NotesSidebarSectionHeader } from "./NotesScreenNav";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,40 +27,9 @@ type ActiveSection =
   | { type: "project"; id: string }
   | { type: "tag"; tag: string };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_NAV_PROJECTS = 6;
 const MAX_NAV_TAGS = 6;
-
-function groupNotesByDate(notes: Note[]): Array<{ label: string; notes: Note[] }> {
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterdayStart = new Date(todayStart.getTime() - 86_400_000);
-  const weekStart = new Date(todayStart.getTime() - 6 * 86_400_000);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const buckets: { label: string; notes: Note[] }[] = [
-    { label: "Today", notes: [] },
-    { label: "Yesterday", notes: [] },
-    { label: "This week", notes: [] },
-    { label: "This month", notes: [] },
-    { label: "Older", notes: [] },
-  ];
-
-  for (const note of notes) {
-    const d = new Date(note.updatedAt);
-    if (d >= todayStart) buckets[0].notes.push(note);
-    else if (d >= yesterdayStart) buckets[1].notes.push(note);
-    else if (d >= weekStart) buckets[2].notes.push(note);
-    else if (d >= monthStart) buckets[3].notes.push(note);
-    else buckets[4].notes.push(note);
-  }
-
-  return buckets.filter((b) => b.notes.length > 0);
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export function NotesScreen() {
   const {
@@ -178,14 +145,14 @@ export function NotesScreen() {
 
           {/* All / Recent */}
           <div className="px-2 pt-2 pb-1 space-y-0.5">
-            <NavItem
+            <NotesSidebarNavItem
               icon={FileText}
               label="All Notes"
               count={total}
               active={activeSection.type === "all"}
               onClick={() => selectSection({ type: "all" })}
             />
-            <NavItem
+            <NotesSidebarNavItem
               icon={Clock}
               label="Recent"
               count={recentNotes.length}
@@ -197,7 +164,7 @@ export function NotesScreen() {
           {/* By Project */}
           {allProjects.length > 0 && (
             <div className="px-2 pb-1">
-              <SectionHeader
+              <NotesSidebarSectionHeader
                 label="Projects"
                 expanded={projectsExpanded}
                 onToggle={() => setProjectsExpanded((v) => !v)}
@@ -205,7 +172,7 @@ export function NotesScreen() {
               {projectsExpanded && (
                 <div className="space-y-0.5">
                   {navProjects.map((p) => (
-                    <NavItem
+                    <NotesSidebarNavItem
                       key={p.id}
                       icon={FolderOpen}
                       label={p.name}
@@ -227,7 +194,7 @@ export function NotesScreen() {
           {/* By Tag */}
           {allTags.length > 0 && (
             <div className="px-2 pb-2">
-              <SectionHeader
+              <NotesSidebarSectionHeader
                 label="Tags"
                 expanded={tagsExpanded}
                 onToggle={() => setTagsExpanded((v) => !v)}
@@ -238,7 +205,7 @@ export function NotesScreen() {
                   {navTags.map(({ tag, count }) => {
                     const isActive = activeSection.type === "tag" && activeSection.tag === tag;
                     return (
-                      <NavItem
+                      <NotesSidebarNavItem
                         key={tag}
                         icon={Tag}
                         label={tag}
@@ -393,86 +360,5 @@ export function NotesScreen() {
         workspaceId={workspaceId}
       />
     </div>
-  );
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function SectionHeader({
-  label,
-  expanded,
-  onToggle,
-  action,
-}: {
-  label: string;
-  expanded: boolean;
-  onToggle: () => void;
-  action?: { label: string; onClick: () => void };
-}) {
-  return (
-    <div className="flex items-center justify-between py-1.5 px-1">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wide hover:text-foreground transition-colors cursor-pointer"
-      >
-        {expanded ? (
-          <ChevronDown className="size-3 shrink-0" />
-        ) : (
-          <ChevronRight className="size-3 shrink-0" />
-        )}
-        {label}
-      </button>
-      {action && (
-        <button
-          type="button"
-          onClick={action.onClick}
-          className="text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors cursor-pointer"
-          data-testid="tag-filter-manage"
-        >
-          {action.label}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function NavItem({
-  icon: Icon,
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  count?: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors text-left cursor-pointer",
-        active
-          ? "bg-primary/10 text-primary font-medium"
-          : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-      )}
-    >
-      <Icon className="size-3.5 shrink-0 opacity-70" />
-      <span className="flex-1 truncate">{label}</span>
-      {typeof count === "number" && (
-        <span
-          className={cn(
-            "text-[10px] tabular-nums shrink-0",
-            active ? "text-primary/70" : "text-muted-foreground/50",
-          )}
-        >
-          {count}
-        </span>
-      )}
-    </button>
   );
 }
