@@ -60,9 +60,62 @@ export function useCreateTaskMutation(
   return useMutation({
     mutationFn: (body: CreateTaskBody) => tasksApi.create(workspaceId!, body),
     ...options,
+    onMutate: async (body) => {
+      await queryClient.cancelQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+
+      const tempTask: Task = {
+        id: `temp_${Date.now()}`,
+        workspaceId: workspaceId ?? "",
+        title: body.title,
+        description: body.description ?? null,
+        dueDate: body.dueDate ?? null,
+        dueTime: body.dueTime ?? null,
+        priority: body.priority ?? null,
+        status: body.status ?? "pending",
+        parentTaskId: body.parentTaskId ?? null,
+        projectId: body.projectId ?? null,
+        recurrenceRule: body.recurrenceRule ?? null,
+        recurrenceParentId: null,
+        focusMinutes: 0,
+        completedAt: null,
+        deletedAt: null,
+        createdAt: new Date().toISOString(),
+      };
+
+      queryClient.setQueriesData<TasksPage>(
+        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+        (old) => {
+          if (!old || !Array.isArray(old.tasks)) return old;
+          return { tasks: [...old.tasks, tempTask], total: old.total + 1 };
+        },
+      );
+
+      return { tempId: tempTask.id };
+    },
+    onError: (err, vars, context, mutation) => {
+      const ctx = context as { tempId?: string } | undefined;
+      queryClient.setQueriesData<TasksPage>(
+        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+        (old) => {
+          if (!old || !Array.isArray(old.tasks)) return old;
+          return { tasks: old.tasks.filter((t) => t.id !== ctx?.tempId), total: old.total - 1 };
+        },
+      );
+      options?.onError?.(err, vars, context, mutation);
+    },
     onSuccess: (data, variables, context, mutation) => {
-      options?.onSuccess?.(data, variables, context, mutation);
+      const ctx = context as { tempId?: string } | undefined;
+      // Replace the temp entry with the real task
+      queryClient.setQueriesData<TasksPage>(
+        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+        (old) => {
+          if (!old || !Array.isArray(old.tasks)) return old;
+          return { ...old, tasks: old.tasks.map((t) => (t.id === ctx?.tempId ? data : t)) };
+        },
+      );
+      queryClient.setQueryData(TASK_QUERY_KEY(workspaceId ?? "", data.id), data);
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+      options?.onSuccess?.(data, variables, context, mutation);
     },
   });
 }
@@ -76,11 +129,31 @@ export function useUpdateTaskMutation(
     mutationFn: ({ id, body }: { id: string; body: UpdateTaskBody }) =>
       tasksApi.update(workspaceId!, id, body),
     ...options,
-    onSuccess: (data, variables, context, mutation) => {
-      queryClient.setQueryData(
-        TASK_QUERY_KEY(workspaceId ?? "", data.id),
-        data
+    onMutate: async ({ id, body }) => {
+      await queryClient.cancelQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+
+      // Optimistically patch every matching task list
+      queryClient.setQueriesData<TasksPage>(
+        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+        (old) => {
+          if (!old || !Array.isArray(old.tasks)) return old;
+          return { ...old, tasks: old.tasks.map((t) => (t.id === id ? { ...t, ...body } : t)) };
+        },
       );
+
+      // Optimistically patch the single-task cache
+      queryClient.setQueryData<Task>(
+        TASK_QUERY_KEY(workspaceId ?? "", id),
+        (old) => (old ? { ...old, ...body } : old) as Task,
+      );
+    },
+    onError: (err, vars, context, mutation) => {
+      // Re-fetch on error to restore correct server state
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+      options?.onError?.(err, vars, context, mutation);
+    },
+    onSuccess: (data, variables, context, mutation) => {
+      queryClient.setQueryData(TASK_QUERY_KEY(workspaceId ?? "", data.id), data);
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(data, variables, context, mutation);
     },
@@ -95,6 +168,21 @@ export function useDeleteTaskMutation(
   return useMutation({
     mutationFn: (id: string) => tasksApi.delete(workspaceId!, id),
     ...options,
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+
+      queryClient.setQueriesData<TasksPage>(
+        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+        (old) => {
+          if (!old || !Array.isArray(old.tasks)) return old;
+          return { tasks: old.tasks.filter((t) => t.id !== id), total: old.total - 1 };
+        },
+      );
+    },
+    onError: (err, id, context, mutation) => {
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+      options?.onError?.(err, id, context, mutation);
+    },
     onSuccess: (_, id, context, mutation) => {
       queryClient.removeQueries({ queryKey: TASK_QUERY_KEY(workspaceId ?? "", id) });
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
@@ -146,6 +234,25 @@ export function useBulkTasksMutation(
   return useMutation({
     mutationFn: (body: BulkTaskBody) => tasksApi.bulk(workspaceId!, body),
     ...options,
+    onMutate: async (body) => {
+      if (body.action !== "delete" || !body.ids?.length) return;
+
+      await queryClient.cancelQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+
+      const deletedIds = new Set(body.ids);
+      queryClient.setQueriesData<TasksPage>(
+        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+        (old) => {
+          if (!old || !Array.isArray(old.tasks)) return old;
+          const kept = old.tasks.filter((t) => !deletedIds.has(t.id));
+          return { tasks: kept, total: old.total - (old.tasks.length - kept.length) };
+        },
+      );
+    },
+    onError: (err, vars, context, mutation) => {
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+      options?.onError?.(err, vars, context, mutation);
+    },
     onSuccess: (data, variables, context, mutation) => {
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(data, variables, context, mutation);

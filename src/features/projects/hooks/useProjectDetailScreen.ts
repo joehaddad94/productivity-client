@@ -24,12 +24,15 @@ const STATUS_CYCLE: Record<string, string> = {
   completed: "active",
 };
 
-export function useProjectDetailScreen(projectId: string) {
+export function useProjectDetailScreen(
+  projectId: string,
+  { initialTab = "tasks" }: { initialTab?: "tasks" | "notes" } = {},
+) {
   const router = useRouter();
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
 
-  const [activeTab, setActiveTab] = useState<"tasks" | "notes">("tasks");
+  const [activeTab, setActiveTab] = useState<"tasks" | "notes">(initialTab);
   const [editingField, setEditingField] = useState<"name" | "description" | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newNoteTitle, setNewNoteTitle] = useState("");
@@ -65,7 +68,7 @@ export function useProjectDetailScreen(projectId: string) {
   });
 
   const createTaskMutation = useCreateTaskMutation(workspaceId, {
-    onSuccess: () => { setNewTaskTitle(""); toast.success("Task added"); },
+    onSuccess: () => toast.success("Task added"),
     onError: (err) => toast.error(err.message),
   });
 
@@ -82,7 +85,7 @@ export function useProjectDetailScreen(projectId: string) {
   });
 
   const createNoteMutation = useCreateNoteMutation(workspaceId, {
-    onSuccess: () => { setNewNoteTitle(""); toast.success("Note added"); },
+    onSuccess: () => toast.success("Note added"),
     onError: (err) => toast.error(err.message),
   });
 
@@ -106,7 +109,9 @@ export function useProjectDetailScreen(projectId: string) {
 
   const handleAddTask = () => {
     if (!newTaskTitle.trim() || !workspaceId) return;
-    createTaskMutation.mutate({ title: newTaskTitle.trim(), projectId });
+    const title = newTaskTitle.trim();
+    setNewTaskTitle("");
+    createTaskMutation.mutate({ title, projectId });
   };
 
   const handleToggleSubtask = (id: string, completed: boolean) => {
@@ -148,7 +153,9 @@ export function useProjectDetailScreen(projectId: string) {
 
   const handleAddNote = () => {
     if (!newNoteTitle.trim() || !workspaceId) return;
-    createNoteMutation.mutate({ title: newNoteTitle.trim(), projectId });
+    const title = newNoteTitle.trim();
+    setNewNoteTitle("");
+    createNoteMutation.mutate({ title, projectId });
   };
 
   const handleDelete = () => {

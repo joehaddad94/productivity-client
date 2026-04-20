@@ -1,4 +1,5 @@
 import { memo, useMemo } from "react";
+import { Loader2 } from "lucide-react";
 import type { Note } from "@/lib/types";
 import { cn } from "./ui/utils";
 import { TagChip } from "./tags/TagChip";
@@ -21,6 +22,7 @@ function relativeDate(dateStr: string): string {
 }
 
 function NoteCardComponent({ note, isActive, onSelect }: NoteCardProps) {
+  const isSaving = note.id.startsWith("temp:");
   const preview = useMemo(
     () => note.content?.replace(/<[^>]+>/g, "").trim().slice(0, 80) ?? "",
     [note.content]
@@ -28,19 +30,24 @@ function NoteCardComponent({ note, isActive, onSelect }: NoteCardProps) {
 
   return (
     <div
-      onClick={() => onSelect(note.id)}
+      onClick={() => !isSaving && onSelect(note.id)}
       data-testid="note-card"
       data-note-id={note.id}
       className={cn(
-        "px-3 py-2.5 pr-10 rounded-lg cursor-pointer transition-colors min-h-[48px]",
-        isActive
-          ? "bg-muted"
-          : "hover:bg-muted/50",
+        "px-3 py-2.5 pr-10 rounded-lg transition-colors min-h-[48px]",
+        isSaving
+          ? "opacity-60 cursor-default"
+          : isActive
+            ? "bg-muted cursor-pointer"
+            : "hover:bg-muted/50 cursor-pointer",
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium truncate leading-snug">{note.title || "Untitled"}</p>
-        <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">{relativeDate(note.updatedAt)}</span>
+        {isSaving
+          ? <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground mt-0.5" />
+          : <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">{relativeDate(note.updatedAt)}</span>
+        }
       </div>
       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 min-h-[16px]">
         {preview || ""}

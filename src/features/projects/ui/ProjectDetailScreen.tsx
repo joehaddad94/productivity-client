@@ -95,7 +95,13 @@ function InlineText({
   );
 }
 
-export function ProjectDetailScreen({ projectId }: { projectId: string }) {
+export function ProjectDetailScreen({
+  projectId,
+  initialTab = "tasks",
+}: {
+  projectId: string;
+  initialTab?: "tasks" | "notes";
+}) {
   const router = useRouter();
   const [drawerTask, setDrawerTask] = useState<Task | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -133,7 +139,7 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
     setIsSelectMode,
     selectedIds,
     setSelectedIds,
-  } = useProjectDetailScreen(projectId);
+  } = useProjectDetailScreen(projectId, { initialTab });
 
   function openTask(task: Task) {
     setDrawerTask(task);
@@ -204,7 +210,7 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-3">
-          <span className={cn("size-3 rounded-full flex-shrink-0", dot)} />
+          <span className={cn("size-3 rounded-full shrink-0", dot)} />
           <InlineText
             value={project.name}
             onSave={handleSaveName}
@@ -252,75 +258,77 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0 border-b border-border/50">
-        {(["tasks", "notes"] as const).map((tab) => {
-          const count = tab === "tasks" ? taskCount : noteCount;
-          const active = activeTab === tab;
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize",
-                active
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {tab === "tasks" ? "Tasks" : "Notes"}
-              {count > 0 && (
-                <span className={cn(
-                  "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-medium leading-none tabular-nums",
+      <div className="flex items-end justify-between border-b border-border/50">
+        <div className="flex">
+          {(["tasks", "notes"] as const).map((tab) => {
+            const count = tab === "tasks" ? taskCount : noteCount;
+            const active = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => {
+                  setActiveTab(tab);
+                  router.replace(`/projects/${projectId}?tab=${tab}`, { scroll: false });
+                }}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize",
                   active
-                    ? "bg-primary/10 text-primary"
-                    : "bg-muted text-muted-foreground",
-                )}>
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {tab === "tasks" ? "Tasks" : "Notes"}
+                {count > 0 && (
+                  <span className={cn(
+                    "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-medium leading-none tabular-nums",
+                    active
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground",
+                  )}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {activeTab === "tasks" && (
+          <button
+            onClick={() => { setIsSelectMode((p) => !p); setSelectedIds(new Set()); }}
+            className={cn(
+              "mb-1 px-3 py-1 text-xs rounded-md transition-colors",
+              isSelectMode
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+            )}
+          >
+            {isSelectMode ? "Cancel" : "Select"}
+          </button>
+        )}
       </div>
 
       {/* Tasks tab */}
       {activeTab === "tasks" && (
         <div className="space-y-3">
-          <div className="flex gap-2 items-start">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Add a task and press Enter…"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !isSelectMode && handleAddTask()}
+              disabled={createTaskMutation.isPending || isSelectMode}
+              className="flex-1 h-9 px-3 text-sm bg-muted/40 border border-border/60 rounded-lg outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 placeholder:text-muted-foreground disabled:opacity-50 transition-colors"
+            />
             <Button
-              type="button"
-              variant={isSelectMode ? "secondary" : "ghost"}
-              size="sm"
+              variant="outline"
               className="shrink-0 h-9"
-              onClick={() => {
-                setIsSelectMode((p) => !p);
-                setSelectedIds(new Set());
-              }}
-              disabled={!workspaceId}
+              onClick={handleAddTask}
+              disabled={!newTaskTitle.trim() || createTaskMutation.isPending || isSelectMode}
             >
-              {isSelectMode ? "Cancel" : "Select"}
+              {createTaskMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+              Add
             </Button>
-            <div className="flex gap-2 flex-1 min-w-0">
-              <input
-                type="text"
-                placeholder="Add a task and press Enter…"
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !isSelectMode && handleAddTask()}
-                disabled={createTaskMutation.isPending || isSelectMode}
-                className="flex-1 h-9 px-3 text-sm bg-muted/40 border border-border/60 rounded-lg outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 placeholder:text-muted-foreground disabled:opacity-50 transition-colors"
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                className="shrink-0"
-                onClick={handleAddTask}
-                disabled={!newTaskTitle.trim() || createTaskMutation.isPending || isSelectMode}
-              >
-                {createTaskMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
-                Add
-              </Button>
-            </div>
           </div>
 
           {isSelectMode && selectedIds.size > 0 && (
@@ -359,7 +367,9 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
                 <TaskCard
                   key={task.id}
                   task={task}
-                  showCheckbox={false}
+                  onStatusChange={(id, status) =>
+                    updateTaskMutation.mutate({ id, body: { status: status as "pending" | "in_progress" | "completed" } })
+                  }
                   selectionMode={isSelectMode}
                   selected={selectedIds.has(task.id)}
                   onToggleSelect={handleToggleSelect}
@@ -385,8 +395,8 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
               className="flex-1 h-9 px-3 text-sm bg-muted/40 border border-border/60 rounded-lg outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 placeholder:text-muted-foreground transition-colors"
             />
             <Button
-              size="sm"
               variant="outline"
+              className="h-9"
               onClick={handleAddNote}
               disabled={!newNoteTitle.trim()}
             >
@@ -410,7 +420,7 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
                 <NoteCard
                   key={note.id}
                   note={note}
-                  onSelect={() => router.push(`/projects/${projectId}/notes/${note.id}`)}
+                  onSelect={() => router.push(`/projects/${projectId}/notes/${note.id}?fromTab=notes`)}
                 />
               ))}
             </div>
