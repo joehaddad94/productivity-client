@@ -15,6 +15,7 @@ import {
 import type { Task } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 import { Button } from "@/app/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { cn } from "@/app/components/ui/utils";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
@@ -114,13 +115,13 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
     setNewTaskTitle,
     newNoteTitle,
     setNewNoteTitle,
+    updateMutation,
     createTaskMutation,
     updateTaskMutation,
     deleteTaskMutation,
     bulkTaskMutation,
     handleSaveName,
     handleSaveDescription,
-    handleCycleStatus,
     handleAddTask,
     handleToggleSubtask,
     handleToggleSelect,
@@ -189,13 +190,15 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
           <ArrowLeft className="size-4" />
           Projects
         </Link>
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => setConfirmDeleteOpen(true)}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
+          className="text-destructive border-destructive/30 hover:bg-destructive/5 hover:border-destructive/60"
         >
           <Trash2 className="size-3.5" />
           Delete project
-        </button>
+        </Button>
       </div>
 
       {/* Header */}
@@ -208,14 +211,36 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
             placeholder="Project name"
             className="text-2xl font-semibold tracking-tight flex-1"
           />
-          <button
-            onClick={handleCycleStatus}
-            title={`Click to set: ${statusCfg.next}`}
-            className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors flex-shrink-0"
+          <Select
+            value={project.status ?? "active"}
+            onValueChange={(value) =>
+              updateMutation.mutate({ id: project.id, body: { status: value } })
+            }
           >
-            <span className={cn("size-2 rounded-full", statusCfg.dot)} />
-            {statusCfg.label}
-          </button>
+            <SelectTrigger size="sm" className="w-auto text-xs shrink-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">
+                <span className="flex items-center gap-2">
+                  <span className="size-1.5 rounded-full bg-green-500 shrink-0" />
+                  Active
+                </span>
+              </SelectItem>
+              <SelectItem value="on_hold">
+                <span className="flex items-center gap-2">
+                  <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
+                  On hold
+                </span>
+              </SelectItem>
+              <SelectItem value="completed">
+                <span className="flex items-center gap-2">
+                  <span className="size-1.5 rounded-full bg-slate-400 shrink-0" />
+                  Completed
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <InlineText
           value={project.description ?? ""}
@@ -228,24 +253,34 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
 
       {/* Tabs */}
       <div className="flex gap-0 border-b border-border/50">
-        {(["tasks", "notes"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              "px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize",
-              activeTab === tab
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {tab === "tasks" ? (
-              <span className="flex items-center gap-1.5">Tasks {taskCount > 0 && <span className="text-xs text-muted-foreground">({taskCount})</span>}</span>
-            ) : (
-              <span className="flex items-center gap-1.5">Notes {noteCount > 0 && <span className="text-xs text-muted-foreground">({noteCount})</span>}</span>
-            )}
-          </button>
-        ))}
+        {(["tasks", "notes"] as const).map((tab) => {
+          const count = tab === "tasks" ? taskCount : noteCount;
+          const active = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize",
+                active
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {tab === "tasks" ? "Tasks" : "Notes"}
+              {count > 0 && (
+                <span className={cn(
+                  "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-medium leading-none tabular-nums",
+                  active
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground",
+                )}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tasks tab */}
