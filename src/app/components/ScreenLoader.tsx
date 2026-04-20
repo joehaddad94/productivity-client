@@ -35,6 +35,7 @@ export function ScreenLoader({
   if (variant === "auth") {
     return (
       <div
+        data-testid="screen-loader"
         className={cn(AUTH_BG_CLASS, className)}
         role="status"
         aria-live="polite"
@@ -174,6 +175,7 @@ export function ScreenLoader({
   /* App variant: colored bouncing dots */
   return (
     <div
+      data-testid="screen-loader"
       className={cn(
         "flex items-center justify-center min-h-[40vh] py-12",
         className
