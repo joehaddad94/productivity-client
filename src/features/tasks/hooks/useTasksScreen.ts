@@ -13,6 +13,7 @@ import {
   useTasksQuery,
   useUpdateTaskMutation,
 } from "@/app/hooks/useTasksApi";
+import { useProjectsQuery } from "@/app/hooks/useProjectsApi";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import type { Task } from "@/lib/types";
 import type { PriorityFilter, TaskFormData } from "../model/types";
@@ -23,6 +24,7 @@ export function useTasksScreen() {
   const queryClient = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterProjectId, setFilterProjectId] = useState<"all" | string>("all");
   const [filterPriority, setFilterPriority] = useState<PriorityFilter>("all");
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -41,8 +43,15 @@ export function useTasksScreen() {
   const { data: page, isLoading, error } = useTasksQuery(workspaceId, {
     search: debouncedSearch || undefined,
     priority: filterPriority === "all" ? undefined : filterPriority,
+    projectId: filterProjectId === "all" ? undefined : filterProjectId,
     limit,
   });
+  const { data: projectsPage, isLoading: projectsLoading } = useProjectsQuery(workspaceId, {
+    limit: 200,
+  });
+  const projectsForPicker =
+    projectsPage?.projects.map((p) => ({ id: p.id, name: p.name })) ?? [];
+
   const tasks = page?.tasks ?? [];
   const total = page?.total ?? 0;
 
@@ -204,14 +213,19 @@ export function useTasksScreen() {
   const pendingTasks = tasks.filter((t) => t.status === "pending");
   const inProgressTasks = tasks.filter((t) => t.status === "in_progress");
   const completedTasks = tasks.filter((t) => t.status === "completed");
-  const isFiltered = debouncedSearch || filterPriority !== "all";
+  const isFiltered =
+    debouncedSearch.length > 0 || filterPriority !== "all" || filterProjectId !== "all";
 
   return {
     workspaceId,
     searchQuery,
     setSearchQuery,
+    filterProjectId,
+    setFilterProjectId,
     filterPriority,
     setFilterPriority,
+    projectsForPicker,
+    projectsLoading,
     showCreate,
     setShowCreate,
     selectedTask,

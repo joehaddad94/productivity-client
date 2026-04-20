@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Plus,
+  Check,
   ChevronDown,
   ChevronRight,
   Trash2,
@@ -17,6 +19,15 @@ import type { Task } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/app/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { Badge } from "@/app/components/ui/badge";
 import { Checkbox } from "@/app/components/ui/checkbox";
@@ -54,6 +65,7 @@ function TaskRow({
   onDragStart,
   onDragOver,
   onDrop,
+  getProjectName,
 }: {
   task: Task;
   depth?: number;
@@ -69,8 +81,10 @@ function TaskRow({
   onDragStart?: (id: string) => void;
   onDragOver?: (id: string) => void;
   onDrop?: (id: string) => void;
+  getProjectName: (projectId: string | null | undefined) => string | null;
 }) {
   const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+  const projectName = getProjectName(task.projectId);
   const isCompleted = task.status === "completed";
   const todayStr = new Date().toISOString().slice(0, 10);
   const isOverdue = !isCompleted && !!task.dueDate && task.dueDate.slice(0, 10) < todayStr;
@@ -134,6 +148,18 @@ function TaskRow({
 
         {/* Meta */}
         <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+          {task.projectId && projectName && (
+            <Link
+              href={`/projects/${task.projectId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-[11px] text-muted-foreground hover:text-foreground truncate max-w-[140px]"
+            >
+              {projectName}
+            </Link>
+          )}
+          {task.projectId && !projectName && (
+            <span className="text-[11px] text-muted-foreground truncate max-w-[140px]">Unknown project</span>
+          )}
           {task.priority && (
             <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", PRIORITY_PILL[task.priority])}>
               {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
@@ -182,6 +208,7 @@ function TaskRow({
           isSelectMode={isSelectMode}
           isSelected={false}
           onToggleSelect={onToggleSelect}
+          getProjectName={getProjectName}
         />
       ))}
     </>
@@ -207,13 +234,18 @@ export function TasksScreen() {
   const [createOpen, setCreateOpen] = useState(false);
   const [drawerTask, setDrawerTask] = useState<Task | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [projectFilterOpen, setProjectFilterOpen] = useState(false);
 
   const {
     workspaceId,
     searchQuery,
     setSearchQuery,
+    filterProjectId,
+    setFilterProjectId,
     filterPriority,
     setFilterPriority,
+    projectsForPicker,
+    projectsLoading,
     tasks,
     total,
     pendingTasks,
@@ -243,6 +275,19 @@ export function TasksScreen() {
     handleDelete,
     handleLoadMore,
   } = useTasksScreen();
+
+  const projectNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of projectsForPicker) {
+      m.set(p.id, p.name);
+    }
+    return m;
+  }, [projectsForPicker]);
+
+  const projectFilterLabel =
+    filterProjectId === "all"
+      ? "All projects"
+      : projectNameById.get(filterProjectId) ?? "Project";
 
   function handleCreate(body: CreateTaskBody) {
     createMutation.mutate(body);
@@ -292,6 +337,7 @@ export function TasksScreen() {
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
+              getProjectName={(id) => (id ? projectNameById.get(id) ?? null : null)}
             />
           ))}
         </div>
@@ -326,14 +372,78 @@ export function TasksScreen() {
         </div>
 
         {/* Search + filter */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <SearchInput
             placeholder="Search tasks…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search tasks"
-            className="flex-1"
+            className="flex-1 min-w-[12rem]"
           />
+          <Popover open={projectFilterOpen} onOpenChange={setProjectFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-expanded={projectFilterOpen}
+                aria-label="Filter by project"
+                disabled={!workspaceId || projectsLoading}
+                className="w-[min(100%,11rem)] sm:w-44 h-8 justify-between font-normal text-xs px-3"
+              >
+                <span className="truncate">{projectFilterLabel}</span>
+                <ChevronDown className="size-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-[var(--radix-popover-trigger-width)] min-w-[12rem] max-w-sm p-0"
+              align="start"
+            >
+              <Command>
+                <CommandInput placeholder="Search projects…" className="h-9" />
+                <CommandList className="max-h-60">
+                  <CommandEmpty>No project found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="all projects"
+                      className="cursor-pointer"
+                      onSelect={() => {
+                        setFilterProjectId("all");
+                        setProjectFilterOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "size-4 shrink-0",
+                          filterProjectId === "all" ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      All projects
+                    </CommandItem>
+                    {projectsForPicker.map((p) => (
+                      <CommandItem
+                        key={p.id}
+                        value={`${p.name} ${p.id}`}
+                        className="cursor-pointer"
+                        onSelect={() => {
+                          setFilterProjectId(p.id);
+                          setProjectFilterOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "size-4 shrink-0",
+                            filterProjectId === p.id ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        <span className="truncate">{p.name}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
           <Select value={filterPriority} onValueChange={(v) => setFilterPriority(v as typeof filterPriority)}>
             <SelectTrigger className="w-36 h-8 text-xs">
               <SelectValue placeholder="Priority" />
@@ -404,6 +514,8 @@ export function TasksScreen() {
         onOpenChange={setCreateOpen}
         onSubmit={handleCreate}
         isPending={createMutation.isPending}
+        projects={projectsForPicker}
+        defaultProjectId={filterProjectId === "all" ? undefined : filterProjectId}
       />
 
       <TaskDrawer
