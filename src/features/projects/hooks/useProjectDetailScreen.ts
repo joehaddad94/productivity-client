@@ -36,7 +36,9 @@ export function useProjectDetailScreen(projectId: string) {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const { data: project, isLoading: projectLoading } = useProjectQuery(workspaceId, projectId);
+  const { data: project, isLoading: projectLoading } = useProjectQuery(workspaceId, projectId, {
+    enabled: !projectId.startsWith("temp_"),
+  });
 
   const { data: tasksPage, isLoading: tasksLoading } = useTasksQuery(
     workspaceId,
