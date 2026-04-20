@@ -220,14 +220,21 @@ export function useDeleteNoteMutation(
   return useMutation({
     mutationFn: (id: string) => notesApi.delete(workspaceId!, id),
     ...options,
-    onSuccess: (_, id, context, mutation) => {
-      queryClient.removeQueries({
-        queryKey: NOTE_QUERY_KEY(workspaceId ?? "", id),
-      });
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
+
       queryClient.setQueriesData<NotesPage>(
         { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
-        (old) => removeNoteFromPages(old, id)
+        (old) => removeNoteFromPages(old, id),
       );
+    },
+    onError: (err, id, context, mutation) => {
+      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
+      options?.onError?.(err, id, context, mutation);
+    },
+    onSuccess: (_, id, context, mutation) => {
+      queryClient.removeQueries({ queryKey: NOTE_QUERY_KEY(workspaceId ?? "", id) });
+      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(_, id, context, mutation);
     },
   });

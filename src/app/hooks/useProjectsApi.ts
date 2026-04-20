@@ -31,7 +31,7 @@ function patchPage(
   fn: (projects: Project[]) => Project[],
   totalDelta = 0,
 ): ProjectsPage | undefined {
-  if (!old) return old;
+  if (!old || !Array.isArray(old.projects)) return old;
   return { projects: fn(old.projects), total: old.total + totalDelta };
 }
 
@@ -158,7 +158,7 @@ export function useUpdateProjectMutation(
         projectsFilter(workspaceId ?? ""),
       );
 
-      // Apply patch immediately
+      // Apply patch immediately to list queries
       queryClient.setQueriesData<ProjectsPage>(
         projectsFilter(workspaceId ?? ""),
         (old) =>
@@ -167,24 +167,42 @@ export function useUpdateProjectMutation(
           ),
       );
 
+      // Also patch the single-project cache if present
+      const singleKey = PROJECT_QUERY_KEY(workspaceId ?? "", id);
+      const singleSnapshot = queryClient.getQueryData<Project>(singleKey);
+      if (singleSnapshot) {
+        queryClient.setQueryData<Project>(singleKey, { ...singleSnapshot, ...body });
+      }
+
       return { snapshot };
     },
 
     onSuccess: (real, variables, context, mutation) => {
       const { id } = variables;
-      // Sync with exact server data
+      // Sync with exact server data; preserve _count if the server omitted it
       queryClient.setQueriesData<ProjectsPage>(
         projectsFilter(workspaceId ?? ""),
-        (old) => patchPage(old, (ps) => ps.map((p) => (p.id === id ? real : p))),
+        (old) =>
+          patchPage(old, (ps) =>
+            ps.map((p) => (p.id === id ? { ...p, ...real, _count: real._count ?? p._count } : p)),
+          ),
       );
       // Also update the single-project cache if present
-      queryClient.setQueryData(PROJECT_QUERY_KEY(workspaceId ?? "", id), real);
+      const singleKey = PROJECT_QUERY_KEY(workspaceId ?? "", id);
+      const cached = queryClient.getQueryData<Project>(singleKey);
+      queryClient.setQueryData<Project>(singleKey, {
+        ...(cached ?? {}),
+        ...real,
+        _count: real._count ?? cached?._count,
+      });
       options?.onSuccess?.(real, variables, context, mutation);
     },
 
     onError: (err, variables, context, mutation) => {
-      // Restore snapshot
+      // Restore list snapshots
       context?.snapshot.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      // Restore single-project cache
+      queryClient.invalidateQueries({ queryKey: PROJECT_QUERY_KEY(workspaceId ?? "", variables.id) });
       options?.onError?.(err, variables, context, mutation);
     },
 

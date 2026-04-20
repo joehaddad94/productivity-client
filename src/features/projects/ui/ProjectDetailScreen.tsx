@@ -15,8 +15,10 @@ import {
 import type { Task } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 import { Button } from "@/app/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { cn } from "@/app/components/ui/utils";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
+import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { TaskCard } from "@/app/components/TaskCard";
 import { NoteCard } from "@/app/components/NoteCard";
 import { TaskDrawer } from "@/features/tasks/ui/TaskDrawer";
@@ -93,10 +95,17 @@ function InlineText({
   );
 }
 
-export function ProjectDetailScreen({ projectId }: { projectId: string }) {
+export function ProjectDetailScreen({
+  projectId,
+  initialTab = "tasks",
+}: {
+  projectId: string;
+  initialTab?: "tasks" | "notes";
+}) {
   const router = useRouter();
   const [drawerTask, setDrawerTask] = useState<Task | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const {
     workspaceId,
@@ -112,13 +121,13 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
     setNewTaskTitle,
     newNoteTitle,
     setNewNoteTitle,
+    updateMutation,
     createTaskMutation,
     updateTaskMutation,
     deleteTaskMutation,
     bulkTaskMutation,
     handleSaveName,
     handleSaveDescription,
-    handleCycleStatus,
     handleAddTask,
     handleToggleSubtask,
     handleToggleSelect,
@@ -130,7 +139,7 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
     setIsSelectMode,
     selectedIds,
     setSelectedIds,
-  } = useProjectDetailScreen(projectId);
+  } = useProjectDetailScreen(projectId, { initialTab });
 
   function openTask(task: Task) {
     setDrawerTask(task);
@@ -187,33 +196,57 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
           <ArrowLeft className="size-4" />
           Projects
         </Link>
-        <button
-          onClick={handleDelete}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setConfirmDeleteOpen(true)}
+          className="text-destructive border-destructive/30 hover:bg-destructive/5 hover:border-destructive/60"
         >
           <Trash2 className="size-3.5" />
           Delete project
-        </button>
+        </Button>
       </div>
 
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-3">
-          <span className={cn("size-3 rounded-full flex-shrink-0", dot)} />
+          <span className={cn("size-3 rounded-full shrink-0", dot)} />
           <InlineText
             value={project.name}
             onSave={handleSaveName}
             placeholder="Project name"
             className="text-2xl font-semibold tracking-tight flex-1"
           />
-          <button
-            onClick={handleCycleStatus}
-            title={`Click to set: ${statusCfg.next}`}
-            className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors flex-shrink-0"
+          <Select
+            value={project.status ?? "active"}
+            onValueChange={(value) =>
+              updateMutation.mutate({ id: project.id, body: { status: value } })
+            }
           >
-            <span className={cn("size-2 rounded-full", statusCfg.dot)} />
-            {statusCfg.label}
-          </button>
+            <SelectTrigger size="sm" className="w-auto text-xs shrink-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">
+                <span className="flex items-center gap-2">
+                  <span className="size-1.5 rounded-full bg-green-500 shrink-0" />
+                  Active
+                </span>
+              </SelectItem>
+              <SelectItem value="on_hold">
+                <span className="flex items-center gap-2">
+                  <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
+                  On hold
+                </span>
+              </SelectItem>
+              <SelectItem value="completed">
+                <span className="flex items-center gap-2">
+                  <span className="size-1.5 rounded-full bg-slate-400 shrink-0" />
+                  Completed
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <InlineText
           value={project.description ?? ""}
@@ -225,65 +258,77 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0 border-b border-border/50">
-        {(["tasks", "notes"] as const).map((tab) => (
+      <div className="flex items-end justify-between border-b border-border/50">
+        <div className="flex">
+          {(["tasks", "notes"] as const).map((tab) => {
+            const count = tab === "tasks" ? taskCount : noteCount;
+            const active = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => {
+                  setActiveTab(tab);
+                  router.replace(`/projects/${projectId}?tab=${tab}`, { scroll: false });
+                }}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize",
+                  active
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {tab === "tasks" ? "Tasks" : "Notes"}
+                {count > 0 && (
+                  <span className={cn(
+                    "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-medium leading-none tabular-nums",
+                    active
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground",
+                  )}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {activeTab === "tasks" && (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => { setIsSelectMode((p) => !p); setSelectedIds(new Set()); }}
             className={cn(
-              "px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize",
-              activeTab === tab
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
+              "mb-1 px-3 py-1 text-xs rounded-md transition-colors",
+              isSelectMode
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
             )}
           >
-            {tab === "tasks" ? (
-              <span className="flex items-center gap-1.5">Tasks {taskCount > 0 && <span className="text-xs text-muted-foreground">({taskCount})</span>}</span>
-            ) : (
-              <span className="flex items-center gap-1.5">Notes {noteCount > 0 && <span className="text-xs text-muted-foreground">({noteCount})</span>}</span>
-            )}
+            {isSelectMode ? "Cancel" : "Select"}
           </button>
-        ))}
+        )}
       </div>
 
       {/* Tasks tab */}
       {activeTab === "tasks" && (
         <div className="space-y-3">
-          <div className="flex gap-2 items-start">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Add a task and press Enter…"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !isSelectMode && handleAddTask()}
+              disabled={createTaskMutation.isPending || isSelectMode}
+              className="flex-1 h-9 px-3 text-sm bg-muted/40 border border-border/60 rounded-lg outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 placeholder:text-muted-foreground disabled:opacity-50 transition-colors"
+            />
             <Button
-              type="button"
-              variant={isSelectMode ? "secondary" : "ghost"}
-              size="sm"
+              variant="outline"
               className="shrink-0 h-9"
-              onClick={() => {
-                setIsSelectMode((p) => !p);
-                setSelectedIds(new Set());
-              }}
-              disabled={!workspaceId}
+              onClick={handleAddTask}
+              disabled={!newTaskTitle.trim() || createTaskMutation.isPending || isSelectMode}
             >
-              {isSelectMode ? "Cancel" : "Select"}
+              {createTaskMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+              Add
             </Button>
-            <div className="flex gap-2 flex-1 min-w-0">
-              <input
-                type="text"
-                placeholder="Add a task and press Enter…"
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !isSelectMode && handleAddTask()}
-                disabled={createTaskMutation.isPending || isSelectMode}
-                className="flex-1 h-9 px-3 text-sm bg-muted/40 border border-border/60 rounded-lg outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 placeholder:text-muted-foreground disabled:opacity-50 transition-colors"
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                className="shrink-0"
-                onClick={handleAddTask}
-                disabled={!newTaskTitle.trim() || createTaskMutation.isPending || isSelectMode}
-              >
-                {createTaskMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
-                Add
-              </Button>
-            </div>
           </div>
 
           {isSelectMode && selectedIds.size > 0 && (
@@ -322,7 +367,9 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
                 <TaskCard
                   key={task.id}
                   task={task}
-                  showCheckbox={false}
+                  onStatusChange={(id, status) =>
+                    updateTaskMutation.mutate({ id, body: { status: status as "pending" | "in_progress" | "completed" } })
+                  }
                   selectionMode={isSelectMode}
                   selected={selectedIds.has(task.id)}
                   onToggleSelect={handleToggleSelect}
@@ -348,8 +395,8 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
               className="flex-1 h-9 px-3 text-sm bg-muted/40 border border-border/60 rounded-lg outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 placeholder:text-muted-foreground transition-colors"
             />
             <Button
-              size="sm"
               variant="outline"
+              className="h-9"
               onClick={handleAddNote}
               disabled={!newNoteTitle.trim()}
             >
@@ -373,7 +420,7 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
                 <NoteCard
                   key={note.id}
                   note={note}
-                  onSelect={() => router.push(`/projects/${projectId}/notes/${note.id}`)}
+                  onSelect={() => router.push(`/projects/${projectId}/notes/${note.id}?fromTab=notes`)}
                 />
               ))}
             </div>
@@ -394,6 +441,16 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
         workspaceId={workspaceId}
         isSaving={updateTaskMutation.isPending}
         isDeleting={deleteTaskMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title={`Delete "${project?.name}"?`}
+        description="This will permanently delete the project and all of its tasks and notes. This action cannot be undone."
+        confirmLabel="Delete project"
+        confirmText={project?.name}
+        onConfirm={handleDelete}
       />
     </div>
   );

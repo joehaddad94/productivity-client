@@ -13,9 +13,11 @@ import { NoteEditor } from "./NoteEditor";
 export function ProjectNoteEditorScreen({
   projectId,
   noteId,
+  fromTab,
 }: {
   projectId: string;
   noteId: string;
+  fromTab?: string;
 }) {
   const router = useRouter();
   const {
@@ -45,6 +47,10 @@ export function ProjectNoteEditorScreen({
 
   const { data: project } = useProjectQuery(workspaceId, projectId);
 
+  const backHref = fromTab
+    ? `/projects/${projectId}?tab=${fromTab}`
+    : `/projects/${projectId}`;
+
   useEffect(() => {
     if (!note?.projectId || note.projectId === projectId) return;
     router.replace(`/projects/${note.projectId}/notes/${noteId}`);
@@ -59,7 +65,7 @@ export function ProjectNoteEditorScreen({
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <p className="text-sm text-muted-foreground">Failed to load note</p>
         <Button asChild variant="outline" size="sm">
-          <Link href={`/projects/${projectId}`}>Back to project</Link>
+          <Link href={backHref}>Back to project</Link>
         </Button>
       </div>
     );
@@ -70,7 +76,7 @@ export function ProjectNoteEditorScreen({
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <p className="text-sm text-muted-foreground">Note not found</p>
         <Button asChild variant="outline" size="sm">
-          <Link href={`/projects/${projectId}`}>Back to project</Link>
+          <Link href={backHref}>Back to project</Link>
         </Button>
       </div>
     );
@@ -82,7 +88,7 @@ export function ProjectNoteEditorScreen({
     <div className="flex flex-col h-[calc(100vh-3rem)] lg:h-screen -m-5 lg:-m-6">
       <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/40 bg-[var(--sidebar-bg)] shrink-0">
         <Link
-          href={`/projects/${projectId}`}
+          href={backHref}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors min-w-0"
         >
           <ArrowLeft className="size-4 shrink-0" />
