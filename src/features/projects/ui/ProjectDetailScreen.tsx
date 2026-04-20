@@ -17,6 +17,7 @@ import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
+import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { TaskCard } from "@/app/components/TaskCard";
 import { NoteCard } from "@/app/components/NoteCard";
 import { TaskDrawer } from "@/features/tasks/ui/TaskDrawer";
@@ -97,6 +98,7 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
   const router = useRouter();
   const [drawerTask, setDrawerTask] = useState<Task | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const {
     workspaceId,
@@ -188,7 +190,7 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
           Projects
         </Link>
         <button
-          onClick={handleDelete}
+          onClick={() => setConfirmDeleteOpen(true)}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
         >
           <Trash2 className="size-3.5" />
@@ -394,6 +396,16 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
         workspaceId={workspaceId}
         isSaving={updateTaskMutation.isPending}
         isDeleting={deleteTaskMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title={`Delete "${project?.name}"?`}
+        description="This will permanently delete the project and all of its tasks and notes. This action cannot be undone."
+        confirmLabel="Delete project"
+        confirmText={project?.name}
+        onConfirm={handleDelete}
       />
     </div>
   );

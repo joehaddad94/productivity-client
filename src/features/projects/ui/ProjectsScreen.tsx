@@ -7,6 +7,7 @@ import type { Project } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
+import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { toast } from "sonner";
 import { useProjectsScreen } from "../hooks/useProjectsScreen";
@@ -53,7 +54,7 @@ function ProjectCard({
 }: {
   project: Project;
   onEdit: (project: Project) => void;
-  onDelete: (id: string) => void;
+  onDelete: (project: Project) => void;
 }) {
   const dot = colorDot(project.color);
   const isSaving = project.id.startsWith("temp_");
@@ -105,7 +106,7 @@ function ProjectCard({
           </button>
           <button
             aria-label="Delete project"
-            onClick={(e) => { e.preventDefault(); onDelete(project.id); }}
+            onClick={(e) => { e.preventDefault(); onDelete(project); }}
             className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors"
           >
             <Trash2 className="size-3.5" />
@@ -247,6 +248,7 @@ export function ProjectsScreen() {
   } = useProjectsScreen();
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
 
   if (isLoading) {
     return <ScreenLoader variant="app" />;
@@ -332,7 +334,7 @@ export function ProjectsScreen() {
                   key={project.id}
                   project={project}
                   onEdit={setEditing}
-                  onDelete={handleDelete}
+                  onDelete={setProjectToDelete}
                 />
               ),
             )}
@@ -347,6 +349,19 @@ export function ProjectsScreen() {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={!!projectToDelete}
+        onOpenChange={(open) => { if (!open) setProjectToDelete(null); }}
+        title={`Delete "${projectToDelete?.name}"?`}
+        description="This will permanently delete the project and all of its tasks and notes. This action cannot be undone."
+        confirmLabel="Delete project"
+        confirmText={projectToDelete?.name}
+        onConfirm={() => {
+          if (projectToDelete) handleDelete(projectToDelete.id);
+          setProjectToDelete(null);
+        }}
+      />
     </div>
   );
 }
