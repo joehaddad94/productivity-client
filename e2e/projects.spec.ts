@@ -214,13 +214,14 @@ test.describe("Projects — detail page", () => {
 
   test("shows project name, back link and tabs", async ({ page }) => {
     await expect(page.getByText(projectName)).toBeVisible();
-    await expect(page.getByRole("link", { name: /projects/i })).toBeVisible();
+    // Sidebar also links to Projects; scope to main content for the detail back link.
+    await expect(page.getByRole("main").getByRole("link", { name: /projects/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /^tasks/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /^notes/i })).toBeVisible();
   });
 
   test("back link returns to /projects", async ({ page }) => {
-    await page.getByRole("link", { name: /projects/i }).click();
+    await page.getByRole("main").getByRole("link", { name: /projects/i }).click();
     await page.waitForURL("/projects", { timeout: 5_000 });
   });
 
@@ -263,8 +264,8 @@ test.describe("Projects — detail page", () => {
   });
 
   test("status select changes project status", async ({ page }) => {
-    // Project status combobox shows "Active" (task pills show Pending/In progress etc.)
-    const statusSelect = page.getByRole("combobox").filter({ hasText: /^active$/i });
+    const statusSelect = page.getByRole("combobox", { name: /project status/i });
+    await expect(statusSelect).toContainText(/active/i);
     await statusSelect.click();
     await page.getByRole("option", { name: /^on hold$/i }).click();
     await expect(statusSelect).toContainText(/on hold/i, { timeout: 5_000 });
@@ -327,7 +328,11 @@ test.describe("Projects — detail page", () => {
 
     await page.getByTestId("task-card").filter({ hasText: title }).click();
     await expect(page.getByText(/task details/i)).toBeVisible({ timeout: 5_000 });
-    await page.getByRole("button", { name: /save changes/i }).click();
+    const titleField = page.locator('textarea[placeholder="Task title…"]');
+    await titleField.fill(`${title} edited`);
+    const saveBtn = page.getByRole("button", { name: /save changes/i });
+    await expect(saveBtn).toBeEnabled({ timeout: 5_000 });
+    await saveBtn.click();
     await expectToast(page, /task updated/i);
   });
 

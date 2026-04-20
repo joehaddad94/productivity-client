@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -12,7 +12,7 @@ import {
   useUpdateProjectMutation,
 } from "@/app/hooks/useProjectsApi";
 import type { Project } from "@/lib/types";
-import type { ProjectsPage } from "@/lib/api/projects-api";
+import { useProjectsOptimisticDelete } from "./useProjectsOptimisticDelete";
 
 export function useProjectsScreen() {
   const { currentWorkspace } = useWorkspace();
@@ -29,19 +29,16 @@ export function useProjectsScreen() {
 
   const projectsFilter = { queryKey: PROJECTS_QUERY_KEY(workspaceId ?? "") };
 
-  // ── Create ──────────────────────────────────────────────────────────────────
   const createMutation = useCreateProjectMutation(workspaceId, {
     onSuccess: () => toast.success("Project created"),
     onError: (err) => toast.error(err.message),
   });
 
-  // ── Update ──────────────────────────────────────────────────────────────────
   const updateMutation = useUpdateProjectMutation(workspaceId, {
     onSuccess: () => toast.success("Project updated"),
     onError: (err) => toast.error(err.message),
   });
 
-  // ── Delete ──────────────────────────────────────────────────────────────────
   const deleteMutation = useDeleteProjectMutation(workspaceId, {
     onSuccess: () => toast.success("Project deleted"),
     onError: (err) => {
@@ -50,21 +47,7 @@ export function useProjectsScreen() {
     },
   });
 
-  const handleDelete = useCallback(
-    (id: string) => {
-      // Optimistic removal
-      queryClient.setQueriesData<ProjectsPage>(
-        projectsFilter,
-        (old) =>
-          old
-            ? { projects: old.projects.filter((p) => p.id !== id), total: old.total - 1 }
-            : old,
-      );
-      deleteMutation.mutate(id);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [queryClient, workspaceId, deleteMutation],
-  );
+  const { handleDelete } = useProjectsOptimisticDelete(workspaceId, deleteMutation);
 
   return {
     workspaceId,
