@@ -73,7 +73,7 @@ export type CreateTaskBody = {
   projectId?: string;
 };
 
-export type UpdateTaskBody = Partial<CreateTaskBody>;
+export type UpdateTaskBody = Partial<Omit<CreateTaskBody, "projectId">> & { projectId?: string | null };
 
 export type TasksPage = { tasks: Task[]; total: number };
 

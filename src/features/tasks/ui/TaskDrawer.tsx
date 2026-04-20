@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trash2, Plus, FileText, Timer, Loader2 } from "lucide-react";
+import { Trash2, Plus, FileText, Timer, Loader2, ExternalLink, Clock, AlertTriangle } from "lucide-react";
+import Link from "next/link";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/app/components/ui/sheet";
 import { Button } from "@/app/components/ui/button";
 import { Label } from "@/app/components/ui/label";
@@ -10,10 +11,11 @@ import { Checkbox } from "@/app/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { cn } from "@/app/components/ui/utils";
 import { useNotesQuery, useCreateNoteMutation } from "@/app/hooks/useNotesApi";
-import { useCreateTaskMutation, useDeleteTaskMutation } from "@/app/hooks/useTasksApi";
+import { useCreateTaskMutation, useDeleteTaskMutation, useLogTaskFocusMutation } from "@/app/hooks/useTasksApi";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
-import { activeTaskStatuses, isTaskStatusTerminal } from "../lib/taskStatusHelpers";
+import { activeTaskStatuses, firstTerminalStatusId, defaultNonTerminalStatusId, isTaskStatusTerminal } from "../lib/taskStatusHelpers";
+import { ProjectPicker } from "./ProjectPicker";
 
 function InlineDescription({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [editing, setEditing] = useState(false);
@@ -51,6 +53,8 @@ function InlineDescription({ value, onChange }: { value: string; onChange: (v: s
   );
 }
 
+export type TaskDrawerProjectOption = { id: string; name: string };
+
 interface TaskDrawerProps {
   task: Task | null;
   open: boolean;
@@ -60,6 +64,7 @@ interface TaskDrawerProps {
   onToggleSubtask: (id: string, completed: boolean) => void;
   workspaceId: string | null;
   taskStatuses: TaskStatusDefinition[];
+  projects?: TaskDrawerProjectOption[];
   isSaving?: boolean;
   isDeleting?: boolean;
 }
@@ -73,6 +78,7 @@ export function TaskDrawer({
   onToggleSubtask,
   workspaceId,
   taskStatuses,
+  projects = [],
   isSaving,
   isDeleting,
 }: TaskDrawerProps) {
@@ -83,10 +89,13 @@ export function TaskDrawer({
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
   const [recurrenceRule, setRecurrenceRule] = useState<"DAILY" | "WEEKLY" | "MONTHLY" | "none">("none");
+  const [projectId, setProjectId] = useState<string | undefined>(undefined);
   const [isDirty, setIsDirty] = useState(false);
   const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const subtaskInputRef = useRef<HTMLInputElement>(null);
+  const [logMinutes, setLogMinutes] = useState("");
+  const [focusMinutes, setFocusMinutes] = useState(0);
 
   useEffect(() => {
     if (!task) return;
@@ -97,8 +106,11 @@ export function TaskDrawer({
     setDueDate(task.dueDate ? task.dueDate.slice(0, 10) : "");
     setDueTime(task.dueTime ?? "");
     setRecurrenceRule(task.recurrenceRule ?? "none");
+    setProjectId(task.projectId ?? undefined);
     setSubtasks(task.subtasks ?? []);
+    setFocusMinutes(task.focusMinutes ?? 0);
     setNewSubtaskTitle("");
+    setLogMinutes("");
     setIsDirty(false);
   }, [task?.id, open]);
 
@@ -109,6 +121,20 @@ export function TaskDrawer({
   const deleteSubtaskMutation = useDeleteTaskMutation(workspaceId, {
     onError: () => {},
   });
+
+  const logFocusMutation = useLogTaskFocusMutation(workspaceId, {
+    onSuccess: (updated) => {
+      setFocusMinutes(updated.focusMinutes ?? 0);
+      setLogMinutes("");
+    },
+  });
+
+  function handleLogFocus() {
+    if (!task) return;
+    const mins = parseInt(logMinutes, 10);
+    if (!mins || mins <= 0) return;
+    logFocusMutation.mutate({ id: task.id, minutes: mins });
+  }
 
   function handleAddSubtask() {
     if (!newSubtaskTitle.trim() || !task) return;
@@ -158,6 +184,7 @@ export function TaskDrawer({
       dueDate: dueDate || undefined,
       dueTime: dueTime || undefined,
       recurrenceRule: recurrenceRule === "none" ? undefined : recurrenceRule as "DAILY" | "WEEKLY" | "MONTHLY",
+      projectId: projectId ?? null,
     });
     setIsDirty(false);
   }
@@ -166,7 +193,19 @@ export function TaskDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:w-[420px] flex flex-col p-0 gap-0">
         <SheetHeader className="px-5 pt-5 pb-4 border-b border-border/40">
-          <SheetTitle className="text-sm font-medium text-muted-foreground">Task details</SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="text-sm font-medium text-muted-foreground">Task details</SheetTitle>
+            {projectId && (
+              <Link
+                href={`/projects/${projectId}`}
+                onClick={() => onOpenChange(false)}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {projects.find((p) => p.id === projectId)?.name ?? "Project"}
+                <ExternalLink className="size-3" />
+              </Link>
+            )}
+          </div>
           <textarea
             value={title}
             onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
@@ -216,6 +255,20 @@ export function TaskDrawer({
             </div>
           </div>
 
+          {projects.length > 0 && (
+            <>
+              <Separator className="opacity-50" />
+              <div className="px-5 py-4">
+                <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Project</Label>
+                <ProjectPicker
+                  projects={projects}
+                  value={projectId}
+                  onChange={(v) => { setProjectId(v); setIsDirty(true); }}
+                />
+              </div>
+            </>
+          )}
+
           <Separator className="opacity-50" />
 
           <div className="px-5 py-4 grid grid-cols-2 gap-3">
@@ -260,7 +313,7 @@ export function TaskDrawer({
           <div className="px-5 py-4">
             <div className="flex items-center justify-between mb-2">
               <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                Subtasks{subtasks.length > 0 && ` (${subtasks.filter((s) => isTaskStatusTerminal(s.status, taskStatuses)).length}/${subtasks.length})`}
+                Subtasks
               </Label>
               <button
                 type="button"
@@ -271,6 +324,21 @@ export function TaskDrawer({
                 <Plus className="size-3.5" />
               </button>
             </div>
+            {subtasks.length > 0 && (() => {
+              const done = subtasks.filter((s) => isTaskStatusTerminal(s.status, taskStatuses)).length;
+              const pct = Math.round((done / subtasks.length) * 100);
+              return (
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-300"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground shrink-0">{done}/{subtasks.length}</span>
+                </div>
+              );
+            })()}
 
             <div className="space-y-1.5">
               {subtasks.map((sub) => {
@@ -280,12 +348,13 @@ export function TaskDrawer({
                     <Checkbox
                       checked={done}
                       onCheckedChange={(checked) => {
+                        const nextStatus = checked
+                          ? firstTerminalStatusId(taskStatuses)
+                          : defaultNonTerminalStatusId(taskStatuses);
                         onToggleSubtask(sub.id, checked === true);
                         setSubtasks((prev) =>
                           prev.map((s) =>
-                            s.id === sub.id
-                              ? { ...s, status: checked ? "completed" : "pending" }
-                              : s,
+                            s.id === sub.id ? { ...s, status: nextStatus } : s,
                           ),
                         );
                       }}
@@ -330,14 +399,73 @@ export function TaskDrawer({
             </div>
           </div>
 
-          {(task.focusMinutes ?? 0) > 0 && (
-            <div className="px-5 pb-4">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10">
-                <Timer className="size-3.5 text-primary shrink-0" />
-                <span className="text-xs text-primary font-medium">{task.focusMinutes} min focused</span>
-              </div>
+          <div className="px-5 pb-4">
+            <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Focus time</Label>
+            <div className="flex items-center gap-2">
+              {focusMinutes > 0 && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/5 border border-primary/10 shrink-0">
+                  <Timer className="size-3 text-primary shrink-0" />
+                  <span className="text-xs text-primary font-medium">{focusMinutes} min</span>
+                </div>
+              )}
+              <input
+                type="number"
+                min={1}
+                value={logMinutes}
+                onChange={(e) => setLogMinutes(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleLogFocus(); } }}
+                placeholder="Log minutes…"
+                className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground/40 border-b border-transparent focus:border-border/60 pb-0.5 transition-colors"
+              />
+              {logMinutes && parseInt(logMinutes, 10) > 0 && (
+                <button
+                  type="button"
+                  onClick={handleLogFocus}
+                  disabled={logFocusMutation.isPending}
+                  className="text-xs text-primary hover:opacity-70 transition-opacity shrink-0"
+                >
+                  {logFocusMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Log"}
+                </button>
+              )}
             </div>
-          )}
+          </div>
+
+          <Separator className="opacity-50" />
+
+          <div className="px-5 py-4 space-y-2">
+            {(() => {
+              const todayStr = new Date().toISOString().slice(0, 10);
+              const isCompleted = isTaskStatusTerminal(task.status, taskStatuses);
+              const isOverdue = !isCompleted && !!task.dueDate && task.dueDate.slice(0, 10) < todayStr;
+              const overdueDays = isOverdue
+                ? Math.floor((new Date(todayStr).getTime() - new Date(task.dueDate!.slice(0, 10)).getTime()) / 86400000)
+                : 0;
+              return (
+                <>
+                  {isOverdue && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/20">
+                      <AlertTriangle className="size-3.5 text-red-500 shrink-0" />
+                      <span className="text-xs text-red-500 font-medium">
+                        Overdue by {overdueDays} day{overdueDays !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="size-3 shrink-0" />
+                      <span>Created {new Date(task.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+                    </div>
+                    {task.completedAt && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="size-3 rounded-full bg-green-500/60 shrink-0" />
+                        <span>Completed {new Date(task.completedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
 
           <Separator className="opacity-50" />
 
