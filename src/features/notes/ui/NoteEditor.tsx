@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useWorkspace } from "@/app/context/WorkspaceContext";
+import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
 import {
   Bold,
   CheckSquare,
@@ -12,7 +14,7 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 import { LinkedItems, renderRelation } from "@/app/components/linking/LinkPicker";
-import type { Project, Task } from "@/lib/types";
+import type { Project, Task, TaskStatusDefinition } from "@/lib/types";
 import { EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { toast } from "sonner";
@@ -22,6 +24,12 @@ import { TagInput } from "@/app/components/tags/TagInput";
 import type { NoteEditorProps } from "../model/types";
 import { useNoteEditor } from "../hooks/useNoteEditor";
 import { NoteEditorToolbar } from "./NoteEditorToolbar";
+import {
+  defaultNonTerminalStatusId,
+  ensureTaskStatuses,
+  isTaskStatusTerminal,
+  taskStatusLabel,
+} from "@/features/tasks/lib/taskStatusHelpers";
 
 const TITLE_DEBOUNCE_MS = 1000;
 
@@ -46,6 +54,14 @@ export function NoteEditor({
   tasksLoading = false,
   tasks,
 }: NoteEditorProps) {
+  const { currentWorkspace } = useWorkspace();
+  const workspaceId = currentWorkspace?.id ?? null;
+  const { data: rawTaskStatuses = [] } = useTaskStatusesQuery(workspaceId);
+  const taskStatuses: TaskStatusDefinition[] = useMemo(
+    () => ensureTaskStatuses(workspaceId, rawTaskStatuses),
+    [workspaceId, rawTaskStatuses],
+  );
+
   const [title, setTitle] = useState(note.title);
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
@@ -131,12 +147,15 @@ export function NoteEditor({
       currentItem: linkedTask,
       getId: (t: Task) => t.id,
       getLabel: (t: Task) => t.title,
-      getSecondary: (t: Task) =>
-        t.status === "completed"
-          ? "Completed"
-          : t.status === "in_progress"
-            ? "In progress"
-            : null,
+      getSecondary: (t: Task) => {
+        if (isTaskStatusTerminal(t.status, taskStatuses)) {
+          return taskStatusLabel(t.status, taskStatuses);
+        }
+        if (t.status === defaultNonTerminalStatusId(taskStatuses)) {
+          return null;
+        }
+        return taskStatusLabel(t.status, taskStatuses);
+      },
       items: tasks,
       isLoading: tasksLoading,
       onOpenPicker: onOpenTaskPicker,
@@ -153,6 +172,7 @@ export function NoteEditor({
       onLinkTask,
       onOpenTaskPicker,
       isLinkingTask,
+      taskStatuses,
     ],
   );
 

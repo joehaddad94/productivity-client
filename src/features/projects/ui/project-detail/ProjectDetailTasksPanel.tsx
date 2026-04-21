@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Plus } from "lucide-react";
-import type { Task } from "@/lib/types";
+import type { Task, TaskStatusDefinition } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
 import { TaskCard } from "@/app/components/TaskCard";
 import type { UseMutationResult } from "@tanstack/react-query";
@@ -29,8 +29,10 @@ export function ProjectDetailTasksPanel({
   onBulkDeleteDone,
   updateTaskMutate,
   openTask,
+  taskStatuses,
 }: {
   tasks: Task[];
+  taskStatuses: TaskStatusDefinition[];
   tasksLoading: boolean;
   newTaskTitle: string;
   setNewTaskTitle: (v: string) => void;
@@ -105,10 +107,11 @@ export function ProjectDetailTasksPanel({
             <TaskCard
               key={task.id}
               task={task}
+              taskStatuses={taskStatuses}
               onStatusChange={(id, status) =>
                 updateTaskMutate({
                   id,
-                  body: { status: status as "pending" | "in_progress" | "completed" },
+                  body: { status },
                 })
               }
               selectionMode={isSelectMode}

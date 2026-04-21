@@ -36,6 +36,7 @@ export function DashboardScreen() {
     createMutation,
     handleAddTask,
     handleToggleTask,
+    taskStatuses,
     todayTasks,
     overdueTasks,
     upcomingTasks,
@@ -114,7 +115,7 @@ export function DashboardScreen() {
             ) : (
               <div className="space-y-1.5">
                 {todayTasks.map((task) => (
-                  <TaskCard key={task.id} task={task} onToggle={handleToggleTask} />
+                  <TaskCard key={task.id} task={task} taskStatuses={taskStatuses} onToggle={handleToggleTask} />
                 ))}
               </div>
             )}
@@ -139,14 +140,14 @@ export function DashboardScreen() {
               {overdueExpanded && (
                 <div className="space-y-1.5">
                   {overdueTasks.map((task) => (
-                    <TaskCard key={task.id} task={task} onToggle={handleToggleTask} />
+                    <TaskCard key={task.id} task={task} taskStatuses={taskStatuses} onToggle={handleToggleTask} />
                   ))}
                 </div>
               )}
               {!overdueExpanded && (
                 <div className="space-y-1.5">
                   {overdueTasks.slice(0, 2).map((task) => (
-                    <TaskCard key={task.id} task={task} onToggle={handleToggleTask} />
+                    <TaskCard key={task.id} task={task} taskStatuses={taskStatuses} onToggle={handleToggleTask} />
                   ))}
                   {overdueTasks.length > 2 && (
                     <button
@@ -185,7 +186,7 @@ export function DashboardScreen() {
               <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">No due date</h2>
               <div className="space-y-1.5">
                 {pendingTasks.filter((t) => !t.dueDate).map((task) => (
-                  <TaskCard key={task.id} task={task} onToggle={handleToggleTask} />
+                  <TaskCard key={task.id} task={task} taskStatuses={taskStatuses} onToggle={handleToggleTask} />
                 ))}
               </div>
             </section>

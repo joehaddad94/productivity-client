@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Play, Pause, RotateCcw, SkipForward, Timer, Link2, Unlink } from "lucide-react";
 import { toast } from "sonner";
 import { usePomodoroTimer, type SessionType } from "./usePomodoroTimer";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { useLogStatMutation } from "@/app/hooks/useAnalyticsApi";
 import { useTasksQuery, useLogTaskFocusMutation } from "@/app/hooks/useTasksApi";
+import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
 import { cn } from "@/app/components/ui/utils";
+import type { TaskStatusDefinition } from "@/lib/types";
+import { ensureTaskStatuses, isTaskStatusTerminal } from "@/features/tasks/lib/taskStatusHelpers";
 
 const SESSION_CONFIG: Record<
   SessionType,
@@ -53,7 +56,12 @@ export function PomodoroWidget() {
   const logTaskFocusMutation = useLogTaskFocusMutation(workspaceId);
 
   const { data: tasksPage } = useTasksQuery(workspaceId);
-  const tasks = (tasksPage?.tasks ?? []).filter((t) => t.status !== "completed");
+  const { data: rawStatuses = [] } = useTaskStatusesQuery(workspaceId);
+  const taskStatuses: TaskStatusDefinition[] = useMemo(
+    () => ensureTaskStatuses(workspaceId, rawStatuses),
+    [workspaceId, rawStatuses],
+  );
+  const tasks = (tasksPage?.tasks ?? []).filter((t) => !isTaskStatusTerminal(t.status, taskStatuses));
   const linkedTask = tasks.find((t) => t.id === linkedTaskId) ?? null;
 
   const handleSessionComplete = useCallback(

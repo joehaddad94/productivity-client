@@ -16,7 +16,7 @@ export function ColorPicker({
         type="button"
         onClick={() => onChange(undefined)}
         className={cn(
-          "size-5 rounded-full border-2 bg-muted transition-colors",
+          "size-5 rounded-full border-2 bg-muted transition-colors cursor-pointer",
           !value ? "border-foreground" : "border-transparent hover:border-muted-foreground",
         )}
         aria-label="No color"
@@ -27,7 +27,7 @@ export function ColorPicker({
           type="button"
           onClick={() => onChange(c.name)}
           className={cn(
-            "size-5 rounded-full border-2 transition-colors",
+            "size-5 rounded-full border-2 transition-colors cursor-pointer",
             c.dot,
             value === c.name ? "border-foreground" : "border-transparent hover:border-muted-foreground",
           )}

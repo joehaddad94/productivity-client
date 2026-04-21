@@ -8,6 +8,32 @@ export interface User {
   name: string | null;
   email: string;
   avatarUrl?: string | null;
+  /** Server-driven; used for admin-only UI (e.g. bug triage). */
+  isAdmin?: boolean;
+}
+
+/** In-app bug report (see POST /bug-reports, admin list under /admin/bug-reports). */
+export type BugReportStatus = "open" | "triaging" | "fixed" | "wontfix" | "duplicate";
+
+export interface BugReport {
+  id: string;
+  userId: string;
+  workspaceId: string | null;
+  title: string;
+  description: string;
+  expected: string | null;
+  actual: string | null;
+  route: string | null;
+  userAgent: string | null;
+  contextJson: Record<string, unknown> | null;
+  status: BugReportStatus;
+  priority: string | null;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reporterEmail?: string;
+  reporterName?: string | null;
 }
 
 export interface Workspace {
@@ -45,6 +71,18 @@ export interface Project {
   };
 }
 
+/** Workspace-defined task workflow status (see task-statuses API). */
+export interface TaskStatusDefinition {
+  id: string;
+  workspaceId: string;
+  name: string;
+  sortOrder: number;
+  isTerminal: boolean;
+  color?: string | null;
+  archivedAt?: string | null;
+  createdAt?: string;
+}
+
 export interface Task {
   id: string;
   workspaceId: string;
@@ -53,7 +91,8 @@ export interface Task {
   dueDate?: string | null;
   dueTime?: string | null;
   priority?: "low" | "medium" | "high" | null;
-  status: "pending" | "in_progress" | "completed";
+  /** Task status id (legacy slugs pending | in_progress | completed or server UUIDs). */
+  status: string;
   parentTaskId?: string | null;
   subtasks?: Task[];
   focusMinutes?: number;
@@ -95,7 +134,7 @@ export interface AppNotification {
   userId: string;
   workspaceId: string;
   taskId?: string | null;
-  type: 'due_today' | 'overdue' | 'daily_agenda';
+  type: 'due_today' | 'overdue' | 'daily_agenda' | 'task_completed';
   title: string;
   body: string;
   read: boolean;
@@ -109,6 +148,8 @@ export interface NotificationSettings {
   email: boolean;
   push: boolean;
   dailyAgendaTime: string;
+  quietHoursStart?: string | null;
+  quietHoursEnd?: string | null;
 }
 
 export interface AnalyticsResult {

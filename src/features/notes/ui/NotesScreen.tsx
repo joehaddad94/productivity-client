@@ -285,7 +285,7 @@ export function NotesScreen() {
                         e.stopPropagation();
                         handleDelete(note.id);
                       }}
-                      className="absolute bottom-2 right-4 opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all"
+                      className="absolute bottom-2 right-4 opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all cursor-pointer"
                       title="Delete note"
                     >
                       <Trash2 className="size-3.5" />
@@ -298,7 +298,7 @@ export function NotesScreen() {
           {!error && notes.length < total && activeSection.type !== "recent" && (
             <button
               onClick={handleLoadMore}
-              className="w-full text-[11px] text-center py-2 text-muted-foreground hover:text-foreground transition-colors"
+              className="w-full text-[11px] text-center py-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
               Load more ({notes.length} / {total})
             </button>

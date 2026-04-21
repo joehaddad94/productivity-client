@@ -43,7 +43,7 @@ export function ProjectDetailTabBar({
                 router.replace(`/projects/${projectId}?tab=${tab}`, { scroll: false });
               }}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize",
+                "cursor-pointer flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize",
                 active
                   ? "border-primary text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground",

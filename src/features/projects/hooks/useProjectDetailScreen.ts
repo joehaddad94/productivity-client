@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -17,6 +17,13 @@ import {
   useBulkTasksMutation,
 } from "@/app/hooks/useTasksApi";
 import { useNotesQuery, useCreateNoteMutation } from "@/app/hooks/useNotesApi";
+import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
+import type { TaskStatusDefinition } from "@/lib/types";
+import {
+  defaultNonTerminalStatusId,
+  ensureTaskStatuses,
+  firstTerminalStatusId,
+} from "@/features/tasks/lib/taskStatusHelpers";
 
 const STATUS_CYCLE: Record<string, string> = {
   active: "on_hold",
@@ -31,6 +38,12 @@ export function useProjectDetailScreen(
   const router = useRouter();
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
+
+  const { data: rawTaskStatuses = [] } = useTaskStatusesQuery(workspaceId);
+  const taskStatuses: TaskStatusDefinition[] = useMemo(
+    () => ensureTaskStatuses(workspaceId, rawTaskStatuses),
+    [workspaceId, rawTaskStatuses],
+  );
 
   const [activeTab, setActiveTab] = useState<"tasks" | "notes">(initialTab);
   const [editingField, setEditingField] = useState<"name" | "description" | null>(null);
@@ -117,7 +130,11 @@ export function useProjectDetailScreen(
   const handleToggleSubtask = (id: string, completed: boolean) => {
     updateTaskMutation.mutate({
       id,
-      body: { status: completed ? "completed" : "pending" },
+      body: {
+        status: completed
+          ? firstTerminalStatusId(taskStatuses)
+          : defaultNonTerminalStatusId(taskStatuses),
+      },
     });
   };
 
@@ -165,6 +182,7 @@ export function useProjectDetailScreen(
 
   return {
     workspaceId,
+    taskStatuses,
     project,
     projectLoading,
     tasks,

@@ -63,7 +63,7 @@ export function ProjectCard({
               e.preventDefault();
               onEdit(project);
             }}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer"
           >
             <Pencil className="size-3.5" />
           </button>
@@ -74,7 +74,7 @@ export function ProjectCard({
               e.preventDefault();
               onDelete(project);
             }}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer"
           >
             <Trash2 className="size-3.5" />
           </button>

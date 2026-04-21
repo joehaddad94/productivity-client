@@ -18,6 +18,7 @@ function mapUser(u: AuthUser): User {
     id: u.id,
     email: u.email,
     name: u.name ?? "",
+    isAdmin: u.isAdmin,
   };
 }
 

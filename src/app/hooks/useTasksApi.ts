@@ -16,6 +16,10 @@ import {
   type TasksPage,
   type BulkTaskBody,
 } from "@/lib/api/tasks-api";
+import type { TaskStatusDefinition } from "@/lib/types";
+import { TASK_STATUSES_QUERY_KEY } from "@/app/hooks/useTaskStatusesApi";
+import { defaultNonTerminalStatusId } from "@/features/tasks/lib/taskStatusHelpers";
+import { getDefaultTaskStatuses } from "@/features/tasks/lib/taskStatusDefaults";
 
 export const TASKS_QUERY_KEY = (workspaceId: string) =>
   ["tasks", workspaceId] as const;
@@ -63,6 +67,13 @@ export function useCreateTaskMutation(
     onMutate: async (body) => {
       await queryClient.cancelQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
 
+      const cached = queryClient.getQueryData<TaskStatusDefinition[]>(
+        TASK_STATUSES_QUERY_KEY(workspaceId ?? ""),
+      );
+      const statuses =
+        cached && cached.length > 0 ? cached : getDefaultTaskStatuses(workspaceId ?? "");
+      const defaultStatusId = defaultNonTerminalStatusId(statuses);
+
       const tempTask: Task = {
         id: `temp_${Date.now()}`,
         workspaceId: workspaceId ?? "",
@@ -71,7 +82,7 @@ export function useCreateTaskMutation(
         dueDate: body.dueDate ?? null,
         dueTime: body.dueTime ?? null,
         priority: body.priority ?? null,
-        status: body.status ?? "pending",
+        status: body.status ?? defaultStatusId,
         parentTaskId: body.parentTaskId ?? null,
         projectId: body.projectId ?? null,
         recurrenceRule: body.recurrenceRule ?? null,

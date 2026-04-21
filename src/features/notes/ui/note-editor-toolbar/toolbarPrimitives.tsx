@@ -34,7 +34,7 @@ export function ToolbarToolButton({
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       className={cn(
-        "p-1.5 rounded-md transition-colors",
+        "p-1.5 rounded-md transition-colors cursor-pointer",
         active
           ? "bg-muted text-foreground"
           : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
