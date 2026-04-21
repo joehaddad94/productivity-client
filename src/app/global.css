@@ -206,6 +206,8 @@ html.dark [data-sonner-toast][data-type="error"] {
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
   --color-ring: var(--ring);
 }
 
