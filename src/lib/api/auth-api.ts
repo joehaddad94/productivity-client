@@ -15,6 +15,7 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
+  isAdmin: boolean;
 };
 
 function api(path: string, options: RequestInit = {}) {
@@ -86,7 +87,9 @@ export const authApi = {
     if (res.status === 401) return null;
     const data = await res.json();
     if (!res.ok) throw new Error(getMessage(data));
-    return (data as MeResponse).user ?? null;
+    const u = (data as MeResponse).user;
+    if (!u) return null;
+    return { ...u, isAdmin: u.isAdmin ?? false };
   },
 
   updateMe: async (data: { name?: string }): Promise<AuthUser> => {

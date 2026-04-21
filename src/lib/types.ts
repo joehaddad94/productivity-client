@@ -8,6 +8,32 @@ export interface User {
   name: string | null;
   email: string;
   avatarUrl?: string | null;
+  /** Server-driven; used for admin-only UI (e.g. bug triage). */
+  isAdmin?: boolean;
+}
+
+/** In-app bug report (see POST /bug-reports, admin list under /admin/bug-reports). */
+export type BugReportStatus = "open" | "triaging" | "fixed" | "wontfix" | "duplicate";
+
+export interface BugReport {
+  id: string;
+  userId: string;
+  workspaceId: string | null;
+  title: string;
+  description: string;
+  expected: string | null;
+  actual: string | null;
+  route: string | null;
+  userAgent: string | null;
+  contextJson: Record<string, unknown> | null;
+  status: BugReportStatus;
+  priority: string | null;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reporterEmail?: string;
+  reporterName?: string | null;
 }
 
 export interface Workspace {
