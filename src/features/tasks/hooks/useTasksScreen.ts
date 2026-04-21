@@ -43,6 +43,7 @@ export function useTasksScreen() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const draggedId = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const dragOverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map()
   );
@@ -106,7 +107,9 @@ export function useTasksScreen() {
   }, []);
 
   const handleDragOver = useCallback((id: string) => {
-    if (draggedId.current && draggedId.current !== id) setDragOverId(id);
+    if (!draggedId.current || draggedId.current === id) return;
+    if (dragOverTimer.current) clearTimeout(dragOverTimer.current);
+    dragOverTimer.current = setTimeout(() => setDragOverId(id), 40);
   }, []);
 
   const handleDrop = useCallback(

@@ -1,7 +1,8 @@
 "use client";
 
 import { ProjectPicker, type ProjectOption } from "./ProjectPicker";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import {
   Plus,
@@ -60,6 +61,25 @@ import {
 } from "@/app/components/ui/sheet";
 import type { CreateTaskBody } from "@/lib/api/tasks-api";
 
+function formatDate(isoDate: string, todayYear: number): string {
+  const [year, month, day] = isoDate.slice(0, 10).split("-").map(Number);
+  const date = new Date(year!, month! - 1, day!);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(year !== todayYear ? { year: "numeric" } : {}),
+  });
+}
+
+function formatTime(time: string): string {
+  const [hStr, mStr] = time.split(":");
+  const h = parseInt(hStr ?? "0", 10);
+  const m = mStr ?? "00";
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${m} ${ampm}`;
+}
+
 // ─── Module-level constants ────────────────────────────────────────────────────
 
 const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -72,20 +92,88 @@ const PRIORITY_PILL: Record<string, string> = {
 
 const COL_STATUS = "w-[108px]";
 const COL_PRIORITY = "w-[72px]";
-const COL_DUE = "w-[80px]";
+const COL_DUE = "w-[96px]";
 const COL_PROJECT = "w-[116px]";
 const COL_ICON = "w-10";
 
-// ─── StatusSelect ──────────────────────────────────────────────────────────────
+// ─── Flat row type for virtualized list ───────────────────────────────────────
 
-function StatusSelect({
+type FlatRow =
+  | { type: "task"; task: Task }
+  | { type: "subtask"; task: Task };
+
+function flattenVisible(tasks: Task[], collapsedIds: Set<string>): FlatRow[] {
+  const rows: FlatRow[] = [];
+  for (const t of tasks) {
+    rows.push({ type: "task", task: t });
+    if (t.subtasks?.length && !collapsedIds.has(t.id)) {
+      for (const sub of t.subtasks) rows.push({ type: "subtask", task: sub });
+    }
+  }
+  return rows;
+}
+
+// ─── RowProjectPicker — lazy: mounts Command tree only when open ───────────────
+
+const RowProjectPicker = memo(function RowProjectPicker({
+  projects,
+  value,
+  onChange,
+}: {
+  projects: ProjectOption[];
+  value: string | undefined;
+  onChange: (id: string | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const name = useMemo(() => projects.find((p) => p.id === value)?.name, [projects, value]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className="text-[11px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded-md hover:bg-muted/50 truncate w-full text-left transition-colors"
+        >
+          {name ?? <span className="opacity-30">—</span>}
+        </button>
+      </PopoverTrigger>
+      {open && (
+        <PopoverContent className="w-52 p-0 border-border shadow-lg" align="start" sideOffset={4}>
+          <Command>
+            <CommandInput placeholder="Search projects…" className="h-9" />
+            <CommandList className="max-h-56">
+              <CommandEmpty className="text-xs">No project found.</CommandEmpty>
+              <CommandGroup>
+                <CommandItem value="no project all" className="cursor-pointer text-xs" onSelect={() => { onChange(undefined); setOpen(false); }}>
+                  No project
+                </CommandItem>
+                {projects.map((p) => (
+                  <CommandItem key={p.id} value={`${p.name} ${p.id}`} className="cursor-pointer text-xs" onSelect={() => { onChange(p.id); setOpen(false); }}>
+                    <span className="truncate">{p.name}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      )}
+    </Popover>
+  );
+});
+
+// ─── StatusSelect — memoized ───────────────────────────────────────────────────
+
+const StatusSelect = memo(function StatusSelect({
   task,
   taskStatuses,
+  terminalIds,
   onStatusChange,
   isCompleted,
 }: {
   task: Task;
   taskStatuses: TaskStatusDefinition[];
+  terminalIds: Set<string>;
   onStatusChange: (id: string, status: string) => void;
   isCompleted: boolean;
 }) {
@@ -103,7 +191,7 @@ function StatusSelect({
         {taskStatuses.map((s) => (
           <SelectItem key={s.id} value={s.id} className="text-xs">
             <span className="flex items-center gap-2">
-              <span className={cn("size-1.5 rounded-full shrink-0", isTaskStatusTerminal(s.id, taskStatuses) ? "bg-green-500" : "bg-muted-foreground/40")} />
+              <span className={cn("size-1.5 rounded-full shrink-0", terminalIds.has(s.id) ? "bg-green-500" : "bg-muted-foreground/40")} />
               {s.name}
             </span>
           </SelectItem>
@@ -111,15 +199,16 @@ function StatusSelect({
       </SelectContent>
     </Select>
   );
-}
+});
 
-// ─── TaskRow ───────────────────────────────────────────────────────────────────
+// ─── TaskRow — memoized ────────────────────────────────────────────────────────
 
-function TaskRow({
+const TaskRow = memo(function TaskRow({
   task,
   depth = 0,
   expanded,
   todayStr,
+  terminalIds,
   onToggleExpand,
   onToggle,
   onStatusChange,
@@ -140,6 +229,7 @@ function TaskRow({
   depth?: number;
   expanded: boolean;
   todayStr: string;
+  terminalIds: Set<string>;
   onToggleExpand: (id: string) => void;
   onToggle: (id: string, completed: boolean) => void;
   onStatusChange: (id: string, status: string) => void;
@@ -156,213 +246,201 @@ function TaskRow({
   onProjectChange: (id: string, projectId: string | undefined) => void;
   taskStatuses: TaskStatusDefinition[];
 }) {
-  const hasSubtasks = task.subtasks && task.subtasks.length > 0;
-  const isCompleted = isTaskStatusTerminal(task.status, taskStatuses);
+  const hasSubtasks = !!task.subtasks?.length;
+  const isCompleted = terminalIds.has(task.status);
   const isOverdue = !isCompleted && !!task.dueDate && task.dueDate.slice(0, 10) < todayStr;
+  const todayYear = parseInt(todayStr.slice(0, 4), 10);
+
+  // Compute subtask progress once — reused for both mobile chips and desktop bar
+  const subtaskProgress = useMemo(() => {
+    if (!hasSubtasks) return null;
+    const done = task.subtasks!.filter((s) => terminalIds.has(s.status)).length;
+    const total = task.subtasks!.length;
+    return { done, total, pct: Math.round((done / total) * 100) };
+  }, [task.subtasks, hasSubtasks, terminalIds]);
 
   return (
-    <>
-      <div
-        data-testid="task-row"
-        draggable={!isSelectMode && depth === 0}
-        onDragStart={(e) => { e.stopPropagation(); onDragStart?.(task.id); }}
-        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOver?.(task.id); }}
-        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop?.(task.id); }}
-        style={depth > 0 ? { paddingLeft: `${depth * 20}px` } : undefined}
-        className={cn(
-          "group flex items-center transition-colors cursor-pointer",
-          depth === 0 ? "hover:bg-muted/30" : "hover:bg-muted/20 border-l-2 border-border/20",
-          isDragOver && "bg-primary/5",
-          isSelected && "bg-primary/5",
-          isCompleted && depth === 0 && "opacity-60",
-        )}
-        onClick={() => isSelectMode ? onToggleSelect?.(task.id) : onSelect(task)}
-      >
-        {/* Icon column */}
-        <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
-          {isSelectMode ? (
-            <button onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }} className="text-primary">
-              {isSelected ? <CheckSquare className="size-4" /> : <Square className="size-4 text-muted-foreground" />}
-            </button>
-          ) : depth > 0 ? (
-            <Checkbox
-              checked={isCompleted}
-              onCheckedChange={(checked) => onToggle(task.id, checked === true)}
-              onClick={(e) => e.stopPropagation()}
-            />
-          ) : hasSubtasks ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); onToggleExpand(task.id); }}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-            </button>
-          ) : (
-            <span className="size-3.5" />
-          )}
-        </div>
-
-        {/* Title column */}
-        <div className="flex-1 min-w-0 py-2.5 pr-3">
-          <div className="flex items-center gap-1.5 min-w-0">
-            {!isSelectMode && depth === 0 && (
-              <GripVertical className="size-3 text-muted-foreground/25 shrink-0 opacity-0 group-hover:opacity-100 cursor-grab" />
-            )}
-            <div className="flex-1 min-w-0">
-              <span className={cn(
-                "block truncate leading-snug",
-                depth === 0 ? "text-sm font-medium" : "text-xs text-muted-foreground",
-                isCompleted && "line-through opacity-50",
-              )}>
-                {task.title}
-              </span>
-              {task.description && depth === 0 && (
-                <span className="text-xs text-muted-foreground/70 truncate block mt-0.5">{task.description}</span>
-              )}
-            </div>
-            {/* Mobile: status inline */}
-            {depth === 0 && (
-              <div onClick={(e) => e.stopPropagation()} className="sm:hidden shrink-0">
-                <StatusSelect task={task} taskStatuses={taskStatuses} onStatusChange={onStatusChange} isCompleted={isCompleted} />
-              </div>
-            )}
-          </div>
-
-          {/* Mobile metadata chips */}
-          {depth === 0 && (
-            <div className="sm:hidden flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 pl-4">
-              {task.dueDate && (
-                <span className={cn("flex items-center gap-1 text-[11px] font-medium", isOverdue ? "text-red-500" : "text-muted-foreground")}>
-                  <Calendar className="size-3 shrink-0" />
-                  {task.dueDate.slice(0, 10).slice(5)}
-                  {task.dueTime && <span className="opacity-70"> · {task.dueTime}</span>}
-                </span>
-              )}
-              {task.priority && (
-                <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide", PRIORITY_PILL[task.priority])}>
-                  {task.priority[0].toUpperCase() + task.priority.slice(1)}
-                </span>
-              )}
-              {hasSubtasks && (() => {
-                const done = task.subtasks!.filter((s) => isTaskStatusTerminal(s.status, taskStatuses)).length;
-                const total = task.subtasks!.length;
-                const pct = Math.round((done / total) * 100);
-                return (
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-10 h-1 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="text-[11px] text-muted-foreground">{done}/{total}</span>
-                  </div>
-                );
-              })()}
-              {task.recurrenceRule && (
-                <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
-                  <RefreshCw className="size-3" />
-                  {task.recurrenceRule[0] + task.recurrenceRule.slice(1).toLowerCase()}
-                </span>
-              )}
-              {task.projectId && (
-                <span className="text-[11px] text-muted-foreground/70 truncate max-w-[120px]">
-                  {projects.find((p) => p.id === task.projectId)?.name}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Desktop: subtask progress bar under title */}
-          {depth === 0 && hasSubtasks && (() => {
-            const done = task.subtasks!.filter((s) => isTaskStatusTerminal(s.status, taskStatuses)).length;
-            const total = task.subtasks!.length;
-            const pct = Math.round((done / total) * 100);
-            return (
-              <div className="hidden sm:flex items-center gap-1.5 mt-1">
-                <div className="w-12 h-0.5 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full rounded-full bg-primary/50" style={{ width: `${pct}%` }} />
-                </div>
-                <span className="text-[10px] text-muted-foreground/60">{done}/{total}</span>
-              </div>
-            );
-          })()}
-        </div>
-
-        {/* Desktop: Status */}
-        {depth === 0 ? (
-          <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center shrink-0 py-2.5 pr-3", COL_STATUS)}>
-            <StatusSelect task={task} taskStatuses={taskStatuses} onStatusChange={onStatusChange} isCompleted={isCompleted} />
-          </div>
+    <div
+      data-testid="task-row"
+      draggable={!isSelectMode && depth === 0}
+      onDragStart={(e) => { e.stopPropagation(); onDragStart?.(task.id); }}
+      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOver?.(task.id); }}
+      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop?.(task.id); }}
+      style={depth > 0 ? { paddingLeft: `${depth * 20}px` } : undefined}
+      className={cn(
+        "group flex items-center transition-colors cursor-pointer",
+        depth === 0 ? "hover:bg-muted/30" : "hover:bg-muted/20 border-l-2 border-border/20",
+        isDragOver && "bg-primary/5",
+        isSelected && "bg-primary/5",
+        isCompleted && depth === 0 && "opacity-60",
+      )}
+      onClick={() => isSelectMode ? onToggleSelect?.(task.id) : onSelect(task)}
+    >
+      {/* Icon column */}
+      <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
+        {isSelectMode ? (
+          <button onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }} className="text-primary">
+            {isSelected ? <CheckSquare className="size-4" /> : <Square className="size-4 text-muted-foreground" />}
+          </button>
+        ) : depth > 0 ? (
+          <Checkbox
+            checked={isCompleted}
+            onCheckedChange={(checked) => onToggle(task.id, checked === true)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : hasSubtasks ? (
+          <button onClick={(e) => { e.stopPropagation(); onToggleExpand(task.id); }} className="text-muted-foreground hover:text-foreground">
+            {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+          </button>
         ) : (
-          <div className={cn("hidden sm:block shrink-0", COL_STATUS)} />
+          <span className="size-3.5" />
         )}
-
-        {/* Desktop: Priority */}
-        <div className={cn("hidden sm:flex items-center shrink-0 py-2.5 pr-3", COL_PRIORITY)}>
-          {depth === 0 && task.priority && (
-            <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide", PRIORITY_PILL[task.priority])}>
-              {task.priority[0].toUpperCase() + task.priority.slice(1)}
-            </span>
-          )}
-        </div>
-
-        {/* Desktop: Due */}
-        <div className={cn("hidden sm:flex items-center shrink-0 py-2.5 pr-3", COL_DUE)}>
-          {depth === 0 && task.dueDate && (
-            <span className={cn("flex items-center gap-1 text-[11px] font-medium", isOverdue ? "text-red-500" : "text-muted-foreground")}>
-              <Calendar className="size-3 shrink-0" />
-              {task.dueDate.slice(0, 10).slice(5)}
-            </span>
-          )}
-        </div>
-
-        {/* Desktop: Project */}
-        <div onClick={(e) => e.stopPropagation()} className={cn("hidden md:flex items-center shrink-0 py-2.5 pr-2", COL_PROJECT)}>
-          {depth === 0 && (
-            <ProjectPicker
-              projects={projects}
-              value={task.projectId ?? undefined}
-              onChange={(pid) => onProjectChange(task.id, pid)}
-              triggerClassName="h-auto border-0 shadow-none bg-transparent px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/50 font-normal w-full max-w-full"
-            />
-          )}
-        </div>
-
-        {/* Delete */}
-        <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
-          {depth === 0 && (
-            <button
-              title="Delete task"
-              onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id); }}
-              className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all"
-            >
-              <Trash2 className="size-3.5" />
-            </button>
-          )}
-        </div>
       </div>
 
-      {hasSubtasks && expanded && task.subtasks!.map((sub) => (
-        <TaskRow
-          key={sub.id}
-          task={sub}
-          depth={depth + 1}
-          expanded={false}
-          todayStr={todayStr}
-          onToggleExpand={onToggleExpand}
-          onToggle={onToggle}
-          onStatusChange={onStatusChange}
-          onSelect={onSelect}
-          onDeleteRequest={onDeleteRequest}
-          isSelectMode={isSelectMode}
-          isSelected={false}
-          onToggleSelect={onToggleSelect}
-          projects={projects}
-          onProjectChange={onProjectChange}
-          taskStatuses={taskStatuses}
-        />
-      ))}
-    </>
+      {/* Title column */}
+      <div className="flex-1 min-w-0 py-2.5 pr-3">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {!isSelectMode && depth === 0 && (
+            <GripVertical className="size-3 text-muted-foreground/25 shrink-0 opacity-0 group-hover:opacity-100 cursor-grab" />
+          )}
+          <div className="flex-1 min-w-0">
+            <span className={cn(
+              "block truncate leading-snug",
+              depth === 0 ? "text-sm font-medium" : "text-xs text-muted-foreground",
+              isCompleted && "line-through opacity-50",
+            )}>
+              {task.title}
+            </span>
+            {task.description && depth === 0 && (
+              <span className="text-xs text-muted-foreground/70 truncate block mt-0.5">{task.description}</span>
+            )}
+          </div>
+          {/* Mobile: read-only status chip (no Select — avoids duplicate) */}
+          {depth === 0 && (
+            <span className={cn(
+              "sm:hidden shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+              isCompleted
+                ? "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5"
+                : "border-border/60 text-muted-foreground",
+            )}>
+              {taskStatuses.find((s) => s.id === task.status)?.name ?? "—"}
+            </span>
+          )}
+        </div>
+
+        {/* Mobile metadata chips */}
+        {depth === 0 && (
+          <div className="sm:hidden flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 pl-4">
+            {task.dueDate && (
+              <span className={cn("flex items-center gap-1 text-[11px] font-medium", isOverdue ? "text-red-500" : "text-muted-foreground")}>
+                <Calendar className="size-3 shrink-0" />
+                {formatDate(task.dueDate, todayYear)}
+                {task.dueTime && <span className="opacity-70"> · {formatTime(task.dueTime)}</span>}
+              </span>
+            )}
+            {task.priority && (
+              <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide", PRIORITY_PILL[task.priority])}>
+                {task.priority[0].toUpperCase() + task.priority.slice(1)}
+              </span>
+            )}
+            {subtaskProgress && (
+              <div className="flex items-center gap-1.5">
+                <div className="w-10 h-1 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-primary/60" style={{ width: `${subtaskProgress.pct}%` }} />
+                </div>
+                <span className="text-[11px] text-muted-foreground">{subtaskProgress.done}/{subtaskProgress.total}</span>
+              </div>
+            )}
+            {task.recurrenceRule && (
+              <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                <RefreshCw className="size-3" />
+                {task.recurrenceRule[0] + task.recurrenceRule.slice(1).toLowerCase()}
+              </span>
+            )}
+            {task.projectId && (
+              <span className="text-[11px] text-muted-foreground/70 truncate max-w-[120px]">
+                {projects.find((p) => p.id === task.projectId)?.name}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Desktop: subtask progress bar under title */}
+        {depth === 0 && subtaskProgress && (
+          <div className="hidden sm:flex items-center gap-1.5 mt-1">
+            <div className="w-12 h-0.5 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full bg-primary/50" style={{ width: `${subtaskProgress.pct}%` }} />
+            </div>
+            <span className="text-[10px] text-muted-foreground/60">{subtaskProgress.done}/{subtaskProgress.total}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: Status — single instance (not duplicated for mobile) */}
+      {depth === 0 ? (
+        <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center shrink-0 py-2.5 pr-3", COL_STATUS)}>
+          <StatusSelect
+            task={task}
+            taskStatuses={taskStatuses}
+            terminalIds={terminalIds}
+            onStatusChange={onStatusChange}
+            isCompleted={isCompleted}
+          />
+        </div>
+      ) : (
+        <div className={cn("hidden sm:block shrink-0", COL_STATUS)} />
+      )}
+
+      {/* Desktop: Priority */}
+      <div className={cn("hidden sm:flex items-center shrink-0 py-2.5 pr-3", COL_PRIORITY)}>
+        {depth === 0 && task.priority && (
+          <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide", PRIORITY_PILL[task.priority])}>
+            {task.priority[0].toUpperCase() + task.priority.slice(1)}
+          </span>
+        )}
+      </div>
+
+      {/* Desktop: Due */}
+      <div className={cn("hidden sm:flex items-center shrink-0 py-2.5 pr-3", COL_DUE)}>
+        {depth === 0 && task.dueDate && (
+          <span className={cn("flex flex-col gap-0.5", isOverdue ? "text-red-500" : "text-muted-foreground")}>
+            <span className="flex items-center gap-1 text-[11px] font-medium">
+              <Calendar className="size-3 shrink-0" />
+              {formatDate(task.dueDate, todayYear)}
+            </span>
+            {task.dueTime && (
+              <span className="pl-4 text-[10px] opacity-70 font-normal">{formatTime(task.dueTime)}</span>
+            )}
+          </span>
+        )}
+      </div>
+
+      {/* Desktop: Project — lazy picker */}
+      <div onClick={(e) => e.stopPropagation()} className={cn("hidden md:flex items-center shrink-0 py-2.5 pr-2", COL_PROJECT)}>
+        {depth === 0 && (
+          <RowProjectPicker
+            projects={projects}
+            value={task.projectId ?? undefined}
+            onChange={(pid) => onProjectChange(task.id, pid)}
+          />
+        )}
+      </div>
+
+      {/* Delete */}
+      <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
+        {depth === 0 && (
+          <button
+            title="Delete task"
+            onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id); }}
+            className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
   );
-}
+});
 
 // ─── EmptyState ────────────────────────────────────────────────────────────────
 
@@ -381,15 +459,15 @@ function EmptyState({ message, onAdd }: { message: string; onAdd: () => void }) 
   );
 }
 
-// ─── TaskListPanel (module-level — prevents re-mount on parent re-render) ──────
+// ─── VirtualTaskList — virtualized flat row list ───────────────────────────────
 
-interface TaskListPanelProps {
-  items: Task[];
+interface VirtualTaskListProps {
+  rows: FlatRow[];
   tab: string;
   isFiltered: boolean;
   showOverdueOnly: boolean;
-  sortBy: "default" | "due" | "priority";
   todayStr: string;
+  terminalIds: Set<string>;
   collapsedIds: Set<string>;
   isSelectMode: boolean;
   selectedIds: Set<string>;
@@ -409,13 +487,13 @@ interface TaskListPanelProps {
   onProjectChange: (id: string, projectId: string | undefined) => void;
 }
 
-function TaskListPanel({
-  items,
+const VirtualTaskList = memo(function VirtualTaskList({
+  rows,
   tab,
   isFiltered,
   showOverdueOnly,
-  sortBy,
   todayStr,
+  terminalIds,
   collapsedIds,
   isSelectMode,
   selectedIds,
@@ -433,25 +511,17 @@ function TaskListPanel({
   onDragOver,
   onDrop,
   onProjectChange,
-}: TaskListPanelProps) {
-  let visible = showOverdueOnly
-    ? items.filter((t) => !!t.dueDate && t.dueDate.slice(0, 10) < todayStr)
-    : items;
+}: VirtualTaskListProps) {
+  const parentRef = useRef<HTMLDivElement>(null);
 
-  if (sortBy === "due") {
-    visible = [...visible].sort((a, b) => {
-      if (!a.dueDate && !b.dueDate) return 0;
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return a.dueDate.localeCompare(b.dueDate);
-    });
-  } else if (sortBy === "priority") {
-    visible = [...visible].sort(
-      (a, b) => (PRIORITY_RANK[a.priority ?? ""] ?? 3) - (PRIORITY_RANK[b.priority ?? ""] ?? 3)
-    );
-  }
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (i) => rows[i]?.type === "subtask" ? 36 : 52,
+    overscan: 8,
+  });
 
-  if (visible.length === 0) {
+  if (rows.length === 0) {
     return (
       <EmptyState
         message={isFiltered || showOverdueOnly ? `No ${tab} tasks match your filters` : `No ${tab} tasks yet`}
@@ -465,52 +535,74 @@ function TaskListPanel({
       {/* Column header — desktop only */}
       <div className="hidden sm:flex items-center border-b border-border/40 bg-muted/30">
         <div className={cn(COL_ICON, "shrink-0")} />
-        <div className="flex-1 min-w-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
-          Task
-        </div>
-        <div className={cn(COL_STATUS, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>
-          Status
-        </div>
-        <div className={cn(COL_PRIORITY, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>
-          Priority
-        </div>
-        <div className={cn(COL_DUE, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>
-          Due
-        </div>
-        <div className={cn(COL_PROJECT, "hidden md:block shrink-0 py-1.5 pr-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>
-          Project
-        </div>
+        <div className="flex-1 min-w-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Task</div>
+        <div className={cn(COL_STATUS, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Status</div>
+        <div className={cn(COL_PRIORITY, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Priority</div>
+        <div className={cn(COL_DUE, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Due</div>
+        <div className={cn(COL_PROJECT, "hidden md:block shrink-0 py-1.5 pr-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Project</div>
         <div className={cn(COL_ICON, "shrink-0")} />
       </div>
-      {/* Rows */}
-      <div className="divide-y divide-border/30">
-        {visible.map((task) => (
-          <TaskRow
-            key={task.id}
-            task={task}
-            expanded={!collapsedIds.has(task.id)}
-            todayStr={todayStr}
-            onToggleExpand={onToggleExpand}
-            onToggle={onToggle}
-            onStatusChange={onStatusChange}
-            onSelect={onSelect}
-            onDeleteRequest={onDeleteRequest}
-            isSelectMode={isSelectMode}
-            isSelected={selectedIds.has(task.id)}
-            onToggleSelect={onToggleSelect}
-            isDragOver={dragOverId === task.id}
-            onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-            projects={projects}
-            onProjectChange={onProjectChange}
-            taskStatuses={taskStatuses}
-          />
-        ))}
+
+      {/* Virtualized rows */}
+      <div
+        ref={parentRef}
+        className="overflow-auto"
+        style={{ maxHeight: "calc(100vh - 320px)", minHeight: "120px" }}
+      >
+        <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+          {virtualizer.getVirtualItems().map((vItem) => {
+            const row = rows[vItem.index]!;
+            const depth = row.type === "subtask" ? 1 : 0;
+            const task = row.task;
+            const parentTask = depth === 0 ? task : null;
+            const expanded = parentTask ? !collapsedIds.has(parentTask.id) : false;
+
+            return (
+              <div
+                key={vItem.key}
+                data-index={vItem.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${vItem.start}px)`,
+                }}
+                className={cn(
+                  vItem.index < rows.length - 1 && "border-b border-border/30",
+                )}
+              >
+                <TaskRow
+                  task={task}
+                  depth={depth}
+                  expanded={expanded}
+                  todayStr={todayStr}
+                  terminalIds={terminalIds}
+                  onToggleExpand={onToggleExpand}
+                  onToggle={onToggle}
+                  onStatusChange={onStatusChange}
+                  onSelect={onSelect}
+                  onDeleteRequest={onDeleteRequest}
+                  isSelectMode={isSelectMode}
+                  isSelected={selectedIds.has(task.id)}
+                  onToggleSelect={onToggleSelect}
+                  isDragOver={dragOverId === task.id}
+                  onDragStart={onDragStart}
+                  onDragOver={onDragOver}
+                  onDrop={onDrop}
+                  projects={projects}
+                  onProjectChange={onProjectChange}
+                  taskStatuses={taskStatuses}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
-}
+});
 
 // ─── TasksScreen ───────────────────────────────────────────────────────────────
 
@@ -526,7 +618,6 @@ export function TasksScreen() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const savedCollapsedIds = useRef<Set<string>>(new Set());
 
-  // Computed once per render — not per-row
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const {
@@ -569,6 +660,12 @@ export function TasksScreen() {
     handleLoadMore,
   } = useTasksScreen();
 
+  // Pre-compute terminal status IDs as a Set — O(1) lookups in rows
+  const terminalIds = useMemo(
+    () => new Set(taskStatuses.filter((s) => s.isTerminal && !s.archivedAt).map((s) => s.id)),
+    [taskStatuses],
+  );
+
   const projectNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const p of projectsForPicker) m.set(p.id, p.name);
@@ -576,28 +673,24 @@ export function TasksScreen() {
   }, [projectsForPicker]);
 
   const projectFilterLabel =
-    filterProjectId === "all"
-      ? "All projects"
-      : projectNameById.get(filterProjectId) ?? "Project";
+    filterProjectId === "all" ? "All projects" : projectNameById.get(filterProjectId) ?? "Project";
 
   const hasActiveFilters = filterProjectId !== "all" || filterPriority !== "all" || showOverdueOnly;
 
-  function clearFilters() {
+  const clearFilters = useCallback(() => {
     setFilterProjectId("all");
     setFilterPriority("all");
     setShowOverdueOnly(false);
-  }
+  }, [setFilterProjectId, setFilterPriority]);
 
   const [activeStatusTab, setActiveStatusTab] = useState("");
   useEffect(() => {
     const ids = statusColumns.map((c) => c.status.id);
     if (ids.length === 0) return;
-    if (!activeStatusTab || !ids.includes(activeStatusTab)) {
-      setActiveStatusTab(ids[0]!);
-    }
+    if (!activeStatusTab || !ids.includes(activeStatusTab)) setActiveStatusTab(ids[0]!);
   }, [statusColumns, activeStatusTab]);
 
-  // Keyboard shortcut: N = new task (skip if focused on input/textarea)
+  // Keyboard shortcut: N = new task
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "n" && e.key !== "N") return;
@@ -610,50 +703,52 @@ export function TasksScreen() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  function handleCreate(body: CreateTaskBody) {
-    createMutation.mutate(body);
-  }
+  // ── Stable callbacks (prevent memoized child re-renders) ─────────────────────
 
-  function handleSelectTask(task: Task) {
+  const handleCreate = useCallback((body: CreateTaskBody) => {
+    createMutation.mutate(body);
+  }, [createMutation]);
+
+  const handleSelectTask = useCallback((task: Task) => {
     setDrawerTask(task);
     setDrawerOpen(true);
-  }
+  }, []);
 
-  function handleStatusChange(id: string, status: string) {
+  const handleStatusChange = useCallback((id: string, status: string) => {
     updateMutation.mutate({ id, body: { status } });
-  }
+  }, [updateMutation]);
 
-  function handleSaveDrawer(id: string, body: Parameters<typeof updateMutation.mutate>[0]["body"]) {
+  const handleSaveDrawer = useCallback((id: string, body: Parameters<typeof updateMutation.mutate>[0]["body"]) => {
     updateMutation.mutate({ id, body }, {
       onSuccess: (updated) => {
         if (updated) setDrawerTask(updated);
         toast.success("Task updated");
       },
     });
-  }
+  }, [updateMutation]);
 
-  function handleDeleteRequest(id: string) {
+  const handleDeleteRequest = useCallback((id: string) => {
     setConfirmDeleteId(id);
-  }
+  }, []);
 
-  function handleConfirmDelete() {
+  const handleConfirmDelete = useCallback(() => {
     if (!confirmDeleteId) return;
     handleDelete(confirmDeleteId);
     if (drawerTask?.id === confirmDeleteId) setDrawerOpen(false);
     setConfirmDeleteId(null);
-  }
+  }, [confirmDeleteId, handleDelete, drawerTask]);
 
-  function handleProjectChange(id: string, projectId: string | undefined) {
+  const handleProjectChange = useCallback((id: string, projectId: string | undefined) => {
     updateMutation.mutate({ id, body: { projectId: projectId ?? null } });
-  }
+  }, [updateMutation]);
 
-  function handleSelectAll(visibleTasks: Task[]) {
+  const handleSelectAll = useCallback((visibleTasks: Task[]) => {
     const allIds = new Set(visibleTasks.map((t) => t.id));
     const allSelected = visibleTasks.every((t) => selectedIds.has(t.id));
     setSelectedIds(allSelected ? new Set() : allIds);
-  }
+  }, [selectedIds, setSelectedIds]);
 
-  function handleBulkMoveProject(projectId: string | undefined) {
+  const handleBulkMoveProject = useCallback((projectId: string | undefined) => {
     const ids = Array.from(selectedIds);
     Promise.all(
       ids.map((id) => updateMutation.mutateAsync({ id, body: { projectId: projectId ?? null } }))
@@ -662,18 +757,40 @@ export function TasksScreen() {
       setBulkProjectOpen(false);
       toast.success(`Moved ${ids.length} task${ids.length !== 1 ? "s" : ""}`);
     }).catch(() => toast.error("Some tasks could not be moved"));
-  }
+  }, [selectedIds, setSelectedIds, updateMutation]);
 
-  // Filter-aware tab count: shows visible count / total when overdue filter is on
-  function tabCount(colTasks: Task[]) {
+  // ── Per-tab flat rows (sorted + filtered, then flattened with subtasks) ────────
+
+  const flatRowsByTab = useMemo(() => {
+    const result = new Map<string, FlatRow[]>();
+    for (const { status: s, tasks: colTasks } of statusColumns) {
+      let visible = showOverdueOnly
+        ? colTasks.filter((t) => !!t.dueDate && t.dueDate.slice(0, 10) < todayStr)
+        : colTasks;
+      if (sortBy === "due") {
+        visible = [...visible].sort((a, b) => {
+          if (!a.dueDate && !b.dueDate) return 0;
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return a.dueDate.localeCompare(b.dueDate);
+        });
+      } else if (sortBy === "priority") {
+        visible = [...visible].sort(
+          (a, b) => (PRIORITY_RANK[a.priority ?? ""] ?? 3) - (PRIORITY_RANK[b.priority ?? ""] ?? 3),
+        );
+      }
+      result.set(s.id, flattenVisible(visible, collapsedIds));
+    }
+    return result;
+  }, [statusColumns, showOverdueOnly, sortBy, todayStr, collapsedIds]);
+
+  function tabCount(statusId: string, colTasks: Task[]) {
     if (!showOverdueOnly) return colTasks.length;
     const filtered = colTasks.filter((t) => !!t.dueDate && t.dueDate.slice(0, 10) < todayStr);
     return filtered.length;
   }
 
-  if (isLoading) {
-    return <ScreenLoader variant="app" />;
-  }
+  if (isLoading) return <ScreenLoader variant="app" />;
 
   return (
     <>
@@ -689,7 +806,7 @@ export function TasksScreen() {
               onClick={() => {
                 if (!isSelectMode) {
                   savedCollapsedIds.current = new Set(collapsedIds);
-                  setCollapsedIds(new Set(tasks.filter((t) => t.subtasks && t.subtasks.length > 0).map((t) => t.id)));
+                  setCollapsedIds(new Set(tasks.filter((t) => t.subtasks?.length).map((t) => t.id)));
                 } else {
                   setCollapsedIds(savedCollapsedIds.current);
                   setSelectedIds(new Set());
@@ -831,7 +948,7 @@ export function TasksScreen() {
           </div>
         </div>
 
-        {/* Select all / bulk bar */}
+        {/* Select / bulk bar */}
         {isSelectMode && (() => {
           const currentColTasks = statusColumns.find((c) => c.status.id === activeStatusTab)?.tasks ?? [];
           const allSelected = currentColTasks.length > 0 && currentColTasks.every((t) => selectedIds.has(t.id));
@@ -883,7 +1000,7 @@ export function TasksScreen() {
           <Tabs value={activeStatusTab} onValueChange={setActiveStatusTab} className="min-w-0">
             <TabsList className="flex h-9 w-full bg-transparent border-b border-border/50 rounded-none p-0 gap-0 justify-start overflow-x-auto">
               {statusColumns.map(({ status: s, tasks: colTasks }) => {
-                const count = tabCount(colTasks);
+                const count = tabCount(s.id, colTasks);
                 const showFraction = showOverdueOnly && count !== colTasks.length;
                 return (
                   <TabsTrigger
@@ -904,13 +1021,13 @@ export function TasksScreen() {
             </TabsList>
             {statusColumns.map(({ status: s, tasks: colTasks }) => (
               <TabsContent key={s.id} value={s.id} className="min-w-0 mt-3">
-                <TaskListPanel
-                  items={colTasks}
+                <VirtualTaskList
+                  rows={flatRowsByTab.get(s.id) ?? []}
                   tab={s.name}
                   isFiltered={isFiltered}
                   showOverdueOnly={showOverdueOnly}
-                  sortBy={sortBy}
                   todayStr={todayStr}
+                  terminalIds={terminalIds}
                   collapsedIds={collapsedIds}
                   isSelectMode={isSelectMode}
                   selectedIds={selectedIds}
@@ -934,7 +1051,6 @@ export function TasksScreen() {
           </Tabs>
         )}
 
-        {/* Load more */}
         {!error && tasks.length < total && (
           <div className="flex justify-center pt-2">
             <Button variant="ghost" size="sm" onClick={handleLoadMore} className="text-muted-foreground text-xs">
@@ -965,7 +1081,6 @@ export function TasksScreen() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Modals */}
       <CreateTaskModal
         open={createOpen}
         onOpenChange={setCreateOpen}
@@ -990,10 +1105,7 @@ export function TasksScreen() {
       />
 
       <Sheet open={statusesSheetOpen} onOpenChange={setStatusesSheetOpen}>
-        <SheetContent
-          side="right"
-          className="flex w-full max-w-[100vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
-        >
+        <SheetContent side="right" className="flex w-full max-w-[100vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
           <SheetHeader className="shrink-0 space-y-1 border-b border-border/60 p-4 pb-3 text-left">
             <SheetTitle>Task statuses</SheetTitle>
             <SheetDescription>
