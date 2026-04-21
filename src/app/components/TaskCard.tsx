@@ -1,8 +1,12 @@
+"use client";
+
+import { useMemo } from "react";
 import { Calendar, CheckSquare, Loader2, RefreshCw, Square } from "lucide-react";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { cn } from "./ui/utils";
 import { activeTaskStatuses, isTaskStatusTerminal, taskStatusVisual } from "@/features/tasks/lib/taskStatusHelpers";
+import { getSubtaskProgress } from "@/features/tasks/lib/subtaskProgress";
 
 const PRIORITY_TEXT: Record<string, string> = {
   low: "text-gray-500 dark:text-gray-400",
@@ -51,6 +55,11 @@ export function TaskCard({
 
   const statusOptions = activeTaskStatuses(taskStatuses);
 
+  const subtaskProgress = useMemo(
+    () => getSubtaskProgress(task, taskStatuses),
+    [task, taskStatuses],
+  );
+
   return (
     <div
       data-testid="task-card"
@@ -81,6 +90,20 @@ export function TaskCard({
         </p>
         {task.description && (
           <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{task.description}</p>
+        )}
+        {subtaskProgress && (
+          <div
+            className="flex items-center gap-1.5 mt-1.5"
+            role="group"
+            aria-label={`${subtaskProgress.done} of ${subtaskProgress.total} subtasks complete`}
+          >
+            <div className="h-0.5 w-12 shrink-0 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full bg-primary/50" style={{ width: `${subtaskProgress.pct}%` }} />
+            </div>
+            <span className="text-[10px] text-muted-foreground/70 tabular-nums shrink-0">
+              {subtaskProgress.done}/{subtaskProgress.total}
+            </span>
+          </div>
         )}
         {(task.priority || task.dueDate || task.recurrenceRule || !task.projectId) && (
           <div className="flex flex-wrap items-center gap-1.5 mt-1">

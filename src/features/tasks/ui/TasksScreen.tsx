@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import { isTaskStatusTerminal } from "../lib/taskStatusHelpers";
+import { getSubtaskProgress } from "../lib/subtaskProgress";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
@@ -251,13 +252,10 @@ const TaskRow = memo(function TaskRow({
   const isOverdue = !isCompleted && !!task.dueDate && task.dueDate.slice(0, 10) < todayStr;
   const todayYear = parseInt(todayStr.slice(0, 4), 10);
 
-  // Compute subtask progress once — reused for both mobile chips and desktop bar
-  const subtaskProgress = useMemo(() => {
-    if (!hasSubtasks) return null;
-    const done = task.subtasks!.filter((s) => terminalIds.has(s.status)).length;
-    const total = task.subtasks!.length;
-    return { done, total, pct: Math.round((done / total) * 100) };
-  }, [task.subtasks, hasSubtasks, terminalIds]);
+  const subtaskProgress = useMemo(
+    () => (hasSubtasks ? getSubtaskProgress(task, taskStatuses) : null),
+    [task, taskStatuses, hasSubtasks],
+  );
 
   return (
     <div
