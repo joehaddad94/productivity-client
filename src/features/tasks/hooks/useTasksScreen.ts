@@ -37,7 +37,8 @@ export function useTasksScreen() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [limit, setLimit] = useState(200);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // IDs in this set are COLLAPSED (subtasks hidden). Empty = all expanded.
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const draggedId = useRef<string | null>(null);
@@ -182,7 +183,7 @@ export function useTasksScreen() {
   };
 
   const handleToggleExpand = useCallback((id: string) => {
-    setExpandedIds((prev) => {
+    setCollapsedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -196,31 +197,12 @@ export function useTasksScreen() {
         { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
         (old) =>
           old
-            ? { tasks: old.tasks.filter((t) => t.id !== id), total: old.total - 1 }
+            ? { tasks: old.tasks.filter((t) => t.id !== id && t.parentTaskId !== id), total: old.total - 1 }
             : old
       );
       if (selectedTask?.id === id) setShowDetail(false);
-
-      const timer = setTimeout(() => {
-        pendingDeletes.current.delete(id);
-        deleteMutation.mutate(id);
-      }, 5000);
-      pendingDeletes.current.set(id, timer);
-
-      toast.success("Task deleted", {
-        duration: 5000,
-        action: {
-          label: "Undo",
-          onClick: () => {
-            const t = pendingDeletes.current.get(id);
-            if (t !== undefined) clearTimeout(t);
-            pendingDeletes.current.delete(id);
-            queryClient.invalidateQueries({
-              queryKey: TASKS_QUERY_KEY(workspaceId ?? ""),
-            });
-          },
-        },
-      });
+      deleteMutation.mutate(id);
+      toast.success("Task deleted");
     },
     [queryClient, workspaceId, selectedTask, deleteMutation]
   );
@@ -259,8 +241,8 @@ export function useTasksScreen() {
     isLoading,
     error,
     isFiltered,
-    expandedIds,
-    setExpandedIds,
+    collapsedIds,
+    setCollapsedIds,
     isSelectMode,
     setIsSelectMode,
     selectedIds,

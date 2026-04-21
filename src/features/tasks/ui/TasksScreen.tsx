@@ -17,6 +17,7 @@ import {
   ListChecks,
   ArrowUpDown,
   AlertCircle,
+  X,
 } from "lucide-react";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import { isTaskStatusTerminal } from "../lib/taskStatusHelpers";
@@ -33,8 +34,17 @@ import {
 } from "@/app/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
-import { Badge } from "@/app/components/ui/badge";
 import { Checkbox } from "@/app/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 import { cn } from "@/app/components/ui/utils";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { useTasksScreen } from "../hooks/useTasksScreen";
@@ -50,16 +60,14 @@ import {
 } from "@/app/components/ui/sheet";
 import type { CreateTaskBody } from "@/lib/api/tasks-api";
 
+// ─── Module-level constants ────────────────────────────────────────────────────
+
+const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
+
 const PRIORITY_PILL: Record<string, string> = {
   low: "text-gray-500 bg-gray-100 dark:bg-gray-800",
   medium: "text-amber-700 bg-amber-50 dark:bg-amber-950/50 dark:text-amber-400",
   high: "text-red-600 bg-red-50 dark:bg-red-950/50",
-};
-
-const PRIORITY_DOT: Record<string, string> = {
-  low: "bg-gray-400",
-  medium: "bg-amber-500",
-  high: "bg-red-500",
 };
 
 const COL_STATUS = "w-[108px]";
@@ -67,6 +75,8 @@ const COL_PRIORITY = "w-[72px]";
 const COL_DUE = "w-[80px]";
 const COL_PROJECT = "w-[116px]";
 const COL_ICON = "w-10";
+
+// ─── StatusSelect ──────────────────────────────────────────────────────────────
 
 function StatusSelect({
   task,
@@ -103,15 +113,18 @@ function StatusSelect({
   );
 }
 
+// ─── TaskRow ───────────────────────────────────────────────────────────────────
+
 function TaskRow({
   task,
   depth = 0,
   expanded,
+  todayStr,
   onToggleExpand,
   onToggle,
   onStatusChange,
   onSelect,
-  onDelete,
+  onDeleteRequest,
   isSelectMode = false,
   isSelected = false,
   onToggleSelect,
@@ -126,11 +139,12 @@ function TaskRow({
   task: Task;
   depth?: number;
   expanded: boolean;
+  todayStr: string;
   onToggleExpand: (id: string) => void;
   onToggle: (id: string, completed: boolean) => void;
   onStatusChange: (id: string, status: string) => void;
   onSelect: (task: Task) => void;
-  onDelete: (id: string) => void;
+  onDeleteRequest: (id: string) => void;
   isSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
@@ -144,7 +158,6 @@ function TaskRow({
 }) {
   const hasSubtasks = task.subtasks && task.subtasks.length > 0;
   const isCompleted = isTaskStatusTerminal(task.status, taskStatuses);
-  const todayStr = new Date().toISOString().slice(0, 10);
   const isOverdue = !isCompleted && !!task.dueDate && task.dueDate.slice(0, 10) < todayStr;
 
   return (
@@ -158,17 +171,15 @@ function TaskRow({
         style={depth > 0 ? { paddingLeft: `${depth * 20}px` } : undefined}
         className={cn(
           "group flex items-center transition-colors cursor-pointer",
-          depth === 0
-            ? "hover:bg-muted/30"
-            : "hover:bg-muted/20",
+          depth === 0 ? "hover:bg-muted/30" : "hover:bg-muted/20 border-l-2 border-border/20",
           isDragOver && "bg-primary/5",
           isSelected && "bg-primary/5",
           isCompleted && depth === 0 && "opacity-60",
         )}
         onClick={() => isSelectMode ? onToggleSelect?.(task.id) : onSelect(task)}
       >
-        {/* Icon column: drag + expand/select/checkbox */}
-        <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5 gap-0.5")}>
+        {/* Icon column */}
+        <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
           {isSelectMode ? (
             <button onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }} className="text-primary">
               {isSelected ? <CheckSquare className="size-4" /> : <Square className="size-4 text-muted-foreground" />}
@@ -209,7 +220,7 @@ function TaskRow({
                 <span className="text-xs text-muted-foreground/70 truncate block mt-0.5">{task.description}</span>
               )}
             </div>
-            {/* Mobile: status pill inline */}
+            {/* Mobile: status inline */}
             {depth === 0 && (
               <div onClick={(e) => e.stopPropagation()} className="sm:hidden shrink-0">
                 <StatusSelect task={task} taskStatuses={taskStatuses} onStatusChange={onStatusChange} isCompleted={isCompleted} />
@@ -259,7 +270,7 @@ function TaskRow({
             </div>
           )}
 
-          {/* Subtask progress — mobile */}
+          {/* Desktop: subtask progress bar under title */}
           {depth === 0 && hasSubtasks && (() => {
             const done = task.subtasks!.filter((s) => isTaskStatusTerminal(s.status, taskStatuses)).length;
             const total = task.subtasks!.length;
@@ -320,7 +331,7 @@ function TaskRow({
           {depth === 0 && (
             <button
               title="Delete task"
-              onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+              onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id); }}
               className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all"
             >
               <Trash2 className="size-3.5" />
@@ -335,11 +346,12 @@ function TaskRow({
           task={sub}
           depth={depth + 1}
           expanded={false}
+          todayStr={todayStr}
           onToggleExpand={onToggleExpand}
           onToggle={onToggle}
           onStatusChange={onStatusChange}
           onSelect={onSelect}
-          onDelete={onDelete}
+          onDeleteRequest={onDeleteRequest}
           isSelectMode={isSelectMode}
           isSelected={false}
           onToggleSelect={onToggleSelect}
@@ -351,6 +363,8 @@ function TaskRow({
     </>
   );
 }
+
+// ─── EmptyState ────────────────────────────────────────────────────────────────
 
 function EmptyState({ message, onAdd }: { message: string; onAdd: () => void }) {
   return (
@@ -367,6 +381,139 @@ function EmptyState({ message, onAdd }: { message: string; onAdd: () => void }) 
   );
 }
 
+// ─── TaskListPanel (module-level — prevents re-mount on parent re-render) ──────
+
+interface TaskListPanelProps {
+  items: Task[];
+  tab: string;
+  isFiltered: boolean;
+  showOverdueOnly: boolean;
+  sortBy: "default" | "due" | "priority";
+  todayStr: string;
+  collapsedIds: Set<string>;
+  isSelectMode: boolean;
+  selectedIds: Set<string>;
+  dragOverId: string | null;
+  projects: ProjectOption[];
+  taskStatuses: TaskStatusDefinition[];
+  onAdd: () => void;
+  onToggleExpand: (id: string) => void;
+  onToggle: (id: string, completed: boolean) => void;
+  onStatusChange: (id: string, status: string) => void;
+  onSelect: (task: Task) => void;
+  onDeleteRequest: (id: string) => void;
+  onToggleSelect: (id: string) => void;
+  onDragStart: (id: string) => void;
+  onDragOver: (id: string) => void;
+  onDrop: (id: string) => void;
+  onProjectChange: (id: string, projectId: string | undefined) => void;
+}
+
+function TaskListPanel({
+  items,
+  tab,
+  isFiltered,
+  showOverdueOnly,
+  sortBy,
+  todayStr,
+  collapsedIds,
+  isSelectMode,
+  selectedIds,
+  dragOverId,
+  projects,
+  taskStatuses,
+  onAdd,
+  onToggleExpand,
+  onToggle,
+  onStatusChange,
+  onSelect,
+  onDeleteRequest,
+  onToggleSelect,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onProjectChange,
+}: TaskListPanelProps) {
+  let visible = showOverdueOnly
+    ? items.filter((t) => !!t.dueDate && t.dueDate.slice(0, 10) < todayStr)
+    : items;
+
+  if (sortBy === "due") {
+    visible = [...visible].sort((a, b) => {
+      if (!a.dueDate && !b.dueDate) return 0;
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return a.dueDate.localeCompare(b.dueDate);
+    });
+  } else if (sortBy === "priority") {
+    visible = [...visible].sort(
+      (a, b) => (PRIORITY_RANK[a.priority ?? ""] ?? 3) - (PRIORITY_RANK[b.priority ?? ""] ?? 3)
+    );
+  }
+
+  if (visible.length === 0) {
+    return (
+      <EmptyState
+        message={isFiltered || showOverdueOnly ? `No ${tab} tasks match your filters` : `No ${tab} tasks yet`}
+        onAdd={onAdd}
+      />
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+      {/* Column header — desktop only */}
+      <div className="hidden sm:flex items-center border-b border-border/40 bg-muted/30">
+        <div className={cn(COL_ICON, "shrink-0")} />
+        <div className="flex-1 min-w-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+          Task
+        </div>
+        <div className={cn(COL_STATUS, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>
+          Status
+        </div>
+        <div className={cn(COL_PRIORITY, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>
+          Priority
+        </div>
+        <div className={cn(COL_DUE, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>
+          Due
+        </div>
+        <div className={cn(COL_PROJECT, "hidden md:block shrink-0 py-1.5 pr-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>
+          Project
+        </div>
+        <div className={cn(COL_ICON, "shrink-0")} />
+      </div>
+      {/* Rows */}
+      <div className="divide-y divide-border/30">
+        {visible.map((task) => (
+          <TaskRow
+            key={task.id}
+            task={task}
+            expanded={!collapsedIds.has(task.id)}
+            todayStr={todayStr}
+            onToggleExpand={onToggleExpand}
+            onToggle={onToggle}
+            onStatusChange={onStatusChange}
+            onSelect={onSelect}
+            onDeleteRequest={onDeleteRequest}
+            isSelectMode={isSelectMode}
+            isSelected={selectedIds.has(task.id)}
+            onToggleSelect={onToggleSelect}
+            isDragOver={dragOverId === task.id}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+            projects={projects}
+            onProjectChange={onProjectChange}
+            taskStatuses={taskStatuses}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── TasksScreen ───────────────────────────────────────────────────────────────
+
 export function TasksScreen() {
   const [createOpen, setCreateOpen] = useState(false);
   const [drawerTask, setDrawerTask] = useState<Task | null>(null);
@@ -376,7 +523,11 @@ export function TasksScreen() {
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [sortBy, setSortBy] = useState<"default" | "due" | "priority">("default");
   const [bulkProjectOpen, setBulkProjectOpen] = useState(false);
-  const savedExpandedIds = useRef<Set<string>>(new Set());
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const savedCollapsedIds = useRef<Set<string>>(new Set());
+
+  // Computed once per render — not per-row
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const {
     workspaceId,
@@ -395,8 +546,8 @@ export function TasksScreen() {
     isLoading,
     error,
     isFiltered,
-    expandedIds,
-    setExpandedIds,
+    collapsedIds,
+    setCollapsedIds,
     isSelectMode,
     setIsSelectMode,
     selectedIds,
@@ -420,9 +571,7 @@ export function TasksScreen() {
 
   const projectNameById = useMemo(() => {
     const m = new Map<string, string>();
-    for (const p of projectsForPicker) {
-      m.set(p.id, p.name);
-    }
+    for (const p of projectsForPicker) m.set(p.id, p.name);
     return m;
   }, [projectsForPicker]);
 
@@ -430,6 +579,14 @@ export function TasksScreen() {
     filterProjectId === "all"
       ? "All projects"
       : projectNameById.get(filterProjectId) ?? "Project";
+
+  const hasActiveFilters = filterProjectId !== "all" || filterPriority !== "all" || showOverdueOnly;
+
+  function clearFilters() {
+    setFilterProjectId("all");
+    setFilterPriority("all");
+    setShowOverdueOnly(false);
+  }
 
   const [activeStatusTab, setActiveStatusTab] = useState("");
   useEffect(() => {
@@ -439,6 +596,19 @@ export function TasksScreen() {
       setActiveStatusTab(ids[0]!);
     }
   }, [statusColumns, activeStatusTab]);
+
+  // Keyboard shortcut: N = new task (skip if focused on input/textarea)
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "n" && e.key !== "N") return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
+      e.preventDefault();
+      setCreateOpen(true);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   function handleCreate(body: CreateTaskBody) {
     createMutation.mutate(body);
@@ -462,9 +632,15 @@ export function TasksScreen() {
     });
   }
 
-  function handleDeleteDrawer(id: string) {
-    handleDelete(id);
-    setDrawerOpen(false);
+  function handleDeleteRequest(id: string) {
+    setConfirmDeleteId(id);
+  }
+
+  function handleConfirmDelete() {
+    if (!confirmDeleteId) return;
+    handleDelete(confirmDeleteId);
+    if (drawerTask?.id === confirmDeleteId) setDrawerOpen(false);
+    setConfirmDeleteId(null);
   }
 
   function handleProjectChange(id: string, projectId: string | undefined) {
@@ -488,64 +664,12 @@ export function TasksScreen() {
     }).catch(() => toast.error("Some tasks could not be moved"));
   }
 
-  const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
-  const todayStr = new Date().toISOString().slice(0, 10);
-
-  const TaskList = ({ items, tab }: { items: Task[]; tab: string }) => {
-    let visible = showOverdueOnly
-      ? items.filter((t) => !!t.dueDate && t.dueDate.slice(0, 10) < todayStr)
-      : items;
-
-    if (sortBy === "due") {
-      visible = [...visible].sort((a, b) => {
-        if (!a.dueDate && !b.dueDate) return 0;
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return a.dueDate.localeCompare(b.dueDate);
-      });
-    } else if (sortBy === "priority") {
-      visible = [...visible].sort(
-        (a, b) => (PRIORITY_RANK[a.priority ?? ""] ?? 3) - (PRIORITY_RANK[b.priority ?? ""] ?? 3)
-      );
-    }
-
-    return (
-      <div className="mt-3">
-        {visible.length === 0 ? (
-          <EmptyState
-            message={isFiltered || showOverdueOnly ? `No ${tab} tasks match your filters` : `No ${tab} tasks yet`}
-            onAdd={() => setCreateOpen(true)}
-          />
-        ) : (
-          <div className="space-y-0.5">
-            {visible.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                expanded={expandedIds.has(task.id) ? false : true}
-                onToggleExpand={handleToggleExpand}
-                onToggle={handleToggle}
-                onStatusChange={handleStatusChange}
-                onSelect={handleSelectTask}
-                onDelete={handleDelete}
-                isSelectMode={isSelectMode}
-                isSelected={selectedIds.has(task.id)}
-                onToggleSelect={handleToggleSelect}
-                isDragOver={dragOverId === task.id}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                getProjectName={(id) => (id ? projectNameById.get(id) ?? null : null)}
-                projects={projectsForPicker}
-                onProjectChange={handleProjectChange}
-                taskStatuses={taskStatuses}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
+  // Filter-aware tab count: shows visible count / total when overdue filter is on
+  function tabCount(colTasks: Task[]) {
+    if (!showOverdueOnly) return colTasks.length;
+    const filtered = colTasks.filter((t) => !!t.dueDate && t.dueDate.slice(0, 10) < todayStr);
+    return filtered.length;
+  }
 
   if (isLoading) {
     return <ScreenLoader variant="app" />;
@@ -558,6 +682,24 @@ export function TasksScreen() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold tracking-tight">Tasks</h1>
           <div className="flex items-center gap-2">
+            <Button
+              variant={isSelectMode ? "secondary" : "ghost"}
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => {
+                if (!isSelectMode) {
+                  savedCollapsedIds.current = new Set(collapsedIds);
+                  setCollapsedIds(new Set(tasks.filter((t) => t.subtasks && t.subtasks.length > 0).map((t) => t.id)));
+                } else {
+                  setCollapsedIds(savedCollapsedIds.current);
+                  setSelectedIds(new Set());
+                }
+                setIsSelectMode((p) => !p);
+              }}
+              disabled={!workspaceId}
+            >
+              {isSelectMode ? "Cancel" : "Select"}
+            </Button>
             <Button
               type="button"
               variant="ghost"
@@ -580,44 +722,25 @@ export function TasksScreen() {
             >
               <ListChecks className="size-4" />
             </Button>
-            <Button
-              variant={isSelectMode ? "secondary" : "ghost"}
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => {
-                if (!isSelectMode) {
-                  savedExpandedIds.current = new Set(expandedIds);
-                  setExpandedIds(new Set(tasks.filter((t) => t.subtasks && t.subtasks.length > 0).map((t) => t.id)));
-                } else {
-                  setExpandedIds(savedExpandedIds.current);
-                  setSelectedIds(new Set());
-                }
-                setIsSelectMode((p) => !p);
-              }}
-              disabled={!workspaceId}
-            >
-              {isSelectMode ? "Cancel" : "Select"}
-            </Button>
             <Button size="sm" onClick={() => setCreateOpen(true)} disabled={!workspaceId}>
               <Plus className="size-3.5" />
-              New task
+              <span className="hidden sm:inline">New task</span>
+              <span className="sm:hidden">New</span>
             </Button>
           </div>
         </div>
 
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-0 rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-          {/* Search */}
           <div className="px-3 py-2 border-b border-border/50 sm:border-b-0 sm:border-r sm:flex-1">
             <SearchInput
-              placeholder="Search tasks…"
+              placeholder="Search tasks… (N to create)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search tasks"
               className="w-full h-7 border-0 bg-transparent shadow-none focus-within:ring-0 text-sm"
             />
           </div>
-          {/* Filters — scrollable on mobile */}
           <div className="flex items-center gap-0.5 px-2 py-1.5 overflow-x-auto scrollbar-none">
             <Popover open={projectFilterOpen} onOpenChange={setProjectFilterOpen}>
               <PopoverTrigger asChild>
@@ -654,6 +777,7 @@ export function TasksScreen() {
                 </Command>
               </PopoverContent>
             </Popover>
+
             <Select value={filterPriority} onValueChange={(v) => setFilterPriority(v as typeof filterPriority)}>
               <SelectTrigger className={cn("h-7 text-xs border-0 bg-transparent shadow-none w-auto px-2 gap-1 font-normal shrink-0", filterPriority !== "all" && "font-medium text-foreground")}>
                 <SelectValue />
@@ -665,6 +789,7 @@ export function TasksScreen() {
                 <SelectItem value="low">Low</SelectItem>
               </SelectContent>
             </Select>
+
             <button
               type="button"
               onClick={() => setShowOverdueOnly((v) => !v)}
@@ -677,7 +802,21 @@ export function TasksScreen() {
               <AlertCircle className="size-3.5" />
               Overdue
             </button>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="flex items-center gap-0.5 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
+                title="Clear all filters"
+              >
+                <X className="size-3" />
+                Clear
+              </button>
+            )}
+
             <div className="w-px h-4 bg-border/60 shrink-0 mx-1" />
+
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
               <SelectTrigger className="h-7 text-xs border-0 bg-transparent shadow-none w-auto px-2 gap-1 font-normal shrink-0">
                 <ArrowUpDown className="size-3 opacity-50 shrink-0" />
@@ -737,32 +876,59 @@ export function TasksScreen() {
           );
         })()}
 
-        {/* Error */}
         {error && <p className="text-sm text-destructive">Failed to load tasks</p>}
 
-        {/* Tabs */}
+        {/* Status tabs */}
         {!error && statusColumns.length > 0 && (
           <Tabs value={activeStatusTab} onValueChange={setActiveStatusTab} className="min-w-0">
             <TabsList className="flex h-9 w-full bg-transparent border-b border-border/50 rounded-none p-0 gap-0 justify-start overflow-x-auto">
-              {statusColumns.map(({ status: s, tasks: colTasks }) => (
-                <TabsTrigger
-                  key={s.id}
-                  value={s.id}
-                  className="cursor-pointer text-xs h-9 px-4 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground font-medium bg-transparent shadow-none"
-                >
-                  {s.name}
-                  <span className={cn(
-                    "ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-                    activeStatusTab === s.id ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
-                  )}>
-                    {colTasks.length}
-                  </span>
-                </TabsTrigger>
-              ))}
+              {statusColumns.map(({ status: s, tasks: colTasks }) => {
+                const count = tabCount(colTasks);
+                const showFraction = showOverdueOnly && count !== colTasks.length;
+                return (
+                  <TabsTrigger
+                    key={s.id}
+                    value={s.id}
+                    className="cursor-pointer text-xs h-9 px-4 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground font-medium bg-transparent shadow-none"
+                  >
+                    {s.name}
+                    <span className={cn(
+                      "ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                      activeStatusTab === s.id ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                    )}>
+                      {showFraction ? `${count}/${colTasks.length}` : count}
+                    </span>
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
             {statusColumns.map(({ status: s, tasks: colTasks }) => (
               <TabsContent key={s.id} value={s.id} className="min-w-0 mt-3">
-                <TaskList items={colTasks} tab={s.name} />
+                <TaskListPanel
+                  items={colTasks}
+                  tab={s.name}
+                  isFiltered={isFiltered}
+                  showOverdueOnly={showOverdueOnly}
+                  sortBy={sortBy}
+                  todayStr={todayStr}
+                  collapsedIds={collapsedIds}
+                  isSelectMode={isSelectMode}
+                  selectedIds={selectedIds}
+                  dragOverId={dragOverId}
+                  projects={projectsForPicker}
+                  taskStatuses={taskStatuses}
+                  onAdd={() => setCreateOpen(true)}
+                  onToggleExpand={handleToggleExpand}
+                  onToggle={handleToggle}
+                  onStatusChange={handleStatusChange}
+                  onSelect={handleSelectTask}
+                  onDeleteRequest={handleDeleteRequest}
+                  onToggleSelect={handleToggleSelect}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  onProjectChange={handleProjectChange}
+                />
               </TabsContent>
             ))}
           </Tabs>
@@ -777,6 +943,27 @@ export function TasksScreen() {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={confirmDeleteId !== null} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the task and all its subtasks. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Modals */}
       <CreateTaskModal
@@ -793,7 +980,7 @@ export function TasksScreen() {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         onSave={handleSaveDrawer}
-        onDelete={handleDeleteDrawer}
+        onDelete={handleDeleteRequest}
         onToggleSubtask={handleToggle}
         workspaceId={workspaceId}
         taskStatuses={taskStatuses}

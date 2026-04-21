@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Trash2, Plus, FileText, Timer, Loader2, ExternalLink, Clock, AlertTriangle } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Trash2, Plus, FileText, Timer, Loader2, ExternalLink, Clock, AlertTriangle, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/app/components/ui/sheet";
 import { Button } from "@/app/components/ui/button";
@@ -96,6 +96,15 @@ export function TaskDrawer({
   const subtaskInputRef = useRef<HTMLInputElement>(null);
   const [logMinutes, setLogMinutes] = useState("");
   const [focusMinutes, setFocusMinutes] = useState(0);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize title textarea to fit content
+  useLayoutEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [title]);
 
   useEffect(() => {
     if (!task) return;
@@ -207,10 +216,11 @@ export function TaskDrawer({
             )}
           </div>
           <textarea
+            ref={titleRef}
             value={title}
             onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
-            className="w-full text-base font-semibold bg-transparent resize-none outline-none leading-snug mt-1 placeholder:text-muted-foreground/50"
-            rows={2}
+            className="w-full text-base font-semibold bg-transparent resize-none outline-none leading-snug mt-1 placeholder:text-muted-foreground/50 overflow-hidden"
+            rows={1}
             placeholder="Task title…"
           />
           <InlineDescription
@@ -435,10 +445,11 @@ export function TaskDrawer({
           <div className="px-5 py-4 space-y-2">
             {(() => {
               const todayStr = new Date().toISOString().slice(0, 10);
-              const isCompleted = isTaskStatusTerminal(task.status, taskStatuses);
-              const isOverdue = !isCompleted && !!task.dueDate && task.dueDate.slice(0, 10) < todayStr;
+              const isCompleted = isTaskStatusTerminal(status || task.status, taskStatuses);
+              const effectiveDueDate = dueDate || task.dueDate?.slice(0, 10);
+              const isOverdue = !isCompleted && !!effectiveDueDate && effectiveDueDate < todayStr;
               const overdueDays = isOverdue
-                ? Math.floor((new Date(todayStr).getTime() - new Date(task.dueDate!.slice(0, 10)).getTime()) / 86400000)
+                ? Math.floor((new Date(todayStr).getTime() - new Date(effectiveDueDate!).getTime()) / 86400000)
                 : 0;
               return (
                 <>
@@ -490,10 +501,16 @@ export function TaskDrawer({
             ) : (
               <div className="space-y-1">
                 {notes.map((note) => (
-                  <div key={note.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/40 text-xs">
+                  <Link
+                    key={note.id}
+                    href="/notes"
+                    onClick={() => onOpenChange(false)}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/40 text-xs hover:bg-muted/70 transition-colors group"
+                  >
                     <FileText className="size-3 text-muted-foreground shrink-0" />
-                    <span className="truncate">{note.title}</span>
-                  </div>
+                    <span className="truncate flex-1">{note.title}</span>
+                    <ArrowUpRight className="size-3 text-muted-foreground/40 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </Link>
                 ))}
               </div>
             )}
