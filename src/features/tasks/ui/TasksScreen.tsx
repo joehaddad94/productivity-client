@@ -133,7 +133,7 @@ const RowProjectPicker = memo(function RowProjectPicker({
         <button
           type="button"
           onClick={(e) => e.stopPropagation()}
-          className="text-[11px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded-md hover:bg-muted/50 truncate w-full text-left transition-colors"
+          className="text-[11px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded-md hover:bg-muted/50 truncate w-full text-left transition-colors cursor-pointer"
         >
           {name ?? <span className="opacity-30">—</span>}
         </button>
@@ -279,7 +279,7 @@ const TaskRow = memo(function TaskRow({
       {/* Icon column */}
       <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
         {isSelectMode ? (
-          <button onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }} className="text-primary">
+          <button onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }} className="text-primary cursor-pointer">
             {isSelected ? <CheckSquare className="size-4" /> : <Square className="size-4 text-muted-foreground" />}
           </button>
         ) : depth > 0 ? (
@@ -289,7 +289,7 @@ const TaskRow = memo(function TaskRow({
             onClick={(e) => e.stopPropagation()}
           />
         ) : hasSubtasks ? (
-          <button onClick={(e) => { e.stopPropagation(); onToggleExpand(task.id); }} className="text-muted-foreground hover:text-foreground">
+          <button onClick={(e) => { e.stopPropagation(); onToggleExpand(task.id); }} className="text-muted-foreground hover:text-foreground cursor-pointer">
             {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
           </button>
         ) : (
@@ -432,7 +432,7 @@ const TaskRow = memo(function TaskRow({
           <button
             title="Delete task"
             onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id); }}
-            className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all"
+            className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all cursor-pointer"
           >
             <Trash2 className="size-3.5" />
           </button>

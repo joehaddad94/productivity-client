@@ -108,7 +108,7 @@ export interface AppNotification {
   userId: string;
   workspaceId: string;
   taskId?: string | null;
-  type: 'due_today' | 'overdue' | 'daily_agenda';
+  type: 'due_today' | 'overdue' | 'daily_agenda' | 'task_completed';
   title: string;
   body: string;
   read: boolean;
@@ -122,6 +122,8 @@ export interface NotificationSettings {
   email: boolean;
   push: boolean;
   dailyAgendaTime: string;
+  quietHoursStart?: string | null;
+  quietHoursEnd?: string | null;
 }
 
 export interface AnalyticsResult {

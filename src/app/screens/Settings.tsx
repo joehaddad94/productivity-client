@@ -63,6 +63,19 @@ export function Settings() {
   const { data: notifSettings } = useNotificationSettingsQuery();
   const updateNotifSettings = useUpdateNotificationSettingsMutation();
   const [pushLoading, setPushLoading] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
+
+  async function handleSendTestPush() {
+    setTestLoading(true);
+    try {
+      await notificationsApi.sendTestPush();
+      toast.success("Test notification sent — check your browser");
+    } catch {
+      toast.error("Failed to send test notification");
+    } finally {
+      setTestLoading(false);
+    }
+  }
 
   async function handlePushToggle(enabled: boolean) {
     if (!enabled) {
@@ -133,7 +146,7 @@ export function Settings() {
               key={id}
               onClick={() => setActiveTab(id)}
               className={cn(
-                "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left",
+                "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left cursor-pointer",
                 activeTab === id
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -218,24 +231,82 @@ export function Settings() {
                     <p className="text-sm font-medium">Browser push</p>
                     <p className="text-xs text-muted-foreground">Alerts even when the tab is in background</p>
                   </div>
-                  {pushLoading ? (
-                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                  ) : (
-                    <Switch
-                      checked={notifSettings?.push ?? false}
-                      onCheckedChange={handlePushToggle}
-                      disabled={updateNotifSettings.isPending || pushLoading}
+                  <div className="flex items-center gap-2">
+                    {notifSettings?.push && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={handleSendTestPush}
+                        disabled={testLoading}
+                      >
+                        {testLoading ? <Loader2 className="size-3 animate-spin" /> : "Send test"}
+                      </Button>
+                    )}
+                    {pushLoading ? (
+                      <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    ) : (
+                      <Switch
+                        checked={notifSettings?.push ?? false}
+                        onCheckedChange={handlePushToggle}
+                        disabled={updateNotifSettings.isPending || pushLoading}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <Separator className="opacity-40" />
+
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Daily agenda time</p>
+                  <p className="text-xs text-muted-foreground mb-2">When to send your daily task summary</p>
+                  <input
+                    type="time"
+                    value={notifSettings?.dailyAgendaTime ?? "08:00"}
+                    onChange={(e) => updateNotifSettings.mutate({ dailyAgendaTime: e.target.value })}
+                    className="h-8 rounded-md border border-border bg-input-background px-3 text-xs [color-scheme:light] dark:[color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium">Quiet hours</p>
+                  <p className="text-xs text-muted-foreground mb-2">Suppress push notifications during these hours</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={notifSettings?.quietHoursStart ?? ""}
+                      onChange={(e) => updateNotifSettings.mutate({ quietHoursStart: e.target.value || null })}
+                      className="h-8 rounded-md border border-border bg-input-background px-3 text-xs [color-scheme:light] dark:[color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                     />
-                  )}
+                    <span className="text-xs text-muted-foreground">to</span>
+                    <input
+                      type="time"
+                      value={notifSettings?.quietHoursEnd ?? ""}
+                      onChange={(e) => updateNotifSettings.mutate({ quietHoursEnd: e.target.value || null })}
+                      className="h-8 rounded-md border border-border bg-input-background px-3 text-xs [color-scheme:light] dark:[color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                    />
+                    {(notifSettings?.quietHoursStart || notifSettings?.quietHoursEnd) && (
+                      <button
+                        type="button"
+                        onClick={() => updateNotifSettings.mutate({ quietHoursStart: null, quietHoursEnd: null })}
+                        className="text-xs text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="space-y-1.5 pt-1">
                 <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">You will be notified about</p>
                 <ul className="text-xs text-muted-foreground space-y-1">
-                  <li className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-primary shrink-0" />Daily agenda at 8:00 AM</li>
-                  <li className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-amber-500 shrink-0" />Afternoon reminder at 2:00 PM</li>
-                  <li className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-destructive shrink-0" />Overdue check at 9:00 AM</li>
+                  <li className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-primary shrink-0" />Daily agenda (at your configured time, in your timezone)</li>
+                  <li className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-amber-500 shrink-0" />Afternoon reminder at 2:00 PM local time</li>
+                  <li className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-destructive shrink-0" />Overdue check at 9:00 AM local time</li>
                 </ul>
               </div>
             </div>
@@ -338,7 +409,7 @@ export function Settings() {
                       key={value}
                       onClick={() => setTheme(value)}
                       className={cn(
-                        "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium border transition-colors",
+                        "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium border transition-colors cursor-pointer",
                         theme === value
                           ? "bg-primary text-primary-foreground border-primary"
                           : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground",

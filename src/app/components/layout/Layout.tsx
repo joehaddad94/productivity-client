@@ -125,7 +125,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
           <button
             onClick={toggleTheme}
-            className="p-1 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
             <Sun className="size-3.5 hidden dark:block" aria-hidden />
             <Moon className="size-3.5 block dark:hidden" aria-hidden />
@@ -156,7 +156,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="lg:hidden fixed top-0 left-0 right-0 h-12 bg-background border-b border-border/60 z-50 flex items-center justify-between px-3">
         <button
           onClick={toggleSidebar}
-          className="p-1.5 hover:bg-muted rounded-md text-muted-foreground"
+          className="p-1.5 hover:bg-muted rounded-md text-muted-foreground cursor-pointer"
         >
           {sidebarOpen ? <X className="size-4" /> : <Menu className="size-4" />}
         </button>
@@ -165,7 +165,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <NotificationBell />
           <button
             onClick={toggleTheme}
-            className="p-1.5 hover:bg-muted rounded-md text-muted-foreground"
+            className="p-1.5 hover:bg-muted rounded-md text-muted-foreground cursor-pointer"
           >
             <Sun className="size-4 hidden dark:block" aria-hidden />
             <Moon className="size-4 block dark:hidden" aria-hidden />
@@ -192,7 +192,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/40 z-40"
+          className="lg:hidden fixed inset-0 bg-black/40 z-40 cursor-pointer"
           onClick={closeSidebar}
         />
       )}

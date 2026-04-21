@@ -27,8 +27,8 @@ function getMessage(data: unknown): string {
 }
 
 export const notificationsApi = {
-  list: async (workspaceId: string): Promise<AppNotification[]> => {
-    const res = await api(`/workspaces/${workspaceId}/notifications`);
+  list: async (workspaceId: string, skip = 0, take = 50): Promise<AppNotification[]> => {
+    const res = await api(`/workspaces/${workspaceId}/notifications?skip=${skip}&take=${take}`);
     if (res.status === 401) return [];
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
@@ -94,5 +94,10 @@ export const notificationsApi = {
       method: 'DELETE',
       body: JSON.stringify({ endpoint }),
     });
+  },
+
+  sendTestPush: async (): Promise<void> => {
+    const res = await api('/notifications/test', { method: 'POST' });
+    if (!res.ok) throw new Error('Failed');
   },
 };

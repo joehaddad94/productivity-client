@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useState, useRef, useEffect } from "react";
-import { Bell, Check, CheckCheck, Trash2, X, CalendarClock, AlertCircle, Calendar } from "lucide-react";
+import { Bell, CheckCheck, Trash2, X, CalendarClock, AlertCircle, Calendar, CheckSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/app/components/ui/utils";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -15,16 +15,22 @@ import {
 } from "@/app/hooks/useNotificationsApi";
 import type { AppNotification } from "@/lib/types";
 
-const TYPE_CONFIG: Record<AppNotification["type"], { icon: React.ElementType; color: string }> = {
+const PAGE_SIZE = 20;
+
+const TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string }> = {
   due_today: { icon: CalendarClock, color: "text-amber-500" },
   overdue: { icon: AlertCircle, color: "text-destructive" },
   daily_agenda: { icon: Calendar, color: "text-primary" },
+  task_completed: { icon: CheckSquare, color: "text-green-500" },
 };
+
+const DEFAULT_CONFIG = TYPE_CONFIG.daily_agenda;
 
 function NotificationBellComponent() {
   const [open, setOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
   const [openToRight, setOpenToRight] = useState(false);
+  const [take, setTake] = useState(PAGE_SIZE);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -33,6 +39,8 @@ function NotificationBellComponent() {
 
   const { data: notifications = [], isLoading } = useNotificationsQuery(workspaceId, {
     enabled: open,
+    skip: 0,
+    take,
   });
   const { data: unreadCount = 0 } = useUnreadCountQuery(workspaceId);
   const markRead = useMarkReadMutation(workspaceId);
@@ -40,51 +48,68 @@ function NotificationBellComponent() {
   const dismiss = useDismissMutation(workspaceId);
   const dismissAll = useDismissAllMutation(workspaceId);
 
+  const hasMore = notifications.length === take;
+
+  // Reset take when panel closes
+  useEffect(() => {
+    if (!open) setTake(PAGE_SIZE);
+  }, [open]);
+
+  // document.title unread badge
+  useEffect(() => {
+    const base = "Tasky";
+    if (!open && unreadCount > 0) {
+      document.title = `(${unreadCount}) ${base}`;
+    } else {
+      document.title = base;
+    }
+    return () => { document.title = base; };
+  }, [unreadCount, open]);
+
   // Close on outside click
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
       if (
-        panelRef.current &&
-        !panelRef.current.contains(e.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
+        panelRef.current && !panelRef.current.contains(e.target as Node) &&
+        buttonRef.current && !buttonRef.current.contains(e.target as Node)
+      ) setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
+  // Positioning
   useEffect(() => {
     if (!open || !buttonRef.current) return;
-    const buttonRect = buttonRef.current.getBoundingClientRect();
-    const spaceAbove = buttonRect.top;
-    const spaceBelow = window.innerHeight - buttonRect.bottom;
-    const spaceLeft = buttonRect.left;
-    const spaceRight = window.innerWidth - buttonRect.right;
-    const preferredPanelHeight = 360;
-    const preferredPanelWidth = 320;
-    setOpenUpward(spaceBelow < preferredPanelHeight && spaceAbove > spaceBelow);
-    setOpenToRight(spaceRight >= preferredPanelWidth || spaceRight > spaceLeft);
+    const rect = buttonRef.current.getBoundingClientRect();
+    setOpenUpward(window.innerHeight - rect.bottom < 360 && rect.top > window.innerHeight - rect.bottom);
+    setOpenToRight(window.innerWidth - rect.right >= 320 || window.innerWidth - rect.right > rect.left);
   }, [open]);
-
-  function handleOpen() {
-    setOpen((v) => !v);
-  }
 
   function handleMarkRead(n: AppNotification) {
     if (!n.read) markRead.mutate(n.id);
+  }
+
+  function handleDismiss(id: string) {
+    dismiss.mutate(id);
+  }
+
+  function handleDismissAll() {
+    dismissAll.mutate();
+  }
+
+  function handleMarkAllRead() {
+    markAllRead.mutate();
   }
 
   return (
     <div className="relative">
       <button
         ref={buttonRef}
-        onClick={handleOpen}
+        onClick={() => setOpen((v) => !v)}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
-        className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md relative"
+        className="p-1.5 hover:bg-[var(--nav-hover)] rounded-md relative cursor-pointer"
         data-testid="notification-bell"
       >
         <Bell className="size-4" />
@@ -105,8 +130,7 @@ function NotificationBellComponent() {
             "absolute z-50 w-80 rounded-xl overflow-hidden",
             openUpward ? "bottom-full mb-2" : "top-10",
             openToRight ? "left-0" : "right-0",
-            "bg-card border border-border",
-            "shadow-lg"
+            "bg-card border border-border shadow-lg",
           )}
           data-testid="notification-panel"
         >
@@ -122,27 +146,16 @@ function NotificationBellComponent() {
             </div>
             <div className="flex items-center gap-1">
               {unreadCount > 0 && (
-                <button
-                  onClick={() => markAllRead.mutate()}
-                  title="Mark all as read"
-                  className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                >
+                <button onClick={handleMarkAllRead} title="Mark all as read" className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
                   <CheckCheck className="size-3.5" />
                 </button>
               )}
               {notifications.length > 0 && (
-                <button
-                  onClick={() => dismissAll.mutate()}
-                  title="Clear all"
-                  className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-destructive transition-colors"
-                >
+                <button onClick={handleDismissAll} title="Clear all" className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-destructive transition-colors cursor-pointer">
                   <Trash2 className="size-3.5" />
                 </button>
               )}
-              <button
-                onClick={() => setOpen(false)}
-                className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-              >
+              <button onClick={() => setOpen(false)} className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
                 <X className="size-3.5" />
               </button>
             </div>
@@ -150,10 +163,10 @@ function NotificationBellComponent() {
 
           {/* List */}
           <div className="max-h-96 overflow-y-auto">
-            {isLoading ? (
+            {isLoading && notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
                 <Bell className="size-8 opacity-30 animate-pulse" />
-                <p className="text-sm">Loading notifications...</p>
+                <p className="text-sm">Loading…</p>
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
@@ -161,49 +174,58 @@ function NotificationBellComponent() {
                 <p className="text-sm">No notifications</p>
               </div>
             ) : (
-              notifications.map((n) => {
-                const cfg = TYPE_CONFIG[n.type] ?? TYPE_CONFIG.daily_agenda;
-                const Icon = cfg.icon;
-                return (
-                  <div
-                    key={n.id}
-                    onClick={() => handleMarkRead(n)}
-                    className={cn(
-                      "flex gap-3 px-4 py-3 border-b border-border last:border-b-0 cursor-pointer transition-colors",
-                      n.read
-                        ? "hover:bg-accent/50"
-                        : "bg-primary/5 hover:bg-primary/10"
-                    )}
+              <>
+                {notifications.map((n) => {
+                  const cfg = TYPE_CONFIG[n.type] ?? DEFAULT_CONFIG;
+                  const Icon = cfg.icon;
+                  return (
+                    <div
+                      key={n.id}
+                      onClick={() => handleMarkRead(n)}
+                      className={cn(
+                        "flex gap-3 px-4 py-3 border-b border-border last:border-b-0 cursor-pointer transition-colors",
+                        n.read ? "hover:bg-accent/50" : "bg-primary/5 hover:bg-primary/10",
+                      )}
+                    >
+                      <div className={cn("mt-0.5 flex-shrink-0", cfg.color)}>
+                        <Icon className="size-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className={cn("text-xs leading-snug", !n.read ? "font-semibold" : "font-medium")}>
+                            {n.title}
+                          </p>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDismiss(n.id); }}
+                            className="flex-shrink-0 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                            title="Dismiss"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{n.body}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                          </span>
+                          {!n.read && <span className="size-1.5 rounded-full bg-primary" aria-label="unread" />}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {hasMore && (
+                  <button
+                    type="button"
+                    onClick={() => setTake((t) => t + PAGE_SIZE)}
+                    disabled={isLoading}
+                    className="w-full py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors border-t border-border cursor-pointer disabled:cursor-default"
                   >
-                    <div className={cn("mt-0.5 flex-shrink-0", cfg.color)}>
-                      <Icon className="size-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className={cn("text-xs font-medium leading-snug", !n.read && "font-semibold")}>
-                          {n.title}
-                        </p>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); dismiss.mutate(n.id); }}
-                          className="flex-shrink-0 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-destructive transition-colors"
-                          title="Dismiss"
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{n.body}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-muted-foreground">
-                          {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
-                        </span>
-                        {!n.read && (
-                          <span className="size-1.5 rounded-full bg-primary" aria-label="unread" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+                    {isLoading ? "Loading…" : "Load more"}
+                  </button>
+                )}
+              </>
             )}
           </div>
 
