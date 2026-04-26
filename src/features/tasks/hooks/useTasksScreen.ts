@@ -180,14 +180,42 @@ export function useTasksScreen() {
   const handleToggle = useCallback((id: string, completed: boolean) => {
     const terminalId = firstTerminalStatusId(taskStatuses);
     const openId = defaultNonTerminalStatusId(taskStatuses);
+    const nextStatus = completed ? terminalId : openId;
+
+    // Optimistic update — works for both top-level tasks and nested subtasks
+    queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
+      { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+      (old) => {
+        if (!old?.tasks) return old;
+        return {
+          ...old,
+          tasks: old.tasks.map((t) => {
+            if (t.id === id) return { ...t, status: nextStatus };
+            if (t.subtasks?.some((s) => s.id === id))
+              return { ...t, subtasks: t.subtasks!.map((s) => (s.id === id ? { ...s, status: nextStatus } : s)) };
+            return t;
+          }),
+        };
+      },
+    );
+
+    // Debounce the API call — rapid toggles cancel the previous timer
     const existing = pendingToggles.current.get(id);
     if (existing) clearTimeout(existing);
     const timer = setTimeout(() => {
       pendingToggles.current.delete(id);
-      updateMutation.mutate({ id, body: { status: completed ? terminalId : openId } });
+      updateMutation.mutate(
+        { id, body: { status: nextStatus } },
+        {
+          onError: () => {
+            // Revert by re-fetching the source of truth
+            queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+          },
+        },
+      );
     }, 400);
     pendingToggles.current.set(id, timer);
-  }, [taskStatuses, updateMutation]);
+  }, [taskStatuses, updateMutation, queryClient, workspaceId]);
 
   const handleToggleExpand = useCallback((id: string) => {
     setCollapsedIds((prev) => {
@@ -218,6 +246,27 @@ export function useTasksScreen() {
     setSelectedTask(task);
     setShowDetail(true);
   };
+
+  const handleTitleSave = useCallback((id: string, title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
+      { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+      (old) => {
+        if (!old?.tasks) return old;
+        return {
+          ...old,
+          tasks: old.tasks.map((t) => {
+            if (t.id === id) return { ...t, title: trimmed };
+            if (t.subtasks?.some((s) => s.id === id))
+              return { ...t, subtasks: t.subtasks!.map((s) => (s.id === id ? { ...s, title: trimmed } : s)) };
+            return t;
+          }),
+        };
+      },
+    );
+    updateMutation.mutate({ id, body: { title: trimmed } });
+  }, [queryClient, workspaceId, updateMutation]);
 
   const handleCreate = (data: TaskFormData) => {
     createMutation.mutate(data);
@@ -270,6 +319,7 @@ export function useTasksScreen() {
     handleToggleExpand,
     handleDelete,
     handleSelectTask,
+    handleTitleSave,
     handleLoadMore: () => setLimit((l) => l + 50),
   };
 }

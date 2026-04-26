@@ -19,6 +19,7 @@ import {
   ArrowUpDown,
   AlertCircle,
   X,
+  PanelRight,
 } from "lucide-react";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import { isTaskStatusTerminal } from "../lib/taskStatusHelpers";
@@ -96,6 +97,7 @@ const COL_PRIORITY = "w-[72px]";
 const COL_DUE = "w-[96px]";
 const COL_PROJECT = "w-[116px]";
 const COL_ICON = "w-10";
+const COL_ACTIONS = "w-[52px]";
 
 const FILTER_BTN =
   "inline-flex items-center gap-1 !h-7 px-2 rounded-md text-xs font-normal shrink-0 cursor-pointer transition-colors " +
@@ -230,6 +232,10 @@ const TaskRow = memo(function TaskRow({
   projects,
   onProjectChange,
   taskStatuses,
+  isEditing = false,
+  onEditStart,
+  onEditSave,
+  onEditCancel,
 }: {
   task: Task;
   depth?: number;
@@ -251,6 +257,10 @@ const TaskRow = memo(function TaskRow({
   projects: ProjectOption[];
   onProjectChange: (id: string, projectId: string | undefined) => void;
   taskStatuses: TaskStatusDefinition[];
+  isEditing?: boolean;
+  onEditStart?: () => void;
+  onEditSave?: (title: string) => void;
+  onEditCancel?: () => void;
 }) {
   const hasSubtasks = !!task.subtasks?.length;
   const isCompleted = terminalIds.has(task.status);
@@ -271,13 +281,14 @@ const TaskRow = memo(function TaskRow({
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop?.(task.id); }}
       style={depth > 0 ? { paddingLeft: `${depth * 36}px` } : undefined}
       className={cn(
-        "group flex items-center transition-colors cursor-pointer",
+        "group flex items-center transition-colors",
+        isSelectMode ? "cursor-pointer" : "cursor-default",
         depth === 0 ? "hover:bg-muted/30" : "hover:bg-muted/20 border-l-2 border-border/20",
         isDragOver && "bg-primary/5",
         isSelected && "bg-primary/5",
         isCompleted && depth === 0 && "opacity-60",
       )}
-      onClick={() => isSelectMode ? onToggleSelect?.(task.id) : onSelect(task)}
+      onClick={() => isSelectMode ? onToggleSelect?.(task.id) : undefined}
     >
       {/* Icon column */}
       <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
@@ -307,15 +318,37 @@ const TaskRow = memo(function TaskRow({
             <GripVertical className="size-3 text-muted-foreground/25 shrink-0 opacity-0 group-hover:opacity-100 cursor-grab" />
           )}
           <div className="flex-1 min-w-0">
-            <span className={cn(
-              "block truncate leading-snug",
-              depth === 0 ? "text-sm font-medium" : "text-xs text-muted-foreground",
-              isCompleted && "line-through opacity-50",
-            )}>
-              {task.title}
-            </span>
-            {task.description && depth === 0 && (
-              <span className="text-xs text-muted-foreground/70 truncate block mt-0.5">{task.description}</span>
+            {isEditing ? (
+              <input
+                autoFocus
+                defaultValue={task.title}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); onEditSave?.((e.target as HTMLInputElement).value); }
+                  if (e.key === "Escape") { e.preventDefault(); onEditCancel?.(); }
+                }}
+                onBlur={(e) => onEditSave?.(e.target.value)}
+                className={cn(
+                  "w-full bg-transparent outline-none leading-snug border-b border-primary/40 pb-0.5",
+                  depth === 0 ? "text-sm font-medium" : "text-xs text-muted-foreground",
+                )}
+              />
+            ) : (
+              <>
+                <span
+                  className={cn(
+                    "block truncate leading-snug cursor-text",
+                    depth === 0 ? "text-sm font-medium" : "text-xs text-muted-foreground",
+                    isCompleted && "line-through opacity-50",
+                  )}
+                  onClick={(e) => { e.stopPropagation(); onEditStart?.(); }}
+                >
+                  {task.title}
+                </span>
+                {task.description && depth === 0 && (
+                  <span className="text-xs text-muted-foreground/70 truncate block mt-0.5">{task.description}</span>
+                )}
+              </>
             )}
           </div>
           {/* Mobile: read-only status chip (no Select — avoids duplicate) */}
@@ -429,16 +462,25 @@ const TaskRow = memo(function TaskRow({
         )}
       </div>
 
-      {/* Delete */}
-      <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
+      {/* Details + Delete */}
+      <div className={cn(COL_ACTIONS, "flex items-center justify-center gap-0.5 shrink-0 py-2.5")}>
         {depth === 0 && (
-          <button
-            title="Delete task"
-            onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id); }}
-            className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all cursor-pointer"
-          >
-            <Trash2 className="size-3.5" />
-          </button>
+          <>
+            <button
+              title="Open details"
+              onClick={(e) => { e.stopPropagation(); onSelect(task); }}
+              className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer"
+            >
+              <PanelRight className="size-3.5" />
+            </button>
+            <button
+              title="Delete task"
+              onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id); }}
+              className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all cursor-pointer"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </>
         )}
       </div>
     </div>
@@ -488,6 +530,10 @@ interface VirtualTaskListProps {
   onDragOver: (id: string) => void;
   onDrop: (id: string) => void;
   onProjectChange: (id: string, projectId: string | undefined) => void;
+  editingId: string | null;
+  onEditStart: (id: string) => void;
+  onEditSave: (id: string, title: string) => void;
+  onEditCancel: () => void;
 }
 
 const VirtualTaskList = memo(function VirtualTaskList({
@@ -514,6 +560,10 @@ const VirtualTaskList = memo(function VirtualTaskList({
   onDragOver,
   onDrop,
   onProjectChange,
+  editingId,
+  onEditStart,
+  onEditSave,
+  onEditCancel,
 }: VirtualTaskListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -549,7 +599,7 @@ const VirtualTaskList = memo(function VirtualTaskList({
           <div className={cn(COL_PRIORITY, "shrink-0 flex items-center justify-center py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Priority</div>
           <div className={cn(COL_DUE, "shrink-0 flex items-center justify-center py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Due</div>
           <div className={cn(COL_PROJECT, "hidden md:flex items-center justify-center shrink-0 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Project</div>
-          <div className={cn(COL_ICON, "shrink-0")} />
+          <div className={cn(COL_ACTIONS, "shrink-0")} />
         </div>
 
         <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
@@ -597,6 +647,10 @@ const VirtualTaskList = memo(function VirtualTaskList({
                   projects={projects}
                   onProjectChange={onProjectChange}
                   taskStatuses={taskStatuses}
+                  isEditing={editingId === task.id}
+                  onEditStart={() => onEditStart(task.id)}
+                  onEditSave={(title) => onEditSave(task.id, title)}
+                  onEditCancel={onEditCancel}
                 />
               </div>
             );
@@ -613,6 +667,7 @@ export function TasksScreen() {
   const [createOpen, setCreateOpen] = useState(false);
   const [drawerTask, setDrawerTask] = useState<Task | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [projectFilterOpen, setProjectFilterOpen] = useState(false);
   const [statusesSheetOpen, setStatusesSheetOpen] = useState(false);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
@@ -660,6 +715,7 @@ export function TasksScreen() {
     handleToggle,
     handleToggleExpand,
     handleDelete,
+    handleTitleSave,
     handleLoadMore,
   } = useTasksScreen();
 
@@ -716,6 +772,13 @@ export function TasksScreen() {
     setDrawerTask(task);
     setDrawerOpen(true);
   }, []);
+
+  const handleEditStart = useCallback((id: string) => setEditingId(id), []);
+  const handleEditSave = useCallback((id: string, title: string) => {
+    setEditingId(null);
+    handleTitleSave(id, title);
+  }, [handleTitleSave]);
+  const handleEditCancel = useCallback(() => setEditingId(null), []);
 
   const handleStatusChange = useCallback((id: string, status: string) => {
     updateMutation.mutate({ id, body: { status } });
@@ -1048,6 +1111,10 @@ export function TasksScreen() {
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
                   onProjectChange={handleProjectChange}
+                  editingId={editingId}
+                  onEditStart={handleEditStart}
+                  onEditSave={handleEditSave}
+                  onEditCancel={handleEditCancel}
                 />
               </TabsContent>
             ))}
