@@ -159,13 +159,27 @@ export function useUpdateTaskMutation(
       );
     },
     onError: (err, vars, context, mutation) => {
-      // Re-fetch on error to restore correct server state
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
       options?.onError?.(err, vars, context, mutation);
     },
     onSuccess: (data, variables, context, mutation) => {
+      // Write server response directly — avoids the invalidate→refetch→flash cycle
+      queryClient.setQueriesData<TasksPage>(
+        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+        (old) => {
+          if (!old?.tasks) return old;
+          return {
+            ...old,
+            tasks: old.tasks.map((t) => {
+              if (t.id === data.id) return data;
+              if (t.subtasks?.some((s) => s.id === data.id))
+                return { ...t, subtasks: t.subtasks!.map((s) => (s.id === data.id ? data : s)) };
+              return t;
+            }),
+          };
+        },
+      );
       queryClient.setQueryData(TASK_QUERY_KEY(workspaceId ?? "", data.id), data);
-      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });

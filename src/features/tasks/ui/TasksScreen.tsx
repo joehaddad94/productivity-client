@@ -188,7 +188,7 @@ const StatusSelect = memo(function StatusSelect({
   return (
     <Select value={task.status} onValueChange={(v) => onStatusChange(task.id, v)}>
       <SelectTrigger className={cn(
-        "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40",
+        "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40 cursor-pointer",
         isCompleted
           ? "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5"
           : "border-border/60 text-muted-foreground",
