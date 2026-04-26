@@ -167,16 +167,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* User + logout */}
       <div className="p-2 border-t border-border/40">
-        <div className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md mb-1">
+        {/* Name row */}
+        <div className="flex items-center gap-2 px-2.5 pt-1.5 pb-1">
           <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-semibold shrink-0">
             {initials}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-medium truncate">{user?.name ?? user?.email ?? "User"}</div>
-          </div>
+          <span className="text-xs font-medium leading-tight">{user?.name ?? user?.email ?? "User"}</span>
+        </div>
+        {/* Actions row */}
+        <div className="flex items-center gap-0.5 px-1.5 pb-1">
           <button
             onClick={toggleTheme}
-            className="p-1 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            className="p-1.5 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
             <Sun className="size-3.5 hidden dark:block" aria-hidden />
             <Moon className="size-3.5 block dark:hidden" aria-hidden />
@@ -184,28 +186,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setReportBugOpen(true)}
-            className="p-1 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            className="p-1.5 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             aria-label="Report a bug"
             title="Report a bug"
           >
             <Bug className="size-3.5" />
           </button>
           <NotificationBell />
+          <div className="flex-1" />
+          <Button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive gap-1.5"
+          >
+            {isLoggingOut ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <LogOut className="size-3.5" />
+            )}
+            {isLoggingOut ? "Logging out…" : "Log out"}
+          </Button>
         </div>
-        <Button
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-          size="sm"
-          variant="ghost"
-          className="w-full text-muted-foreground hover:text-destructive justify-start gap-2"
-        >
-          {isLoggingOut ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <LogOut className="size-3.5" />
-          )}
-          {isLoggingOut ? "Logging out…" : "Log out"}
-        </Button>
       </div>
     </div>
   );

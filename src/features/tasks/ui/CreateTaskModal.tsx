@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/app/components/ui/select";
+import { Calendar } from "lucide-react";
 import { cn } from "@/app/components/ui/utils";
 import type { CreateTaskBody } from "@/lib/api/tasks-api";
 import { ProjectPicker } from "./ProjectPicker";
@@ -30,7 +31,7 @@ const controlFocus =
   "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/35 focus-visible:outline-none";
 
 const selectTriggerClass = cn(
-  "h-8 w-full justify-between border-border bg-input-background text-xs font-normal shadow-sm",
+  "h-8 w-full justify-between border-border bg-input-background text-xs font-normal shadow-sm cursor-pointer",
   "hover:bg-muted/40 hover:border-border",
   "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/35",
 );
@@ -223,18 +224,22 @@ export function CreateTaskModal({
                 <Label htmlFor="new-task-due" className={fieldLabel}>
                   Due date
                 </Label>
-                <Input
-                  id="new-task-due"
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className={cn(
-                    "h-8 min-h-8 w-full py-0 text-xs leading-none",
-                    controlRing,
-                    controlFocus,
-                    "[color-scheme:light] dark:[color-scheme:dark]",
-                  )}
-                />
+                <div className="relative">
+                  <Calendar className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                  <Input
+                    id="new-task-due"
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className={cn(
+                      "h-8 min-h-8 w-full py-0 pl-8 text-xs leading-none cursor-pointer",
+                      controlRing,
+                      controlFocus,
+                      "[color-scheme:light] dark:[color-scheme:dark]",
+                      "[&::-webkit-calendar-picker-indicator]:hidden",
+                    )}
+                  />
+                </div>
               </div>
             </div>
 
@@ -249,7 +254,7 @@ export function CreateTaskModal({
                   value={dueTime}
                   onChange={(e) => setDueTime(e.target.value)}
                   className={cn(
-                    "h-8 max-w-[12rem] py-0 text-xs",
+                    "h-8 max-w-[12rem] py-0 text-xs cursor-pointer",
                     controlRing,
                     controlFocus,
                     "[color-scheme:light] dark:[color-scheme:dark]",

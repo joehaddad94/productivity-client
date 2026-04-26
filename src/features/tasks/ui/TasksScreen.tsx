@@ -97,6 +97,11 @@ const COL_DUE = "w-[96px]";
 const COL_PROJECT = "w-[116px]";
 const COL_ICON = "w-10";
 
+const FILTER_BTN =
+  "inline-flex items-center gap-1 !h-7 px-2 rounded-md text-xs font-normal shrink-0 cursor-pointer transition-colors " +
+  "text-muted-foreground hover:text-foreground hover:bg-muted/60 dark:hover:bg-muted " +
+  "border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none";
+
 // ─── Flat row type for virtualized list ───────────────────────────────────────
 
 type FlatRow =
@@ -134,7 +139,7 @@ const RowProjectPicker = memo(function RowProjectPicker({
         <button
           type="button"
           onClick={(e) => e.stopPropagation()}
-          className="text-[11px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded-md hover:bg-muted/50 truncate w-full text-left transition-colors cursor-pointer"
+          className="text-[11px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded-md hover:bg-muted/50 truncate max-w-full text-center transition-colors cursor-pointer"
         >
           {name ?? <span className="opacity-30">—</span>}
         </button>
@@ -264,7 +269,7 @@ const TaskRow = memo(function TaskRow({
       onDragStart={(e) => { e.stopPropagation(); onDragStart?.(task.id); }}
       onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOver?.(task.id); }}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop?.(task.id); }}
-      style={depth > 0 ? { paddingLeft: `${depth * 20}px` } : undefined}
+      style={depth > 0 ? { paddingLeft: `${depth * 36}px` } : undefined}
       className={cn(
         "group flex items-center transition-colors cursor-pointer",
         depth === 0 ? "hover:bg-muted/30" : "hover:bg-muted/20 border-l-2 border-border/20",
@@ -376,7 +381,7 @@ const TaskRow = memo(function TaskRow({
 
       {/* Desktop: Status — single instance (not duplicated for mobile) */}
       {depth === 0 ? (
-        <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center shrink-0 py-2.5 pr-3", COL_STATUS)}>
+        <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_STATUS)}>
           <StatusSelect
             task={task}
             taskStatuses={taskStatuses}
@@ -390,7 +395,7 @@ const TaskRow = memo(function TaskRow({
       )}
 
       {/* Desktop: Priority */}
-      <div className={cn("hidden sm:flex items-center shrink-0 py-2.5 pr-3", COL_PRIORITY)}>
+      <div className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_PRIORITY)}>
         {depth === 0 && task.priority && (
           <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide", PRIORITY_PILL[task.priority])}>
             {task.priority[0].toUpperCase() + task.priority.slice(1)}
@@ -399,22 +404,22 @@ const TaskRow = memo(function TaskRow({
       </div>
 
       {/* Desktop: Due */}
-      <div className={cn("hidden sm:flex items-center shrink-0 py-2.5 pr-3", COL_DUE)}>
+      <div className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_DUE)}>
         {depth === 0 && task.dueDate && (
-          <span className={cn("flex flex-col gap-0.5", isOverdue ? "text-red-500" : "text-muted-foreground")}>
+          <span className={cn("flex flex-col items-center gap-0.5", isOverdue ? "text-red-500" : "text-muted-foreground")}>
             <span className="flex items-center gap-1 text-[11px] font-medium">
               <Calendar className="size-3 shrink-0" />
               {formatDate(task.dueDate, todayYear)}
             </span>
             {task.dueTime && (
-              <span className="pl-4 text-[10px] opacity-70 font-normal">{formatTime(task.dueTime)}</span>
+              <span className="text-[10px] opacity-70 font-normal">{formatTime(task.dueTime)}</span>
             )}
           </span>
         )}
       </div>
 
       {/* Desktop: Project — lazy picker */}
-      <div onClick={(e) => e.stopPropagation()} className={cn("hidden md:flex items-center shrink-0 py-2.5 pr-2", COL_PROJECT)}>
+      <div onClick={(e) => e.stopPropagation()} className={cn("hidden md:flex items-center justify-center shrink-0 py-2.5", COL_PROJECT)}>
         {depth === 0 && (
           <RowProjectPicker
             projects={projects}
@@ -530,23 +535,23 @@ const VirtualTaskList = memo(function VirtualTaskList({
 
   return (
     <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
-      {/* Column header — desktop only */}
-      <div className="hidden sm:flex items-center border-b border-border/40 bg-muted/30">
-        <div className={cn(COL_ICON, "shrink-0")} />
-        <div className="flex-1 min-w-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Task</div>
-        <div className={cn(COL_STATUS, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Status</div>
-        <div className={cn(COL_PRIORITY, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Priority</div>
-        <div className={cn(COL_DUE, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Due</div>
-        <div className={cn(COL_PROJECT, "hidden md:block shrink-0 py-1.5 pr-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Project</div>
-        <div className={cn(COL_ICON, "shrink-0")} />
-      </div>
-
-      {/* Virtualized rows */}
+      {/* Scroll container — header lives inside so both share the same width context (scrollbar included) */}
       <div
         ref={parentRef}
         className="overflow-auto"
-        style={{ maxHeight: "calc(100vh - 320px)", minHeight: "120px" }}
+        style={{ maxHeight: "calc(100vh - 320px)" }}
       >
+        {/* Column header — sticky so it stays visible while scrolling */}
+        <div className="hidden sm:flex items-center border-b border-border/40 bg-muted/30 sticky top-0 z-10">
+          <div className={cn(COL_ICON, "shrink-0")} />
+          <div className="flex-1 min-w-0 py-1.5 pl-5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Task</div>
+          <div className={cn(COL_STATUS, "shrink-0 flex items-center justify-center py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Status</div>
+          <div className={cn(COL_PRIORITY, "shrink-0 flex items-center justify-center py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Priority</div>
+          <div className={cn(COL_DUE, "shrink-0 flex items-center justify-center py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Due</div>
+          <div className={cn(COL_PROJECT, "hidden md:flex items-center justify-center shrink-0 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Project</div>
+          <div className={cn(COL_ICON, "shrink-0")} />
+        </div>
+
         <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
           {virtualizer.getVirtualItems().map((vItem) => {
             const row = rows[vItem.index]!;
@@ -865,7 +870,7 @@ export function TasksScreen() {
                   size="sm"
                   role="combobox"
                   disabled={!workspaceId || projectsLoading}
-                  className={cn("h-7 text-xs px-2 font-normal gap-1 shrink-0", filterProjectId !== "all" && "text-foreground font-medium")}
+                  className={cn(FILTER_BTN, filterProjectId !== "all" && "text-foreground font-medium")}
                 >
                   {projectFilterLabel}
                   <ChevronDown className="size-3 opacity-50" />
@@ -894,7 +899,7 @@ export function TasksScreen() {
             </Popover>
 
             <Select value={filterPriority} onValueChange={(v) => setFilterPriority(v as typeof filterPriority)}>
-              <SelectTrigger className={cn("h-7 text-xs border-0 bg-transparent shadow-none w-auto px-2 gap-1 font-normal shrink-0", filterPriority !== "all" && "font-medium text-foreground")}>
+              <SelectTrigger className={cn(FILTER_BTN, "w-auto", filterPriority !== "all" && "text-foreground font-medium")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -910,8 +915,8 @@ export function TasksScreen() {
               onClick={() => setShowOverdueOnly((v) => !v)}
               disabled={!workspaceId}
               className={cn(
-                "flex items-center gap-1 h-7 px-2 rounded-md text-xs transition-colors shrink-0",
-                showOverdueOnly ? "text-red-500 font-medium bg-red-500/10" : "text-muted-foreground hover:text-foreground",
+                FILTER_BTN,
+                showOverdueOnly && "text-red-500 font-medium bg-red-500/10 hover:text-red-500 hover:bg-red-500/15 dark:hover:bg-red-500/20",
               )}
             >
               <AlertCircle className="size-3.5" />
@@ -922,7 +927,7 @@ export function TasksScreen() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="flex items-center gap-0.5 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
+                className={FILTER_BTN}
                 title="Clear all filters"
               >
                 <X className="size-3" />
@@ -933,7 +938,7 @@ export function TasksScreen() {
             <div className="w-px h-4 bg-border/60 shrink-0 mx-1" />
 
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-              <SelectTrigger className="h-7 text-xs border-0 bg-transparent shadow-none w-auto px-2 gap-1 font-normal shrink-0">
+              <SelectTrigger className={cn(FILTER_BTN, "w-auto")}>
                 <ArrowUpDown className="size-3 opacity-50 shrink-0" />
                 <SelectValue />
               </SelectTrigger>
@@ -1004,12 +1009,12 @@ export function TasksScreen() {
                   <TabsTrigger
                     key={s.id}
                     value={s.id}
-                    className="cursor-pointer text-xs h-9 px-4 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground font-medium bg-transparent shadow-none"
+                    className="cursor-pointer text-xs h-9 px-4 shrink-0 rounded-none font-medium text-muted-foreground bg-transparent shadow-none border-x-0 border-t-0 border-b-2 border-b-transparent data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent dark:data-[state=active]:border-b-primary focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none focus-visible:border-b-transparent"
                   >
                     {s.name}
                     <span className={cn(
                       "ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-                      activeStatusTab === s.id ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                      activeStatusTab === s.id ? "bg-primary/15 dark:bg-primary/25 text-primary" : "bg-muted text-muted-foreground",
                     )}>
                       {showFraction ? `${count}/${colTasks.length}` : count}
                     </span>

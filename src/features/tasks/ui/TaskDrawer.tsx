@@ -11,7 +11,7 @@ import { Checkbox } from "@/app/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { cn } from "@/app/components/ui/utils";
 import { useNotesQuery, useCreateNoteMutation } from "@/app/hooks/useNotesApi";
-import { useCreateTaskMutation, useDeleteTaskMutation, useLogTaskFocusMutation } from "@/app/hooks/useTasksApi";
+import { useCreateTaskMutation, useDeleteTaskMutation, useLogTaskFocusMutation, useUpdateTaskMutation } from "@/app/hooks/useTasksApi";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 import { activeTaskStatuses, firstTerminalStatusId, defaultNonTerminalStatusId, isTaskStatusTerminal } from "../lib/taskStatusHelpers";
@@ -38,7 +38,7 @@ function InlineDescription({ value, onChange }: { value: string; onChange: (v: s
     <button
       type="button"
       onClick={() => setEditing(true)}
-      className="w-full text-left"
+      className="w-full text-left cursor-text"
     >
       {value ? (
         <p className="text-sm text-muted-foreground leading-relaxed hover:opacity-70 transition-opacity">
@@ -93,6 +93,8 @@ export function TaskDrawer({
   const [isDirty, setIsDirty] = useState(false);
   const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+  const [editingSubtaskTitle, setEditingSubtaskTitle] = useState("");
   const subtaskInputRef = useRef<HTMLInputElement>(null);
   const [logMinutes, setLogMinutes] = useState("");
   const [focusMinutes, setFocusMinutes] = useState(0);
@@ -131,6 +133,10 @@ export function TaskDrawer({
     onError: () => {},
   });
 
+  const updateSubtaskMutation = useUpdateTaskMutation(workspaceId, {
+    onError: () => {},
+  });
+
   const logFocusMutation = useLogTaskFocusMutation(workspaceId, {
     onSuccess: (updated) => {
       setFocusMinutes(updated.focusMinutes ?? 0);
@@ -157,6 +163,13 @@ export function TaskDrawer({
         },
       },
     );
+  }
+
+  function handleSaveSubtaskTitle(id: string, newTitle: string) {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    setSubtasks((prev) => prev.map((s) => s.id === id ? { ...s, title: trimmed } : s));
+    updateSubtaskMutation.mutate({ id, body: { title: trimmed } });
   }
 
   function handleDeleteSubtask(id: string) {
@@ -202,7 +215,7 @@ export function TaskDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:w-[420px] flex flex-col p-0 gap-0">
         <SheetHeader className="px-5 pt-5 pb-4 border-b border-border/40">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pr-7">
             <SheetTitle className="text-sm font-medium text-muted-foreground">Task details</SheetTitle>
             {projectId && (
               <Link
@@ -219,7 +232,7 @@ export function TaskDrawer({
             ref={titleRef}
             value={title}
             onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
-            className="w-full text-base font-semibold bg-transparent resize-none outline-none leading-snug mt-1 placeholder:text-muted-foreground/50 overflow-hidden"
+            className="w-full text-base font-semibold bg-transparent resize-none outline-none leading-snug mt-1 placeholder:text-muted-foreground/50"
             rows={1}
             placeholder="Task title…"
           />
@@ -237,7 +250,7 @@ export function TaskDrawer({
                 value={status || statusOptions[0]?.id}
                 onValueChange={(v) => { setStatus(v); setIsDirty(true); }}
               >
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-8 text-xs cursor-pointer">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -252,7 +265,7 @@ export function TaskDrawer({
             <div>
               <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Priority</Label>
               <Select value={priority} onValueChange={(v) => { setPriority(v as typeof priority); setIsDirty(true); }}>
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-8 text-xs cursor-pointer">
                   <SelectValue placeholder="None" />
                 </SelectTrigger>
                 <SelectContent>
@@ -288,7 +301,7 @@ export function TaskDrawer({
                 type="date"
                 value={dueDate}
                 onChange={(e) => { setDueDate(e.target.value); setIsDirty(true); }}
-                className="h-8 w-full px-2.5 text-xs rounded-md border border-border/60 bg-transparent outline-none focus:border-primary/40 transition-colors"
+                className="h-8 w-full px-2.5 text-xs rounded-md border border-border/60 bg-transparent outline-none focus:border-primary/40 transition-colors cursor-pointer"
               />
             </div>
             <div>
@@ -298,7 +311,7 @@ export function TaskDrawer({
                 value={dueTime}
                 onChange={(e) => { setDueTime(e.target.value); setIsDirty(true); }}
                 disabled={!dueDate}
-                className="h-8 w-full px-2.5 text-xs rounded-md border border-border/60 bg-transparent outline-none focus:border-primary/40 transition-colors disabled:opacity-40"
+                className="h-8 w-full px-2.5 text-xs rounded-md border border-border/60 bg-transparent outline-none focus:border-primary/40 transition-colors disabled:opacity-40 cursor-pointer"
               />
             </div>
           </div>
@@ -306,7 +319,7 @@ export function TaskDrawer({
           <div className="px-5 pb-4">
             <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Repeat</Label>
             <Select value={recurrenceRule} onValueChange={(v) => { setRecurrenceRule(v as typeof recurrenceRule); setIsDirty(true); }}>
-              <SelectTrigger className="h-8 text-xs w-40">
+              <SelectTrigger className="h-8 text-xs w-40 cursor-pointer">
                 <SelectValue placeholder="No repeat" />
               </SelectTrigger>
               <SelectContent>
@@ -328,7 +341,7 @@ export function TaskDrawer({
               <button
                 type="button"
                 onClick={() => subtaskInputRef.current?.focus()}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                 aria-label="Add subtask"
               >
                 <Plus className="size-3.5" />
@@ -369,13 +382,33 @@ export function TaskDrawer({
                         );
                       }}
                     />
-                    <span className={cn("flex-1 text-sm", done && "line-through text-muted-foreground")}>
-                      {sub.title}
-                    </span>
+                    {editingSubtaskId === sub.id ? (
+                      <input
+                        autoFocus
+                        value={editingSubtaskTitle}
+                        onChange={(e) => setEditingSubtaskTitle(e.target.value)}
+                        onBlur={() => {
+                          handleSaveSubtaskTitle(sub.id, editingSubtaskTitle);
+                          setEditingSubtaskId(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { e.preventDefault(); handleSaveSubtaskTitle(sub.id, editingSubtaskTitle); setEditingSubtaskId(null); }
+                          if (e.key === "Escape") setEditingSubtaskId(null);
+                        }}
+                        className="flex-1 text-sm bg-transparent outline-none border-b border-primary/30 pb-0.5 transition-colors"
+                      />
+                    ) : (
+                      <span
+                        className={cn("flex-1 text-sm cursor-text select-none", done && "line-through text-muted-foreground")}
+                        onClick={() => { setEditingSubtaskId(sub.id); setEditingSubtaskTitle(sub.title); }}
+                      >
+                        {sub.title}
+                      </span>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleDeleteSubtask(sub.id)}
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0"
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0 cursor-pointer"
                       aria-label="Delete subtask"
                     >
                       <Trash2 className="size-3" />
@@ -401,7 +434,7 @@ export function TaskDrawer({
                   type="button"
                   onClick={handleAddSubtask}
                   disabled={createSubtaskMutation.isPending}
-                  className="text-xs text-primary hover:opacity-70 transition-opacity shrink-0"
+                  className="text-xs text-primary hover:opacity-70 transition-opacity shrink-0 cursor-pointer"
                 >
                   {createSubtaskMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Add"}
                 </button>
@@ -432,7 +465,7 @@ export function TaskDrawer({
                   type="button"
                   onClick={handleLogFocus}
                   disabled={logFocusMutation.isPending}
-                  className="text-xs text-primary hover:opacity-70 transition-opacity shrink-0"
+                  className="text-xs text-primary hover:opacity-70 transition-opacity shrink-0 cursor-pointer"
                 >
                   {logFocusMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Log"}
                 </button>

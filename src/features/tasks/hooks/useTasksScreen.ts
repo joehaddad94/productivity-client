@@ -47,6 +47,7 @@ export function useTasksScreen() {
   const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map()
   );
+  const pendingToggles = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const debouncedSearch = useDebounce(searchQuery, 300);
   const { data: page, isLoading, error } = useTasksQuery(workspaceId, {
@@ -176,14 +177,17 @@ export function useTasksScreen() {
     });
   }, []);
 
-  const handleToggle = (id: string, completed: boolean) => {
+  const handleToggle = useCallback((id: string, completed: boolean) => {
     const terminalId = firstTerminalStatusId(taskStatuses);
     const openId = defaultNonTerminalStatusId(taskStatuses);
-    updateMutation.mutate({
-      id,
-      body: { status: completed ? terminalId : openId },
-    });
-  };
+    const existing = pendingToggles.current.get(id);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      pendingToggles.current.delete(id);
+      updateMutation.mutate({ id, body: { status: completed ? terminalId : openId } });
+    }, 400);
+    pendingToggles.current.set(id, timer);
+  }, [taskStatuses, updateMutation]);
 
   const handleToggleExpand = useCallback((id: string) => {
     setCollapsedIds((prev) => {
