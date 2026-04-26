@@ -16,6 +16,7 @@ export type AuthUser = {
   email: string;
   name: string | null;
   isAdmin: boolean;
+  timezone: string | null;
 };
 
 function api(path: string, options: RequestInit = {}) {
@@ -89,10 +90,10 @@ export const authApi = {
     if (!res.ok) throw new Error(getMessage(data));
     const u = (data as MeResponse).user;
     if (!u) return null;
-    return { ...u, isAdmin: u.isAdmin ?? false };
+    return { ...u, isAdmin: u.isAdmin ?? false, timezone: u.timezone ?? null };
   },
 
-  updateMe: async (data: { name?: string }): Promise<AuthUser> => {
+  updateMe: async (data: { name?: string; timezone?: string }): Promise<AuthUser> => {
     const res = await api("/auth/me", {
       method: "PATCH",
       body: JSON.stringify(data),

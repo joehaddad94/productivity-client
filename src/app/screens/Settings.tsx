@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { User, Bell, Palette, Lock, Monitor, Sun, Moon, Loader2, CalendarDays, Check, Trash2 } from "lucide-react";
+import { User, Bell, Palette, Lock, Monitor, Sun, Moon, Loader2, CalendarDays, Check, Trash2, Timer } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Label } from "@/app/components/ui/label";
 import { Input } from "@/app/components/ui/input";
@@ -17,14 +17,16 @@ import { useNotificationSettingsQuery, useUpdateNotificationSettingsMutation } f
 import { notificationsApi } from "@/lib/api/notifications-api";
 import { useCalendarConnectionsQuery, useDisconnectCalendarMutation } from "@/app/hooks/useCalendarConnectionsApi";
 import { calendarConnectionsApi } from "@/lib/api/calendar-connections-api";
+import { usePomodoroSettings } from "@/app/components/pomodoro";
 
-type TabId = "profile" | "notifications" | "calendars" | "appearance" | "security";
+type TabId = "profile" | "notifications" | "calendars" | "appearance" | "focus" | "security";
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "calendars", label: "Calendars", icon: CalendarDays },
   { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "focus", label: "Focus", icon: Timer },
   { id: "security", label: "Security", icon: Lock },
 ];
 
@@ -59,6 +61,8 @@ export function Settings() {
       window.history.replaceState({}, "", url.toString());
     }
   }, []);
+
+  const { settings: pomodoroSettings, update: updatePomodoro } = usePomodoroSettings();
 
   const { data: notifSettings } = useNotificationSettingsQuery();
   const updateNotifSettings = useUpdateNotificationSettingsMutation();
@@ -419,6 +423,97 @@ export function Settings() {
                       {label}
                     </button>
                   ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Focus / Pomodoro */}
+          {activeTab === "focus" && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-sm font-semibold mb-0.5">Focus Timer</h2>
+                <p className="text-xs text-muted-foreground">Configure your Pomodoro sessions</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {(
+                    [
+                      { key: "workMinutes", label: "Focus duration", unit: "min", min: 1, max: 120 },
+                      { key: "shortBreakMinutes", label: "Short break", unit: "min", min: 1, max: 60 },
+                      { key: "longBreakMinutes", label: "Long break", unit: "min", min: 1, max: 120 },
+                      { key: "sessionsBeforeLongBreak", label: "Sessions per long break", unit: "", min: 1, max: 10 },
+                    ] as const
+                  ).map(({ key, label, unit, min, max }) => (
+                    <div key={key} className="space-y-1.5">
+                      <Label className="text-xs font-medium">{label}</Label>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="number"
+                          min={min}
+                          max={max}
+                          value={pomodoroSettings[key]}
+                          onChange={(e) => {
+                            const v = Math.max(min, Math.min(max, parseInt(e.target.value) || min));
+                            updatePomodoro({ [key]: v });
+                          }}
+                          className="h-8 text-xs w-20"
+                        />
+                        {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Separator className="opacity-40" />
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Auto-start next session</p>
+                      <p className="text-xs text-muted-foreground">Automatically start the timer after each session</p>
+                    </div>
+                    <Switch
+                      checked={pomodoroSettings.autoStart}
+                      onCheckedChange={(v) => updatePomodoro({ autoStart: v })}
+                    />
+                  </div>
+
+                  <Separator className="opacity-40" />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">In-app alerts</p>
+                      <p className="text-xs text-muted-foreground">Show a toast notification when a session ends</p>
+                    </div>
+                    <Switch
+                      checked={pomodoroSettings.inAppToasts}
+                      onCheckedChange={(v) => updatePomodoro({ inAppToasts: v })}
+                    />
+                  </div>
+
+                  <Separator className="opacity-40" />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Browser notifications</p>
+                      <p className="text-xs text-muted-foreground">Alert you even when the tab is in the background</p>
+                    </div>
+                    <Switch
+                      checked={pomodoroSettings.browserNotifications}
+                      onCheckedChange={async (v) => {
+                        if (v) {
+                          const permission = await Notification.requestPermission();
+                          if (permission !== "granted") {
+                            toast.error("Notification permission denied. Enable it in your browser settings.");
+                            return;
+                          }
+                        }
+                        updatePomodoro({ browserNotifications: v });
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
