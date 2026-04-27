@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import type { PomodoroPreferences, SessionType } from "./usePomodoroSettings";
 
 export type { SessionType };
@@ -32,14 +32,19 @@ interface PersistedState extends PomodoroState {
   savedAt: number;
 }
 
-function loadState(prefs: PomodoroPreferences): PomodoroState {
-  const blank: PomodoroState = {
+/** Same output on server and client first paint — avoids hydration mismatch with persisted timer state. */
+function createBlankState(prefs: PomodoroPreferences): PomodoroState {
+  return {
     sessionType: "work",
     secondsLeft: prefs.workMinutes * 60,
     isRunning: false,
     sessionCount: 0,
     totalFocusMinutes: 0,
   };
+}
+
+function loadState(prefs: PomodoroPreferences): PomodoroState {
+  const blank = createBlankState(prefs);
   if (typeof window === "undefined") return blank;
   try {
     const raw = localStorage.getItem(STATE_KEY);
@@ -78,13 +83,29 @@ export function usePomodoroTimer(
   prefs: PomodoroPreferences,
   onSessionComplete?: (type: SessionType, focusMinutes: number) => void,
 ) {
-  const [state, setState] = useState<PomodoroState>(() => loadState(prefs));
+  // Never read localStorage in useState init — that differs on server vs client. Hydrate after mount.
+  const [state, setState] = useState<PomodoroState>(() => createBlankState(prefs));
   const stateRef = useRef(state);
   stateRef.current = state;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const originalTitleRef = useRef<string | null>(null);
+  const prefsRef = useRef(prefs);
+  prefsRef.current = prefs;
+  const skipNextPersist = useRef(false);
 
-  useEffect(() => { persistState(state); }, [state]);
+  // Restore from localStorage after first paint so SSR + first client render match (hydration-safe).
+  useLayoutEffect(() => {
+    setState(loadState(prefsRef.current));
+    skipNextPersist.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (skipNextPersist.current) {
+      skipNextPersist.current = false;
+      return;
+    }
+    persistState(state);
+  }, [state]);
 
   // Tab title — save original on first run, restore on unmount/pause
   useEffect(() => {
