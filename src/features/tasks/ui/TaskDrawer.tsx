@@ -109,7 +109,7 @@ export function TaskDrawer({
   }, [title]);
 
   useEffect(() => {
-    if (!task) return;
+    if (!task || !open) return;
     setTitle(task.title);
     setDescription(task.description ?? "");
     setStatus(task.status);
@@ -184,7 +184,7 @@ export function TaskDrawer({
     });
   }
 
-  const { data: notesPage } = useNotesQuery(workspaceId, task ? { taskId: task.id, limit: 10 } : undefined, { enabled: !!task && open });
+  const { data: notesPage } = useNotesQuery(workspaceId, task ? { taskId: task.id, limit: 10 } : undefined, { enabled: !!task });
   const notes = notesPage?.notes ?? [];
 
   const createNoteMutation = useCreateNoteMutation(workspaceId, {

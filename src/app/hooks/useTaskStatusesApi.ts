@@ -37,7 +37,7 @@ export function useTaskStatusesQuery(
       return getDefaultTaskStatuses(workspaceId);
     },
     enabled: !!workspaceId,
-    staleTime: 60_000,
+    staleTime: 10 * 60_000,
     ...options,
   });
 }
