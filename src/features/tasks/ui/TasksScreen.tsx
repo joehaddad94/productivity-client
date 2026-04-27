@@ -53,6 +53,7 @@ import { cn } from "@/app/components/ui/utils";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { usePomodoroLink } from "@/app/components/pomodoro";
 import { useTasksScreen } from "../hooks/useTasksScreen";
+import { useDebounce } from "@/app/hooks/useDebounce";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TaskDrawer } from "./TaskDrawer";
 import { TaskStatusesSettings } from "./TaskStatusesSettings";
@@ -530,6 +531,32 @@ const TaskRow = memo(function TaskRow({
   );
 });
 
+// ─── DebouncedSearch — owns its own state so TasksScreen never re-renders on keystrokes ──
+
+const DebouncedSearch = memo(function DebouncedSearch({
+  onSearch,
+  disabled,
+}: {
+  onSearch: (q: string) => void;
+  disabled?: boolean;
+}) {
+  const [value, setValue] = useState("");
+  const debounced = useDebounce(value, 500);
+
+  useEffect(() => { onSearch(debounced); }, [debounced, onSearch]);
+
+  return (
+    <SearchInput
+      placeholder="Search tasks… (N to create)"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      aria-label="Search tasks"
+      className="w-full h-7 border-0 bg-transparent shadow-none focus-within:ring-0 text-sm"
+      disabled={disabled}
+    />
+  );
+});
+
 // ─── EmptyState ────────────────────────────────────────────────────────────────
 
 function EmptyState({ message, onAdd }: { message: string; onAdd: () => void }) {
@@ -726,10 +753,11 @@ export function TasksScreen() {
 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const handleSearch = useCallback((q: string) => setDebouncedSearch(q), []);
+
   const {
     workspaceId,
-    searchQuery,
-    setSearchQuery,
     filterProjectId,
     setFilterProjectId,
     filterPriority,
@@ -765,7 +793,7 @@ export function TasksScreen() {
     handleDelete,
     handleTitleSave,
     handleLoadMore,
-  } = useTasksScreen();
+  } = useTasksScreen({ search: debouncedSearch });
 
   // Pre-compute terminal status IDs as a Set — O(1) lookups in rows
   const terminalIds = useMemo(
@@ -976,13 +1004,7 @@ export function TasksScreen() {
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-0 rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
           <div className="px-3 py-2 border-b border-border/50 sm:border-b-0 sm:border-r sm:flex-1">
-            <SearchInput
-              placeholder="Search tasks… (N to create)"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Search tasks"
-              className="w-full h-7 border-0 bg-transparent shadow-none focus-within:ring-0 text-sm"
-            />
+            <DebouncedSearch onSearch={handleSearch} disabled={!workspaceId} />
           </div>
           <div className="flex items-center gap-0.5 px-2 py-1.5 overflow-x-auto scrollbar-none">
             <Popover open={projectFilterOpen} onOpenChange={setProjectFilterOpen}>

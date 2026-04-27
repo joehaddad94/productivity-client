@@ -15,7 +15,6 @@ import {
 } from "@/app/hooks/useTasksApi";
 import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
 import { useProjectsQuery } from "@/app/hooks/useProjectsApi";
-import { useDebounce } from "@/app/hooks/useDebounce";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import type { PriorityFilter, TaskFormData } from "../model/types";
 import {
@@ -25,19 +24,17 @@ import {
   firstTerminalStatusId,
 } from "../lib/taskStatusHelpers";
 
-export function useTasksScreen() {
+export function useTasksScreen({ search = "" }: { search?: string } = {}) {
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
   const queryClient = useQueryClient();
 
-  const [searchQuery, setSearchQuery] = useState("");
   const [filterProjectId, setFilterProjectId] = useState<"all" | string>("all");
   const [filterPriority, setFilterPriority] = useState<PriorityFilter>("all");
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [limit, setLimit] = useState(200);
-  // IDs in this set are COLLAPSED (subtasks hidden). Empty = all expanded.
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -49,12 +46,13 @@ export function useTasksScreen() {
   );
   const pendingToggles = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const debouncedSearch = useDebounce(searchQuery, 300);
   const { data: page, isLoading, error } = useTasksQuery(workspaceId, {
-    search: debouncedSearch || undefined,
+    search: search || undefined,
     priority: filterPriority === "all" ? undefined : filterPriority,
     projectId: filterProjectId === "all" ? undefined : filterProjectId,
     limit,
+  }, {
+    placeholderData: (prev) => prev,
   });
   const { data: projectsPage, isLoading: projectsLoading } = useProjectsQuery(workspaceId, {
     limit: 200,
@@ -273,12 +271,10 @@ export function useTasksScreen() {
   };
 
   const isFiltered =
-    debouncedSearch.length > 0 || filterPriority !== "all" || filterProjectId !== "all";
+    search.length > 0 || filterPriority !== "all" || filterProjectId !== "all";
 
   return {
     workspaceId,
-    searchQuery,
-    setSearchQuery,
     filterProjectId,
     setFilterProjectId,
     filterPriority,
