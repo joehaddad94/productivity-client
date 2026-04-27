@@ -116,7 +116,7 @@ export function useCreateTaskMutation(
     },
     onSuccess: (data, variables, context, mutation) => {
       const ctx = context as { tempId?: string } | undefined;
-      // Replace the temp entry with the real task
+      // Replace the optimistic temp entry with the real task from server
       queryClient.setQueriesData<TasksPage>(
         { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
         (old) => {
@@ -125,7 +125,7 @@ export function useCreateTaskMutation(
         },
       );
       queryClient.setQueryData(TASK_QUERY_KEY(workspaceId ?? "", data.id), data);
-      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+      // No invalidateQueries here — the cache is already correct from setQueriesData above
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });
@@ -241,11 +241,19 @@ export function useLogTaskFocusMutation(
       tasksApi.logFocus(workspaceId!, id, minutes),
     ...options,
     onSuccess: (data, variables, context, mutation) => {
-      queryClient.setQueryData(
-        TASK_QUERY_KEY(workspaceId ?? "", data.id),
-        data
+      // Patch single-task cache
+      queryClient.setQueryData(TASK_QUERY_KEY(workspaceId ?? "", data.id), data);
+      // Patch list caches in-place — no need to invalidate the whole list for a focusMinutes change
+      queryClient.setQueriesData<TasksPage>(
+        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+        (old) => {
+          if (!old?.tasks) return old;
+          return {
+            ...old,
+            tasks: old.tasks.map((t) => (t.id === data.id ? data : t)),
+          };
+        },
       );
-      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });

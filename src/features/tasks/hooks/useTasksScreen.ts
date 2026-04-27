@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -45,6 +45,15 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
     new Map()
   );
   const pendingToggles = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Clear any debounced toggle timers when the screen unmounts to prevent
+  // state updates and stale mutation calls after the component is gone.
+  useEffect(() => {
+    return () => {
+      pendingToggles.current.forEach(clearTimeout);
+      pendingToggles.current.clear();
+    };
+  }, []);
 
   const { data: page, isLoading, error } = useTasksQuery(workspaceId, {
     search: search || undefined,

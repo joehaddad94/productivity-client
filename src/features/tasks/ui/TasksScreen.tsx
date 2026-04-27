@@ -1417,8 +1417,7 @@ export function TasksScreen() {
           <SheetHeader className="shrink-0 space-y-1 border-b border-border/60 p-4 pb-3 text-left">
             <SheetTitle>Task statuses</SheetTitle>
             <SheetDescription>
-              Columns and check-off behavior for this workspace. The server must implement{" "}
-              <code className="rounded bg-muted px-1 text-[11px]">/workspaces/…/task-statuses</code> for changes to persist.
+              Define the stages tasks move through in this workspace.
             </SheetDescription>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
