@@ -8,9 +8,9 @@
 
 - [ ] 1. Session completes normally → toast/notification/auto-start
 - [ ] 2. User pauses mid-session and never resumes (walks away)
-- [ ] 3. User skips a work session — focus time should NOT be logged
+- [x] 3. User skips a work session — focus time should NOT be logged
 - [ ] 4. User resets mid-session — no focus time logged
-- [ ] 5. Timer paused most of session then completed — actual focus vs full configured duration (decision)
+- [x] 5. Timer paused most of session then completed — actual focus vs full configured duration (decision)
 
 ## Tab/page behavior
 
@@ -33,7 +33,7 @@
 
 ## Notifications
 
-- [ ] 13. Browser notifications on but permission denied — silent fail, no fallback
+- [x] 13. Browser notifications on but permission denied — silent fail, no fallback
 - [ ] 14. Notifications + toasts off — silent session end
 - [ ] 15. Break ends with auto-start off — more prominent cue to resume?
 
@@ -49,7 +49,7 @@
 
 ## Focus time accuracy
 
-- [ ] 20. Logs configured `workMinutes` on complete regardless of pause — use actual running time?
+- [x] 20. Logs configured `workMinutes` on complete regardless of pause — use actual running time?
 
 ## Workspace / auth
 

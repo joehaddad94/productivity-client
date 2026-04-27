@@ -90,23 +90,29 @@ export function PomodoroWidget() {
   const onComplete = useCallback(async (type: SessionType, focusMinutes: number) => {
     const isWork = type === "work";
     const { label } = SESSION[type];
+    const toastBody = isWork
+      ? `${focusMinutes} min focused${linkedTask ? ` on "${linkedTask.title}"` : ""}. Take a break.`
+      : "Break over — time to focus!";
+
     if (settings.inAppToasts) {
-      toast.success(`${label} session complete!`, {
-        description: isWork
-          ? `${focusMinutes} min focused${linkedTask ? ` on "${linkedTask.title}"` : ""}. Take a break.`
-          : "Break over — time to focus!",
-      });
+      toast.success(`${label} session complete!`, { description: toastBody });
     }
+
     if (settings.browserNotifications) {
-      if (await askNotificationPermission()) {
+      const granted = await askNotificationPermission();
+      if (granted) {
         fireNotification(
           `${label} complete!`,
           isWork
             ? `${focusMinutes} min focused${linkedTask ? ` on "${linkedTask.title}"` : ""}. Time for a break.`
             : "Break over — ready to focus?",
         );
+      } else if (!settings.inAppToasts) {
+        // Notifications enabled but permission denied — fall back to toast so the session end isn't silent
+        toast.info(`${label} session complete!`, { description: toastBody });
       }
     }
+
     if (isWork && focusMinutes > 0 && wsId) {
       logStat.mutate({ focusMinutes });
       if (linkedId) logTaskFocus.mutate({ id: linkedId, minutes: focusMinutes });

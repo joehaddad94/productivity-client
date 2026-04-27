@@ -92,6 +92,7 @@ export function usePomodoroTimer(
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
   const skipNextPersist = useRef(false);
+  const runningSecondsRef = useRef(0);
 
   // Restore from localStorage after first paint so SSR + first client render match (hydration-safe).
   useLayoutEffect(() => {
@@ -125,10 +126,12 @@ export function usePomodoroTimer(
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
   }, []);
 
-  const advanceSession = useCallback(() => {
+  const advanceSession = useCallback((focusSecondsOverride?: number) => {
     const cur = stateRef.current;
     const wasWork = cur.sessionType === "work";
-    const focusMinutes = wasWork ? prefs.workMinutes : 0;
+    const actualSeconds = focusSecondsOverride !== undefined ? focusSecondsOverride : runningSecondsRef.current;
+    const focusMinutes = wasWork ? Math.round(actualSeconds / 60) : 0;
+    runningSecondsRef.current = 0;
     const newCount = cur.sessionCount + (wasWork ? 1 : 0);
     const newTotal = cur.totalFocusMinutes + focusMinutes;
     const next = nextSessionType(cur.sessionType, newCount, prefs);
@@ -154,6 +157,7 @@ export function usePomodoroTimer(
           setTimeout(() => advanceSession(), 0);
           return { ...prev, secondsLeft: 0, isRunning: false };
         }
+        runningSecondsRef.current += 1;
         return { ...prev, secondsLeft: prev.secondsLeft - 1 };
       });
     }, 1000);
@@ -165,9 +169,10 @@ export function usePomodoroTimer(
   const pause = useCallback(() => setState((p) => ({ ...p, isRunning: false })), []);
   const reset = useCallback(() => {
     clearTimer();
+    runningSecondsRef.current = 0;
     setState((p) => ({ ...p, secondsLeft: sessionDuration(p.sessionType, prefs), isRunning: false }));
   }, [clearTimer, prefs]);
-  const skip = useCallback(() => { clearTimer(); advanceSession(); }, [clearTimer, advanceSession]);
+  const skip = useCallback(() => { clearTimer(); advanceSession(0); }, [clearTimer, advanceSession]);
 
   return { state, start, pause, reset, skip };
 }
