@@ -230,10 +230,10 @@ export function useTasksScreen() {
     (id: string) => {
       queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
         { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
-        (old) =>
-          old
-            ? { tasks: old.tasks.filter((t) => t.id !== id && t.parentTaskId !== id), total: old.total - 1 }
-            : old
+        (old) => {
+          if (!old || !Array.isArray(old.tasks)) return old;
+          return { tasks: old.tasks.filter((t) => t.id !== id && t.parentTaskId !== id), total: old.total - 1 };
+        }
       );
       if (selectedTask?.id === id) setShowDetail(false);
       deleteMutation.mutate(id);
