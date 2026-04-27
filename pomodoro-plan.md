@@ -27,15 +27,15 @@
 
 ## Product / UX (to discuss & build)
 
-- [ ] **No task linked:** Agree on behavior when the user starts the timer **without** linking a task (focus log rules, nudge to link, allow anonymous sessions, etc.).
-- [ ] **Widget task picker at scale:** Current linking in the widget is **not user-friendly** when the number of tasks grows—needs a better pattern (search, recents, empty state, or move linking elsewhere).
-- [ ] **Inline task controls:** Add an **inline button** on each task (list/detail) to **start / stop (or link)** the focus timer for that task, so users aren’t forced through the widget-only flow.
+- [x] **No task linked:** Anonymous sessions are allowed; focus time logs globally but not to a task. Widget nudges with "Link a task to this session…".
+- [x] **Widget task picker at scale:** Added search input inside the picker dropdown — filters tasks by title in real time.
+- [x] **Inline task controls:** Timer icon on each task row (hover to reveal, always visible in emerald when linked). Clicking links/unlinks; toast confirms. Shared via PomodoroContext so widget and task list stay in sync.
 
 ## Notifications
 
 - [x] 13. Browser notifications on but permission denied — silent fail, no fallback
 - [ ] 14. Notifications + toasts off — silent session end
-- [ ] 15. Break ends with auto-start off — more prominent cue to resume?
+- [x] 15. Break ends with auto-start off — play button in collapsed pill now uses session accent colour when idle, making the CTA visible.
 
 ## Settings mid-session
 
@@ -58,8 +58,8 @@
 
 ## Mobile / layout
 
-- [ ] 23. Expanded panel ~304px on small screens — may overlap content
-- [ ] 24. Task picker on mobile — may clip upward
+- [x] 23. Expanded panel ~304px on small screens — capped at `max-w-[calc(100vw-2.5rem)]` so it never overflows.
+- [x] 24. Task picker on mobile — opens upward from widget fixed at bottom; no viewport clipping issue.
 
 ---
 

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
-import { Play, Pause, RotateCcw, SkipForward, ChevronDown, Link2, X, Settings2 } from "lucide-react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { Play, Pause, RotateCcw, SkipForward, ChevronDown, Link2, X, Settings2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { usePomodoroTimer, type SessionType } from "./usePomodoroTimer";
 import { usePomodoroSettings } from "./usePomodoroSettings";
+import { usePomodoroLink } from "./PomodoroContext";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { useLogStatMutation } from "@/app/hooks/useAnalyticsApi";
 import { useTasksQuery, useLogTaskFocusMutation } from "@/app/hooks/useTasksApi";
@@ -69,9 +70,10 @@ const FG_SUBTLE   = "text-white/30 dark:text-black/30";
 const DIVIDER     = "bg-white/[0.10] dark:bg-black/[0.10]";
 
 export function PomodoroWidget() {
-  const [expanded,   setExpanded]   = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
-  const [linkedId,   setLinkedId]   = useState<string | null>(null);
+  const [expanded,     setExpanded]     = useState(false);
+  const [showPicker,   setShowPicker]   = useState(false);
+  const [pickerQuery,  setPickerQuery]  = useState("");
+  const { linkedId, setLinkedId } = usePomodoroLink();
 
   const { settings } = usePomodoroSettings();
   const { currentWorkspace } = useWorkspace();
@@ -86,6 +88,11 @@ export function PomodoroWidget() {
   );
   const tasks      = (tasksPage?.tasks ?? []).filter((t) => !isTaskStatusTerminal(t.status, statuses));
   const linkedTask = tasks.find((t) => t.id === linkedId) ?? null;
+  const filteredTasks = useMemo(() => {
+    if (!pickerQuery.trim()) return tasks;
+    const q = pickerQuery.toLowerCase();
+    return tasks.filter((t) => t.title.toLowerCase().includes(q));
+  }, [tasks, pickerQuery]);
 
   const onComplete = useCallback(async (type: SessionType, focusMinutes: number) => {
     const isWork = type === "work";
@@ -119,6 +126,20 @@ export function PomodoroWidget() {
     }
   }, [settings, wsId, logStat, logTaskFocus, linkedTask, linkedId]);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    function onMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setExpanded(false);
+        setShowPicker(false);
+        setPickerQuery("");
+      }
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [expanded]);
+
   const { state, start, pause, reset, skip } = usePomodoroTimer(settings, onComplete);
   const { sessionType, secondsLeft, isRunning, sessionCount } = state;
   const cfg = SESSION[sessionType];
@@ -132,11 +153,11 @@ export function PomodoroWidget() {
   const circ = 2 * Math.PI * R;
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
+    <div ref={containerRef} className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
 
       {/* ── Expanded panel ──────────────────────────────────────────────── */}
       {expanded && (
-        <div className={cn("w-[304px] rounded-2xl overflow-hidden border shadow-2xl", CARD_BG, CARD_BORDER)}>
+        <div className={cn("w-[304px] max-w-[calc(100vw-2.5rem)] rounded-2xl overflow-hidden border shadow-2xl", CARD_BG, CARD_BORDER)}>
 
           {/* Session-coloured accent line */}
           <div className="h-[2px] transition-colors duration-500" style={{ background: cfg.color }} />
@@ -223,7 +244,7 @@ export function PomodoroWidget() {
               <div className="flex items-center gap-2.5 px-3.5 py-3">
                 <div className="size-1.5 rounded-full shrink-0" style={{ background: cfg.color }} />
                 <span className={cn("flex-1 text-[13px] font-medium truncate", FG)}>{linkedTask.title}</span>
-                <button onClick={() => setLinkedId(null)} title="Unlink"
+                <button onClick={() => { setLinkedId(null); setPickerQuery(""); }} title="Unlink"
                   className={cn("transition-colors cursor-pointer shrink-0 hover:text-red-400", FG_SUBTLE)}>
                   <X className="size-3.5" />
                 </button>
@@ -236,14 +257,31 @@ export function PomodoroWidget() {
                   {tasks.length === 0 ? "No active tasks" : "Link a task to this session…"}
                 </button>
                 {showPicker && tasks.length > 0 && (
-                  <div className={cn("absolute bottom-[calc(100%+6px)] left-0 right-0 z-20 rounded-xl border shadow-xl max-h-48 overflow-y-auto", "bg-[#1c1c1f] dark:bg-[#f5f5f5]", CARD_BORDER)}>
-                    {tasks.map((t) => (
-                      <button key={t.id}
-                        onClick={() => { setLinkedId(t.id); setShowPicker(false); }}
-                        className={cn("w-full text-left text-[13px] px-4 py-2.5 truncate transition-colors cursor-pointer first:rounded-t-xl last:rounded-b-xl", FG_MUTED, "hover:text-white dark:hover:text-black hover:bg-white/[0.08] dark:hover:bg-black/[0.06]")}>
-                        {t.title}
-                      </button>
-                    ))}
+                  <div className={cn("absolute bottom-[calc(100%+6px)] left-0 right-0 z-20 rounded-xl border shadow-xl overflow-hidden", "bg-[#1c1c1f] dark:bg-[#f5f5f5]", CARD_BORDER)}>
+                    {/* Search input */}
+                    <div className={cn("flex items-center gap-2 px-3.5 py-2.5 border-b", CARD_BORDER)}>
+                      <Search className={cn("size-3 shrink-0", FG_SUBTLE)} />
+                      <input
+                        autoFocus
+                        placeholder="Search tasks…"
+                        value={pickerQuery}
+                        onChange={(e) => setPickerQuery(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn("flex-1 bg-transparent text-[12px] outline-none min-w-0", FG, "placeholder:text-white/30 dark:placeholder:text-black/30")}
+                      />
+                    </div>
+                    {/* Results */}
+                    <div className="max-h-40 overflow-y-auto">
+                      {filteredTasks.length === 0 ? (
+                        <p className={cn("px-4 py-3 text-[12px]", FG_SUBTLE)}>No tasks match</p>
+                      ) : filteredTasks.map((t) => (
+                        <button key={t.id}
+                          onClick={() => { setLinkedId(t.id); setShowPicker(false); setPickerQuery(""); }}
+                          className={cn("w-full text-left text-[13px] px-4 py-2.5 truncate transition-colors cursor-pointer first:rounded-t-none last:rounded-b-xl", FG_MUTED, "hover:text-white dark:hover:text-black hover:bg-white/[0.08] dark:hover:bg-black/[0.06]")}>
+                          {t.title}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </>
@@ -317,7 +355,7 @@ export function PomodoroWidget() {
         >
           {isRunning
             ? <Pause className={cn("size-4", FG_MUTED)} />
-            : <Play  className={cn("size-4 ml-0.5", FG_MUTED)} />
+            : <Play  className="size-4 ml-0.5" style={{ color: cfg.color }} />
           }
         </button>
       </div>

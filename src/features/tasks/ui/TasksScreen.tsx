@@ -20,6 +20,7 @@ import {
   AlertCircle,
   X,
   PanelRight,
+  Timer,
 } from "lucide-react";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import { isTaskStatusTerminal } from "../lib/taskStatusHelpers";
@@ -50,6 +51,7 @@ import {
 } from "@/app/components/ui/alert-dialog";
 import { cn } from "@/app/components/ui/utils";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
+import { usePomodoroLink } from "@/app/components/pomodoro";
 import { useTasksScreen } from "../hooks/useTasksScreen";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TaskDrawer } from "./TaskDrawer";
@@ -97,7 +99,7 @@ const COL_PRIORITY = "w-[72px]";
 const COL_DUE = "w-[96px]";
 const COL_PROJECT = "w-[116px]";
 const COL_ICON = "w-10";
-const COL_ACTIONS = "w-[52px]";
+const COL_ACTIONS = "w-[76px]";
 
 const FILTER_BTN =
   "inline-flex items-center gap-1 !h-7 px-2 rounded-md text-xs font-normal shrink-0 cursor-pointer transition-colors " +
@@ -236,6 +238,8 @@ const TaskRow = memo(function TaskRow({
   onEditStart,
   onEditSave,
   onEditCancel,
+  isLinked = false,
+  onLinkTimer,
 }: {
   task: Task;
   depth?: number;
@@ -261,6 +265,8 @@ const TaskRow = memo(function TaskRow({
   onEditStart?: () => void;
   onEditSave?: (title: string) => void;
   onEditCancel?: () => void;
+  isLinked?: boolean;
+  onLinkTimer?: (id: string) => void;
 }) {
   const hasSubtasks = !!task.subtasks?.length;
   const isCompleted = terminalIds.has(task.status);
@@ -462,10 +468,24 @@ const TaskRow = memo(function TaskRow({
         )}
       </div>
 
-      {/* Details + Delete */}
+      {/* Timer · Details · Delete */}
       <div className={cn(COL_ACTIONS, "flex items-center justify-center gap-0.5 shrink-0 py-2.5")}>
         {depth === 0 && (
           <>
+            {onLinkTimer && (
+              <button
+                title={isLinked ? "Unlink from focus timer" : "Link to focus timer"}
+                onClick={(e) => { e.stopPropagation(); onLinkTimer(task.id); }}
+                className={cn(
+                  "p-1 rounded-md transition-all cursor-pointer",
+                  isLinked
+                    ? "text-emerald-600 dark:text-emerald-500 opacity-100"
+                    : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-500 hover:bg-emerald-500/8",
+                )}
+              >
+                <Timer className="size-3.5" />
+              </button>
+            )}
             <button
               title="Open details"
               onClick={(e) => { e.stopPropagation(); onSelect(task); }}
@@ -534,6 +554,8 @@ interface VirtualTaskListProps {
   onEditStart: (id: string) => void;
   onEditSave: (id: string, title: string) => void;
   onEditCancel: () => void;
+  linkedId: string | null;
+  onLinkTimer: (id: string) => void;
 }
 
 const VirtualTaskList = memo(function VirtualTaskList({
@@ -564,6 +586,8 @@ const VirtualTaskList = memo(function VirtualTaskList({
   onEditStart,
   onEditSave,
   onEditCancel,
+  linkedId,
+  onLinkTimer,
 }: VirtualTaskListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -651,6 +675,8 @@ const VirtualTaskList = memo(function VirtualTaskList({
                   onEditStart={() => onEditStart(task.id)}
                   onEditSave={(title) => onEditSave(task.id, title)}
                   onEditCancel={onEditCancel}
+                  isLinked={linkedId === task.id}
+                  onLinkTimer={onLinkTimer}
                 />
               </div>
             );
@@ -807,6 +833,18 @@ export function TasksScreen() {
   const handleProjectChange = useCallback((id: string, projectId: string | undefined) => {
     updateMutation.mutate({ id, body: { projectId: projectId ?? null } });
   }, [updateMutation]);
+
+  const { linkedId, setLinkedId } = usePomodoroLink();
+  const handleLinkTimer = useCallback((id: string) => {
+    if (linkedId === id) {
+      setLinkedId(null);
+      toast.info("Focus timer unlinked");
+    } else {
+      setLinkedId(id);
+      const task = tasks.find((t) => t.id === id);
+      toast.success(`Focusing: ${task?.title ?? "task"}`, { duration: 2000 });
+    }
+  }, [linkedId, setLinkedId, tasks]);
 
   const handleSelectAll = useCallback((visibleTasks: Task[]) => {
     const allIds = new Set(visibleTasks.map((t) => t.id));
@@ -1115,6 +1153,8 @@ export function TasksScreen() {
                   onEditStart={handleEditStart}
                   onEditSave={handleEditSave}
                   onEditCancel={handleEditCancel}
+                  linkedId={linkedId}
+                  onLinkTimer={handleLinkTimer}
                 />
               </TabsContent>
             ))}

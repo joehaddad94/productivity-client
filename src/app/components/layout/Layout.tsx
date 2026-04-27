@@ -11,7 +11,7 @@ import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { Button } from "../ui/button";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
-import { PomodoroWidget } from "@/app/components/pomodoro";
+import { PomodoroWidget, PomodoroProvider } from "@/app/components/pomodoro";
 import { CreateFirstWorkspace } from "@/app/screens/workspace/CreateFirstWorkspace";
 import { useAdminBugReportsStatsQuery } from "@/app/hooks/useBugReportsApi";
 import { Badge } from "../ui/badge";
@@ -214,6 +214,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 
   return (
+    <PomodoroProvider>
     <div className="min-h-screen bg-background">
       {/* Mobile header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-12 bg-background border-b border-border/60 z-50 flex items-center justify-between px-3">
@@ -293,5 +294,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <ReportBugSheet open={reportBugOpen} onOpenChange={setReportBugOpen} />
       {previewOverlay}
     </div>
+    </PomodoroProvider>
   );
 }
