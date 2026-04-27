@@ -31,7 +31,7 @@ function WorkspaceSwitcherComponent() {
   } = useWorkspace();
 
   const containerClass = cn(
-    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md",
+    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md cursor-pointer",
     "text-left transition-colors hover:bg-[var(--nav-hover)]",
     "border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
   );
