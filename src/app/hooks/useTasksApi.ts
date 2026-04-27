@@ -194,12 +194,34 @@ export function useUpdateTaskMutation(
     onMutate: async ({ id, body }) => {
       await queryClient.cancelQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
 
+      // Detect if this update is completing a previously non-terminal task
+      const isCompletingParent = body.status !== undefined && (() => {
+        for (const [, page] of queryClient.getQueriesData<TasksPage>({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") })) {
+          const task = page?.tasks?.find((t) => t.id === id);
+          if (task) return task.status !== body.status;
+        }
+        return false;
+      })();
+
       // Optimistically patch every matching task list
       queryClient.setQueriesData<TasksPage>(
         { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
         (old) => {
           if (!old || !Array.isArray(old.tasks)) return old;
-          return { ...old, tasks: old.tasks.map((t) => (t.id === id ? { ...t, ...body } : t)) };
+          return {
+            ...old,
+            tasks: old.tasks.map((t) => {
+              if (t.id === id) {
+                const updated = { ...t, ...body };
+                // Cascade completion to subtasks when parent transitions to a new status
+                if (isCompletingParent && body.status && t.subtasks?.length) {
+                  updated.subtasks = t.subtasks.map((s) => ({ ...s, status: body.status! }));
+                }
+                return updated;
+              }
+              return t;
+            }),
+          };
         },
       );
 
