@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 export type SessionType = "work" | "short_break" | "long_break";
 
@@ -25,6 +25,7 @@ export const POMODORO_DEFAULTS: PomodoroPreferences = {
 };
 
 const SETTINGS_KEY = "pomodoro_settings";
+const SETTINGS_CHANGED_EVENT = "pomodoro-settings-changed";
 
 function readSettings(): PomodoroPreferences {
   if (typeof window === "undefined") return POMODORO_DEFAULTS;
@@ -40,11 +41,26 @@ function readSettings(): PomodoroPreferences {
 function writeSettings(s: PomodoroPreferences) {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+    window.dispatchEvent(new CustomEvent(SETTINGS_CHANGED_EVENT));
   } catch { /* ignore */ }
 }
 
 export function usePomodoroSettings() {
-  const [settings, setSettings] = useState<PomodoroPreferences>(readSettings);
+  // Always start with defaults — safe for SSR. Both server and client render
+  // the same initial value, avoiding a hydration mismatch.
+  const [settings, setSettings] = useState<PomodoroPreferences>(POMODORO_DEFAULTS);
+
+  // Hydrate from localStorage after mount (client-only).
+  useEffect(() => {
+    setSettings(readSettings());
+  }, []);
+
+  // Re-sync when another hook instance writes new settings.
+  useEffect(() => {
+    const onChanged = () => setSettings(readSettings());
+    window.addEventListener(SETTINGS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(SETTINGS_CHANGED_EVENT, onChanged);
+  }, []);
 
   const update = useCallback((patch: Partial<PomodoroPreferences>) => {
     setSettings((prev) => {
