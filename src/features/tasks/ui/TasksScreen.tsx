@@ -52,6 +52,7 @@ import {
 import { cn } from "@/app/components/ui/utils";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { usePomodoroLink } from "@/app/components/pomodoro";
+import { useLogTaskFocusMutation } from "@/app/hooks/useTasksApi";
 import { useTasksScreen } from "../hooks/useTasksScreen";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { CreateTaskModal } from "./CreateTaskModal";
@@ -248,6 +249,9 @@ const TaskRow = memo(function TaskRow({
   onEditCancel,
   isLinked = false,
   onLinkTimer,
+  onPriorityChange,
+  onDueDateChange,
+  onFocusLog,
 }: {
   task: Task;
   depth?: number;
@@ -275,6 +279,9 @@ const TaskRow = memo(function TaskRow({
   onEditCancel?: () => void;
   isLinked?: boolean;
   onLinkTimer?: (id: string) => void;
+  onPriorityChange?: (id: string, priority: string | undefined) => void;
+  onDueDateChange?: (id: string, dueDate: string | undefined) => void;
+  onFocusLog?: (id: string, minutes: number) => void;
 }) {
   const hasSubtasks = !!task.subtasks?.length;
   const isCompleted = terminalIds.has(task.status);
@@ -422,7 +429,7 @@ const TaskRow = memo(function TaskRow({
         )}
 
         {/* Desktop: subtask progress + focus time under title */}
-        {depth === 0 && (subtaskProgress || (task.focusMinutes ?? 0) > 0) && (
+        {depth === 0 && (subtaskProgress || onFocusLog) && (
           <div className="hidden sm:flex items-center gap-3 mt-1">
             {subtaskProgress && (
               <div className="flex items-center gap-1.5">
@@ -432,11 +439,8 @@ const TaskRow = memo(function TaskRow({
                 <span className="text-[10px] text-muted-foreground/60">{subtaskProgress.done}/{subtaskProgress.total}</span>
               </div>
             )}
-            {(task.focusMinutes ?? 0) > 0 && (
-              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                <Timer className="size-3 shrink-0" />
-                {formatFocus(task.focusMinutes!)}
-              </span>
+            {onFocusLog && (
+              <FocusTimeCell task={task} onFocusLog={onFocusLog} />
             )}
           </div>
         )}
@@ -458,26 +462,16 @@ const TaskRow = memo(function TaskRow({
       )}
 
       {/* Desktop: Priority */}
-      <div className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_PRIORITY)}>
-        {depth === 0 && task.priority && (
-          <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide", PRIORITY_PILL[task.priority])}>
-            {task.priority[0].toUpperCase() + task.priority.slice(1)}
-          </span>
+      <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_PRIORITY)}>
+        {depth === 0 && onPriorityChange && (
+          <PrioritySelect task={task} onPriorityChange={onPriorityChange} />
         )}
       </div>
 
       {/* Desktop: Due */}
-      <div className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_DUE)}>
-        {depth === 0 && task.dueDate && (
-          <span className={cn("flex flex-col items-center gap-0.5", isOverdue ? "text-red-500" : "text-muted-foreground")}>
-            <span className="flex items-center gap-1 text-[11px] font-medium">
-              <Calendar className="size-3 shrink-0" />
-              {formatDate(task.dueDate, todayYear)}
-            </span>
-            {task.dueTime && (
-              <span className="text-[10px] opacity-70 font-normal">{formatTime(task.dueTime)}</span>
-            )}
-          </span>
+      <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_DUE)}>
+        {depth === 0 && onDueDateChange && (
+          <DueDatePicker task={task} todayYear={todayYear} isOverdue={isOverdue} onDueDateChange={onDueDateChange} />
         )}
       </div>
 
@@ -528,6 +522,141 @@ const TaskRow = memo(function TaskRow({
         )}
       </div>
     </div>
+  );
+});
+
+// ─── PrioritySelect — inline editable priority ────────────────────────────────
+
+const PRIORITY_NONE = "__none__";
+
+const PrioritySelect = memo(function PrioritySelect({
+  task,
+  onPriorityChange,
+}: {
+  task: Task;
+  onPriorityChange: (id: string, priority: string | undefined) => void;
+}) {
+  return (
+    <Select
+      value={task.priority ?? PRIORITY_NONE}
+      onValueChange={(v) => onPriorityChange(task.id, v === PRIORITY_NONE ? undefined : v)}
+    >
+      <SelectTrigger className={cn(
+        "h-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold tracking-wide shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40 cursor-pointer",
+        task.priority ? PRIORITY_PILL[task.priority] : "border-border/60 text-muted-foreground/40",
+      )}>
+        <SelectValue placeholder="—" />
+      </SelectTrigger>
+      <SelectContent align="center">
+        <SelectItem value={PRIORITY_NONE} className="text-xs">None</SelectItem>
+        <SelectItem value="low" className="text-xs">Low</SelectItem>
+        <SelectItem value="medium" className="text-xs">Medium</SelectItem>
+        <SelectItem value="high" className="text-xs">High</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+});
+
+// ─── DueDatePicker — click-to-edit inline due date ────────────────────────────
+
+const DueDatePicker = memo(function DueDatePicker({
+  task,
+  todayYear,
+  isOverdue,
+  onDueDateChange,
+}: {
+  task: Task;
+  todayYear: number;
+  isOverdue: boolean;
+  onDueDateChange: (id: string, dueDate: string | undefined) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <input
+        type="date"
+        autoFocus
+        defaultValue={task.dueDate?.slice(0, 10) ?? ""}
+        onChange={(e) => onDueDateChange(task.id, e.target.value || undefined)}
+        onBlur={() => setEditing(false)}
+        className="w-[90px] text-[11px] font-medium bg-transparent outline-none border-b border-primary/40 text-center cursor-pointer [color-scheme:light] dark:[color-scheme:dark] text-foreground"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+      className={cn(
+        "flex flex-col items-center gap-0.5 cursor-pointer hover:opacity-70 transition-opacity",
+        isOverdue ? "text-red-500" : task.dueDate ? "text-muted-foreground" : "text-muted-foreground/30",
+      )}
+    >
+      <span className="flex items-center gap-1 text-[11px] font-medium">
+        <Calendar className="size-3 shrink-0" />
+        {task.dueDate ? formatDate(task.dueDate, todayYear) : "—"}
+      </span>
+      {task.dueTime && (
+        <span className="text-[10px] opacity-70">{formatTime(task.dueTime)}</span>
+      )}
+    </button>
+  );
+});
+
+// ─── FocusTimeCell — shows logged focus, click to log more ────────────────────
+
+const FocusTimeCell = memo(function FocusTimeCell({
+  task,
+  onFocusLog,
+}: {
+  task: Task;
+  onFocusLog: (id: string, minutes: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [input, setInput] = useState("");
+
+  function submit() {
+    const mins = parseInt(input, 10);
+    if (mins > 0) onFocusLog(task.id, mins);
+    setInput("");
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+        <Timer className="size-3 shrink-0" />
+        {(task.focusMinutes ?? 0) > 0 && <span className="tabular-nums">{formatFocus(task.focusMinutes!)}·</span>}
+        <input
+          autoFocus
+          type="number"
+          min={1}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); submit(); }
+            if (e.key === "Escape") { setInput(""); setEditing(false); }
+          }}
+          onBlur={submit}
+          placeholder="min"
+          className="w-9 bg-transparent outline-none border-b border-primary/30 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      title="Log focus time"
+      onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+      className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
+    >
+      <Timer className="size-3 shrink-0" />
+      {(task.focusMinutes ?? 0) > 0 ? formatFocus(task.focusMinutes!) : <span className="opacity-0 group-hover:opacity-100">Log</span>}
+    </button>
   );
 });
 
@@ -606,6 +735,9 @@ interface VirtualTaskListProps {
   onEditCancel: () => void;
   linkedId: string | null;
   onLinkTimer: (id: string) => void;
+  onPriorityChange: (id: string, priority: string | undefined) => void;
+  onDueDateChange: (id: string, dueDate: string | undefined) => void;
+  onFocusLog: (id: string, minutes: number) => void;
 }
 
 const VirtualTaskList = memo(function VirtualTaskList({
@@ -638,6 +770,9 @@ const VirtualTaskList = memo(function VirtualTaskList({
   onEditCancel,
   linkedId,
   onLinkTimer,
+  onPriorityChange,
+  onDueDateChange,
+  onFocusLog,
 }: VirtualTaskListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -726,6 +861,9 @@ const VirtualTaskList = memo(function VirtualTaskList({
                   onEditCancel={onEditCancel}
                   isLinked={linkedId === task.id}
                   onLinkTimer={onLinkTimer}
+                  onPriorityChange={onPriorityChange}
+                  onDueDateChange={onDueDateChange}
+                  onFocusLog={onFocusLog}
                 />
               </div>
             );
@@ -885,6 +1023,19 @@ export function TasksScreen() {
   }, [updateMutation]);
 
   const { linkedId, setLinkedId } = usePomodoroLink();
+  const logTaskFocusMutation = useLogTaskFocusMutation(workspaceId);
+
+  const handlePriorityChange = useCallback((id: string, priority: string | undefined) => {
+    updateMutation.mutate({ id, body: { priority: priority as "low" | "medium" | "high" | undefined } });
+  }, [updateMutation]);
+
+  const handleDueDateChange = useCallback((id: string, dueDate: string | undefined) => {
+    updateMutation.mutate({ id, body: { dueDate: dueDate || undefined } });
+  }, [updateMutation]);
+
+  const handleFocusLog = useCallback((id: string, minutes: number) => {
+    logTaskFocusMutation.mutate({ id, minutes });
+  }, [logTaskFocusMutation]);
   const handleLinkTimer = useCallback((id: string) => {
     if (linkedId === id) {
       setLinkedId(null);
@@ -1199,6 +1350,9 @@ export function TasksScreen() {
                   onEditCancel={handleEditCancel}
                   linkedId={linkedId}
                   onLinkTimer={handleLinkTimer}
+                  onPriorityChange={handlePriorityChange}
+                  onDueDateChange={handleDueDateChange}
+                  onFocusLog={handleFocusLog}
                 />
               </TabsContent>
             ))}
