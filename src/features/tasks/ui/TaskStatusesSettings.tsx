@@ -25,6 +25,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -217,10 +218,10 @@ export function TaskStatusesSettings({ hideTitle = false }: { hideTitle?: boolea
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Delete status &quot;{deleteTarget?.name}&quot;?</DialogTitle>
+            <DialogDescription>
+              Tasks using this status should be moved to another status if your API requires it.
+            </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Tasks using this status should be moved to another status if your API requires it.
-          </p>
           <div className="space-y-2">
             <Label className="text-xs">Move tasks to</Label>
             <Select value={replacementId} onValueChange={setReplacementId}>

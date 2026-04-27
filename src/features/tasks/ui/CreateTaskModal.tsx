@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
@@ -128,9 +128,9 @@ export function CreateTaskModal({
           <DialogTitle className="text-base font-semibold tracking-tight text-foreground">
             New task
           </DialogTitle>
-          <p className="text-xs text-muted-foreground">
+          <DialogDescription className="text-xs">
             Add a task. Optional fields can be set below.
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 px-5 py-4">
