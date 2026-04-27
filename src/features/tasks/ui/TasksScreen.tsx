@@ -84,6 +84,13 @@ function formatTime(time: string): string {
   return `${h12}:${m} ${ampm}`;
 }
 
+function formatFocus(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
 // ─── Module-level constants ────────────────────────────────────────────────────
 
 const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -404,16 +411,32 @@ const TaskRow = memo(function TaskRow({
                 {projects.find((p) => p.id === task.projectId)?.name}
               </span>
             )}
+            {(task.focusMinutes ?? 0) > 0 && (
+              <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                <Timer className="size-3 shrink-0" />
+                {formatFocus(task.focusMinutes!)}
+              </span>
+            )}
           </div>
         )}
 
-        {/* Desktop: subtask progress bar under title */}
-        {depth === 0 && subtaskProgress && (
-          <div className="hidden sm:flex items-center gap-1.5 mt-1">
-            <div className="w-12 h-0.5 rounded-full bg-muted overflow-hidden">
-              <div className="h-full rounded-full bg-primary/50" style={{ width: `${subtaskProgress.pct}%` }} />
-            </div>
-            <span className="text-[10px] text-muted-foreground/60">{subtaskProgress.done}/{subtaskProgress.total}</span>
+        {/* Desktop: subtask progress + focus time under title */}
+        {depth === 0 && (subtaskProgress || (task.focusMinutes ?? 0) > 0) && (
+          <div className="hidden sm:flex items-center gap-3 mt-1">
+            {subtaskProgress && (
+              <div className="flex items-center gap-1.5">
+                <div className="w-12 h-0.5 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-primary/50" style={{ width: `${subtaskProgress.pct}%` }} />
+                </div>
+                <span className="text-[10px] text-muted-foreground/60">{subtaskProgress.done}/{subtaskProgress.total}</span>
+              </div>
+            )}
+            {(task.focusMinutes ?? 0) > 0 && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                <Timer className="size-3 shrink-0" />
+                {formatFocus(task.focusMinutes!)}
+              </span>
+            )}
           </div>
         )}
       </div>
