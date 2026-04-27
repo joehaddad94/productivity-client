@@ -612,8 +612,7 @@ const VirtualTaskList = memo(function VirtualTaskList({
       {/* Scroll container — header lives inside so both share the same width context (scrollbar included) */}
       <div
         ref={parentRef}
-        className="overflow-auto"
-        style={{ maxHeight: "calc(100vh - 320px)" }}
+        className="overflow-auto max-h-[calc(100vh-320px)] lg:max-h-[calc(100vh-260px)]"
       >
         {/* Column header — sticky so it stays visible while scrolling */}
         <div className="hidden sm:flex items-center border-b border-border/40 bg-muted/30 sticky top-0 z-10">

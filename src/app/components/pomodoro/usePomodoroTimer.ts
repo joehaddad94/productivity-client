@@ -170,8 +170,8 @@ export function usePomodoroTimer(
   const reset = useCallback(() => {
     clearTimer();
     runningSecondsRef.current = 0;
-    setState((p) => ({ ...p, secondsLeft: sessionDuration(p.sessionType, prefs), isRunning: false }));
-  }, [clearTimer, prefs]);
+    setState((p) => ({ ...p, secondsLeft: sessionDuration(p.sessionType, prefsRef.current), isRunning: false }));
+  }, [clearTimer]);
   const skip = useCallback(() => { clearTimer(); advanceSession(0); }, [clearTimer, advanceSession]);
 
   return { state, start, pause, reset, skip };

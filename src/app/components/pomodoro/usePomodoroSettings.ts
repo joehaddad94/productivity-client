@@ -41,7 +41,7 @@ function readSettings(): PomodoroPreferences {
 function writeSettings(s: PomodoroPreferences) {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
-    window.dispatchEvent(new CustomEvent(SETTINGS_CHANGED_EVENT));
+    setTimeout(() => window.dispatchEvent(new CustomEvent(SETTINGS_CHANGED_EVENT)), 0);
   } catch { /* ignore */ }
 }
 
