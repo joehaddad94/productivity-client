@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useCallback, ReactNode } from "react";
+import { createContext, useContext, useCallback, useEffect, ReactNode } from "react";
 import type { User } from "@/lib/types";
 import type { AuthUser } from "@/lib/api/auth-api";
 import {
@@ -9,6 +9,7 @@ import {
   useLoginMutation,
   useVerifyMutation,
   useLogoutMutation,
+  useUpdateMeMutation,
   AUTH_QUERY_KEY,
 } from "@/app/hooks/useAuthApi";
 import { useQueryClient } from "@tanstack/react-query";
@@ -41,6 +42,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginMutation = useLoginMutation();
   const verifyMutation = useVerifyMutation();
   const logoutMutation = useLogoutMutation();
+  const updateMeMutation = useUpdateMeMutation();
+
+  // Silently sync the browser's IANA timezone to the server on first load.
+  useEffect(() => {
+    if (!meFetched || !meUser) return;
+    let detectedTz: string;
+    try {
+      detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      return;
+    }
+    if (meUser.timezone !== detectedTz) {
+      updateMeMutation.mutate({ timezone: detectedTz });
+    }
+  // Only run when meFetched flips to true or the user identity changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meFetched, meUser?.id]);
 
   // Derive user synchronously from the query so there's no one-frame lag.
   // Previously we copied meUser into useState in an effect, so when meFetched

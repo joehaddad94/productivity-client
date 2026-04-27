@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -15,7 +15,6 @@ import {
 } from "@/app/hooks/useTasksApi";
 import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
 import { useProjectsQuery } from "@/app/hooks/useProjectsApi";
-import { useDebounce } from "@/app/hooks/useDebounce";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import type { PriorityFilter, TaskFormData } from "../model/types";
 import {
@@ -25,19 +24,17 @@ import {
   firstTerminalStatusId,
 } from "../lib/taskStatusHelpers";
 
-export function useTasksScreen() {
+export function useTasksScreen({ search = "" }: { search?: string } = {}) {
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
   const queryClient = useQueryClient();
 
-  const [searchQuery, setSearchQuery] = useState("");
   const [filterProjectId, setFilterProjectId] = useState<"all" | string>("all");
   const [filterPriority, setFilterPriority] = useState<PriorityFilter>("all");
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [limit, setLimit] = useState(200);
-  // IDs in this set are COLLAPSED (subtasks hidden). Empty = all expanded.
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -47,13 +44,24 @@ export function useTasksScreen() {
   const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map()
   );
+  const pendingToggles = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const debouncedSearch = useDebounce(searchQuery, 300);
+  // Clear any debounced toggle timers when the screen unmounts to prevent
+  // state updates and stale mutation calls after the component is gone.
+  useEffect(() => {
+    return () => {
+      pendingToggles.current.forEach(clearTimeout);
+      pendingToggles.current.clear();
+    };
+  }, []);
+
   const { data: page, isLoading, error } = useTasksQuery(workspaceId, {
-    search: debouncedSearch || undefined,
+    search: search || undefined,
     priority: filterPriority === "all" ? undefined : filterPriority,
     projectId: filterProjectId === "all" ? undefined : filterProjectId,
     limit,
+  }, {
+    placeholderData: (prev) => prev,
   });
   const { data: projectsPage, isLoading: projectsLoading } = useProjectsQuery(workspaceId, {
     limit: 200,
@@ -176,14 +184,45 @@ export function useTasksScreen() {
     });
   }, []);
 
-  const handleToggle = (id: string, completed: boolean) => {
+  const handleToggle = useCallback((id: string, completed: boolean) => {
     const terminalId = firstTerminalStatusId(taskStatuses);
     const openId = defaultNonTerminalStatusId(taskStatuses);
-    updateMutation.mutate({
-      id,
-      body: { status: completed ? terminalId : openId },
-    });
-  };
+    const nextStatus = completed ? terminalId : openId;
+
+    // Optimistic update — works for both top-level tasks and nested subtasks
+    queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
+      { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+      (old) => {
+        if (!old?.tasks) return old;
+        return {
+          ...old,
+          tasks: old.tasks.map((t) => {
+            if (t.id === id) return { ...t, status: nextStatus };
+            if (t.subtasks?.some((s) => s.id === id))
+              return { ...t, subtasks: t.subtasks!.map((s) => (s.id === id ? { ...s, status: nextStatus } : s)) };
+            return t;
+          }),
+        };
+      },
+    );
+
+    // Debounce the API call — rapid toggles cancel the previous timer
+    const existing = pendingToggles.current.get(id);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      pendingToggles.current.delete(id);
+      updateMutation.mutate(
+        { id, body: { status: nextStatus } },
+        {
+          onError: () => {
+            // Revert by re-fetching the source of truth
+            queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
+          },
+        },
+      );
+    }, 400);
+    pendingToggles.current.set(id, timer);
+  }, [taskStatuses, updateMutation, queryClient, workspaceId]);
 
   const handleToggleExpand = useCallback((id: string) => {
     setCollapsedIds((prev) => {
@@ -198,10 +237,10 @@ export function useTasksScreen() {
     (id: string) => {
       queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
         { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
-        (old) =>
-          old
-            ? { tasks: old.tasks.filter((t) => t.id !== id && t.parentTaskId !== id), total: old.total - 1 }
-            : old
+        (old) => {
+          if (!old || !Array.isArray(old.tasks)) return old;
+          return { tasks: old.tasks.filter((t) => t.id !== id && t.parentTaskId !== id), total: old.total - 1 };
+        }
       );
       if (selectedTask?.id === id) setShowDetail(false);
       deleteMutation.mutate(id);
@@ -215,17 +254,36 @@ export function useTasksScreen() {
     setShowDetail(true);
   };
 
+  const handleTitleSave = useCallback((id: string, title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
+      { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+      (old) => {
+        if (!old?.tasks) return old;
+        return {
+          ...old,
+          tasks: old.tasks.map((t) => {
+            if (t.id === id) return { ...t, title: trimmed };
+            if (t.subtasks?.some((s) => s.id === id))
+              return { ...t, subtasks: t.subtasks!.map((s) => (s.id === id ? { ...s, title: trimmed } : s)) };
+            return t;
+          }),
+        };
+      },
+    );
+    updateMutation.mutate({ id, body: { title: trimmed } });
+  }, [queryClient, workspaceId, updateMutation]);
+
   const handleCreate = (data: TaskFormData) => {
     createMutation.mutate(data);
   };
 
   const isFiltered =
-    debouncedSearch.length > 0 || filterPriority !== "all" || filterProjectId !== "all";
+    search.length > 0 || filterPriority !== "all" || filterProjectId !== "all";
 
   return {
     workspaceId,
-    searchQuery,
-    setSearchQuery,
     filterProjectId,
     setFilterProjectId,
     filterPriority,
@@ -266,6 +324,7 @@ export function useTasksScreen() {
     handleToggleExpand,
     handleDelete,
     handleSelectTask,
+    handleTitleSave,
     handleLoadMore: () => setLimit((l) => l + 50),
   };
 }

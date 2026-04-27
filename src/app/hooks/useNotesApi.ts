@@ -179,13 +179,7 @@ export function useCreateNoteMutation(
       }
       options?.onError?.(error, variables, context, mutation);
     },
-    onSettled: (data, error, variables, context, mutation) => {
-      queryClient.invalidateQueries({
-        queryKey: NOTES_QUERY_KEY(workspaceKey),
-        refetchType: "inactive",
-      });
-      options?.onSettled?.(data, error, variables, context, mutation);
-    },
+    onSettled: options?.onSettled,
   });
 }
 
@@ -233,8 +227,8 @@ export function useDeleteNoteMutation(
       options?.onError?.(err, id, context, mutation);
     },
     onSuccess: (_, id, context, mutation) => {
+      // onMutate already removed from all caches — just clean up the single-note entry
       queryClient.removeQueries({ queryKey: NOTE_QUERY_KEY(workspaceId ?? "", id) });
-      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(_, id, context, mutation);
     },
   });

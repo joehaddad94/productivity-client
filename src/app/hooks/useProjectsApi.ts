@@ -48,7 +48,7 @@ export function useProjectsQuery(
     queryKey: [...PROJECTS_QUERY_KEY(workspaceId ?? ""), params] as const,
     queryFn: () => projectsApi.list(workspaceId!, params),
     enabled: !!workspaceId,
-    staleTime: 30_000,
+    staleTime: 5 * 60_000,
     ...options,
   });
 }

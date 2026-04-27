@@ -96,6 +96,20 @@ export const taskStatusesApi = {
     return (data as { status: TaskStatusDefinition }).status;
   },
 
+  swap: async (
+    workspaceId: string,
+    idA: string,
+    idB: string,
+  ): Promise<TaskStatusDefinition[]> => {
+    const res = await api(`/workspaces/${workspaceId}/task-statuses/swap`, {
+      method: "POST",
+      body: JSON.stringify({ idA, idB }),
+    });
+    const data = await parseJson(res);
+    if (!res.ok) throw new Error(getMessage(data));
+    return (data as { statuses: TaskStatusDefinition[] }).statuses;
+  },
+
   delete: async (
     workspaceId: string,
     statusId: string,

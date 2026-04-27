@@ -19,6 +19,8 @@ import {
   ArrowUpDown,
   AlertCircle,
   X,
+  PanelRight,
+  Timer,
 } from "lucide-react";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import { isTaskStatusTerminal } from "../lib/taskStatusHelpers";
@@ -49,7 +51,10 @@ import {
 } from "@/app/components/ui/alert-dialog";
 import { cn } from "@/app/components/ui/utils";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
+import { usePomodoroLink } from "@/app/components/pomodoro";
+import { useLogTaskFocusMutation } from "@/app/hooks/useTasksApi";
 import { useTasksScreen } from "../hooks/useTasksScreen";
+import { useDebounce } from "@/app/hooks/useDebounce";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TaskDrawer } from "./TaskDrawer";
 import { TaskStatusesSettings } from "./TaskStatusesSettings";
@@ -81,6 +86,13 @@ function formatTime(time: string): string {
   return `${h12}:${m} ${ampm}`;
 }
 
+function formatFocus(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
 // ─── Module-level constants ────────────────────────────────────────────────────
 
 const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -96,6 +108,12 @@ const COL_PRIORITY = "w-[72px]";
 const COL_DUE = "w-[96px]";
 const COL_PROJECT = "w-[116px]";
 const COL_ICON = "w-10";
+const COL_ACTIONS = "w-[76px]";
+
+const FILTER_BTN =
+  "inline-flex items-center gap-1 !h-7 px-2 rounded-md text-xs font-normal shrink-0 cursor-pointer transition-colors " +
+  "text-muted-foreground hover:text-foreground hover:bg-muted/60 dark:hover:bg-muted " +
+  "border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none";
 
 // ─── Flat row type for virtualized list ───────────────────────────────────────
 
@@ -134,7 +152,7 @@ const RowProjectPicker = memo(function RowProjectPicker({
         <button
           type="button"
           onClick={(e) => e.stopPropagation()}
-          className="text-[11px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded-md hover:bg-muted/50 truncate w-full text-left transition-colors cursor-pointer"
+          className="text-[11px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded-md hover:bg-muted/50 truncate max-w-full text-center transition-colors cursor-pointer"
         >
           {name ?? <span className="opacity-30">—</span>}
         </button>
@@ -181,7 +199,7 @@ const StatusSelect = memo(function StatusSelect({
   return (
     <Select value={task.status} onValueChange={(v) => onStatusChange(task.id, v)}>
       <SelectTrigger className={cn(
-        "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40",
+        "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40 cursor-pointer",
         isCompleted
           ? "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5"
           : "border-border/60 text-muted-foreground",
@@ -225,6 +243,15 @@ const TaskRow = memo(function TaskRow({
   projects,
   onProjectChange,
   taskStatuses,
+  isEditing = false,
+  onEditStart,
+  onEditSave,
+  onEditCancel,
+  isLinked = false,
+  onLinkTimer,
+  onPriorityChange,
+  onDueDateChange,
+  onFocusLog,
 }: {
   task: Task;
   depth?: number;
@@ -246,6 +273,15 @@ const TaskRow = memo(function TaskRow({
   projects: ProjectOption[];
   onProjectChange: (id: string, projectId: string | undefined) => void;
   taskStatuses: TaskStatusDefinition[];
+  isEditing?: boolean;
+  onEditStart?: () => void;
+  onEditSave?: (title: string) => void;
+  onEditCancel?: () => void;
+  isLinked?: boolean;
+  onLinkTimer?: (id: string) => void;
+  onPriorityChange?: (id: string, priority: string | undefined) => void;
+  onDueDateChange?: (id: string, dueDate: string | undefined) => void;
+  onFocusLog?: (id: string, minutes: number) => void;
 }) {
   const hasSubtasks = !!task.subtasks?.length;
   const isCompleted = terminalIds.has(task.status);
@@ -264,15 +300,16 @@ const TaskRow = memo(function TaskRow({
       onDragStart={(e) => { e.stopPropagation(); onDragStart?.(task.id); }}
       onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOver?.(task.id); }}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop?.(task.id); }}
-      style={depth > 0 ? { paddingLeft: `${depth * 20}px` } : undefined}
+      style={depth > 0 ? { paddingLeft: `${depth * 36}px` } : undefined}
       className={cn(
-        "group flex items-center transition-colors cursor-pointer",
+        "group flex items-center transition-colors",
+        isSelectMode ? "cursor-pointer" : "cursor-default",
         depth === 0 ? "hover:bg-muted/30" : "hover:bg-muted/20 border-l-2 border-border/20",
         isDragOver && "bg-primary/5",
         isSelected && "bg-primary/5",
         isCompleted && depth === 0 && "opacity-60",
       )}
-      onClick={() => isSelectMode ? onToggleSelect?.(task.id) : onSelect(task)}
+      onClick={() => isSelectMode ? onToggleSelect?.(task.id) : undefined}
     >
       {/* Icon column */}
       <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
@@ -302,15 +339,37 @@ const TaskRow = memo(function TaskRow({
             <GripVertical className="size-3 text-muted-foreground/25 shrink-0 opacity-0 group-hover:opacity-100 cursor-grab" />
           )}
           <div className="flex-1 min-w-0">
-            <span className={cn(
-              "block truncate leading-snug",
-              depth === 0 ? "text-sm font-medium" : "text-xs text-muted-foreground",
-              isCompleted && "line-through opacity-50",
-            )}>
-              {task.title}
-            </span>
-            {task.description && depth === 0 && (
-              <span className="text-xs text-muted-foreground/70 truncate block mt-0.5">{task.description}</span>
+            {isEditing ? (
+              <input
+                autoFocus
+                defaultValue={task.title}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); onEditSave?.((e.target as HTMLInputElement).value); }
+                  if (e.key === "Escape") { e.preventDefault(); onEditCancel?.(); }
+                }}
+                onBlur={(e) => onEditSave?.(e.target.value)}
+                className={cn(
+                  "w-full bg-transparent outline-none leading-snug border-b border-primary/40 pb-0.5",
+                  depth === 0 ? "text-sm font-medium" : "text-xs text-muted-foreground",
+                )}
+              />
+            ) : (
+              <>
+                <span
+                  className={cn(
+                    "block truncate leading-snug cursor-text",
+                    depth === 0 ? "text-sm font-medium" : "text-xs text-muted-foreground",
+                    isCompleted && "line-through opacity-50",
+                  )}
+                  onClick={(e) => { e.stopPropagation(); onEditStart?.(); }}
+                >
+                  {task.title}
+                </span>
+                {task.description && depth === 0 && (
+                  <span className="text-xs text-muted-foreground/70 truncate block mt-0.5">{task.description}</span>
+                )}
+              </>
             )}
           </div>
           {/* Mobile: read-only status chip (no Select — avoids duplicate) */}
@@ -360,23 +419,36 @@ const TaskRow = memo(function TaskRow({
                 {projects.find((p) => p.id === task.projectId)?.name}
               </span>
             )}
+            {(task.focusMinutes ?? 0) > 0 && (
+              <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                <Timer className="size-3 shrink-0" />
+                {formatFocus(task.focusMinutes!)}
+              </span>
+            )}
           </div>
         )}
 
-        {/* Desktop: subtask progress bar under title */}
-        {depth === 0 && subtaskProgress && (
-          <div className="hidden sm:flex items-center gap-1.5 mt-1">
-            <div className="w-12 h-0.5 rounded-full bg-muted overflow-hidden">
-              <div className="h-full rounded-full bg-primary/50" style={{ width: `${subtaskProgress.pct}%` }} />
-            </div>
-            <span className="text-[10px] text-muted-foreground/60">{subtaskProgress.done}/{subtaskProgress.total}</span>
+        {/* Desktop: subtask progress + focus time under title */}
+        {depth === 0 && (subtaskProgress || onFocusLog) && (
+          <div className="hidden sm:flex items-center gap-3 mt-1">
+            {subtaskProgress && (
+              <div className="flex items-center gap-1.5">
+                <div className="w-12 h-0.5 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-primary/50" style={{ width: `${subtaskProgress.pct}%` }} />
+                </div>
+                <span className="text-[10px] text-muted-foreground/60">{subtaskProgress.done}/{subtaskProgress.total}</span>
+              </div>
+            )}
+            {onFocusLog && (
+              <FocusTimeCell task={task} onFocusLog={onFocusLog} />
+            )}
           </div>
         )}
       </div>
 
       {/* Desktop: Status — single instance (not duplicated for mobile) */}
       {depth === 0 ? (
-        <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center shrink-0 py-2.5 pr-3", COL_STATUS)}>
+        <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_STATUS)}>
           <StatusSelect
             task={task}
             taskStatuses={taskStatuses}
@@ -390,31 +462,21 @@ const TaskRow = memo(function TaskRow({
       )}
 
       {/* Desktop: Priority */}
-      <div className={cn("hidden sm:flex items-center shrink-0 py-2.5 pr-3", COL_PRIORITY)}>
-        {depth === 0 && task.priority && (
-          <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide", PRIORITY_PILL[task.priority])}>
-            {task.priority[0].toUpperCase() + task.priority.slice(1)}
-          </span>
+      <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_PRIORITY)}>
+        {depth === 0 && onPriorityChange && (
+          <PrioritySelect task={task} onPriorityChange={onPriorityChange} />
         )}
       </div>
 
       {/* Desktop: Due */}
-      <div className={cn("hidden sm:flex items-center shrink-0 py-2.5 pr-3", COL_DUE)}>
-        {depth === 0 && task.dueDate && (
-          <span className={cn("flex flex-col gap-0.5", isOverdue ? "text-red-500" : "text-muted-foreground")}>
-            <span className="flex items-center gap-1 text-[11px] font-medium">
-              <Calendar className="size-3 shrink-0" />
-              {formatDate(task.dueDate, todayYear)}
-            </span>
-            {task.dueTime && (
-              <span className="pl-4 text-[10px] opacity-70 font-normal">{formatTime(task.dueTime)}</span>
-            )}
-          </span>
+      <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_DUE)}>
+        {depth === 0 && onDueDateChange && (
+          <DueDatePicker task={task} todayYear={todayYear} isOverdue={isOverdue} onDueDateChange={onDueDateChange} />
         )}
       </div>
 
       {/* Desktop: Project — lazy picker */}
-      <div onClick={(e) => e.stopPropagation()} className={cn("hidden md:flex items-center shrink-0 py-2.5 pr-2", COL_PROJECT)}>
+      <div onClick={(e) => e.stopPropagation()} className={cn("hidden md:flex items-center justify-center shrink-0 py-2.5", COL_PROJECT)}>
         {depth === 0 && (
           <RowProjectPicker
             projects={projects}
@@ -424,19 +486,203 @@ const TaskRow = memo(function TaskRow({
         )}
       </div>
 
-      {/* Delete */}
-      <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
+      {/* Timer · Details · Delete */}
+      <div className={cn(COL_ACTIONS, "flex items-center justify-center gap-0.5 shrink-0 py-2.5")}>
         {depth === 0 && (
-          <button
-            title="Delete task"
-            onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id); }}
-            className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all cursor-pointer"
-          >
-            <Trash2 className="size-3.5" />
-          </button>
+          <>
+            {onLinkTimer && (
+              <button
+                title={isLinked ? "Unlink from focus timer" : "Link to focus timer"}
+                onClick={(e) => { e.stopPropagation(); onLinkTimer(task.id); }}
+                className={cn(
+                  "p-1 rounded-md transition-all cursor-pointer",
+                  isLinked
+                    ? "text-emerald-600 dark:text-emerald-500 opacity-100"
+                    : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-500 hover:bg-emerald-500/8",
+                )}
+              >
+                <Timer className="size-3.5" />
+              </button>
+            )}
+            <button
+              title="Open details"
+              onClick={(e) => { e.stopPropagation(); onSelect(task); }}
+              className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer"
+            >
+              <PanelRight className="size-3.5" />
+            </button>
+            <button
+              title="Delete task"
+              onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id); }}
+              className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all cursor-pointer"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </>
         )}
       </div>
     </div>
+  );
+});
+
+// ─── PrioritySelect — inline editable priority ────────────────────────────────
+
+const PRIORITY_NONE = "__none__";
+
+const PrioritySelect = memo(function PrioritySelect({
+  task,
+  onPriorityChange,
+}: {
+  task: Task;
+  onPriorityChange: (id: string, priority: string | undefined) => void;
+}) {
+  return (
+    <Select
+      value={task.priority ?? PRIORITY_NONE}
+      onValueChange={(v) => onPriorityChange(task.id, v === PRIORITY_NONE ? undefined : v)}
+    >
+      <SelectTrigger className={cn(
+        "h-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold tracking-wide shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40 cursor-pointer",
+        task.priority ? PRIORITY_PILL[task.priority] : "border-border/60 text-muted-foreground/40",
+      )}>
+        <SelectValue placeholder="—" />
+      </SelectTrigger>
+      <SelectContent align="center">
+        <SelectItem value={PRIORITY_NONE} className="text-xs">None</SelectItem>
+        <SelectItem value="low" className="text-xs">Low</SelectItem>
+        <SelectItem value="medium" className="text-xs">Medium</SelectItem>
+        <SelectItem value="high" className="text-xs">High</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+});
+
+// ─── DueDatePicker — click-to-edit inline due date ────────────────────────────
+
+const DueDatePicker = memo(function DueDatePicker({
+  task,
+  todayYear,
+  isOverdue,
+  onDueDateChange,
+}: {
+  task: Task;
+  todayYear: number;
+  isOverdue: boolean;
+  onDueDateChange: (id: string, dueDate: string | undefined) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <input
+        type="date"
+        autoFocus
+        defaultValue={task.dueDate?.slice(0, 10) ?? ""}
+        onChange={(e) => onDueDateChange(task.id, e.target.value || undefined)}
+        onBlur={() => setEditing(false)}
+        className="w-[90px] text-[11px] font-medium bg-transparent outline-none border-b border-primary/40 text-center cursor-pointer [color-scheme:light] dark:[color-scheme:dark] text-foreground"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+      className={cn(
+        "flex flex-col items-center gap-0.5 cursor-pointer hover:opacity-70 transition-opacity",
+        isOverdue ? "text-red-500" : task.dueDate ? "text-muted-foreground" : "text-muted-foreground/30",
+      )}
+    >
+      <span className="flex items-center gap-1 text-[11px] font-medium">
+        <Calendar className="size-3 shrink-0" />
+        {task.dueDate ? formatDate(task.dueDate, todayYear) : "—"}
+      </span>
+      {task.dueTime && (
+        <span className="text-[10px] opacity-70">{formatTime(task.dueTime)}</span>
+      )}
+    </button>
+  );
+});
+
+// ─── FocusTimeCell — shows logged focus, click to log more ────────────────────
+
+const FocusTimeCell = memo(function FocusTimeCell({
+  task,
+  onFocusLog,
+}: {
+  task: Task;
+  onFocusLog: (id: string, minutes: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [input, setInput] = useState("");
+
+  function submit() {
+    const mins = parseInt(input, 10);
+    if (mins > 0) onFocusLog(task.id, mins);
+    setInput("");
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+        <Timer className="size-3 shrink-0" />
+        {(task.focusMinutes ?? 0) > 0 && <span className="tabular-nums">{formatFocus(task.focusMinutes!)}·</span>}
+        <input
+          autoFocus
+          type="number"
+          min={1}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); submit(); }
+            if (e.key === "Escape") { setInput(""); setEditing(false); }
+          }}
+          onBlur={submit}
+          placeholder="min"
+          className="w-9 bg-transparent outline-none border-b border-primary/30 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      title="Log focus time"
+      onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+      className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
+    >
+      <Timer className="size-3 shrink-0" />
+      {(task.focusMinutes ?? 0) > 0 ? formatFocus(task.focusMinutes!) : <span className="opacity-0 group-hover:opacity-100">Log</span>}
+    </button>
+  );
+});
+
+// ─── DebouncedSearch — owns its own state so TasksScreen never re-renders on keystrokes ──
+
+const DebouncedSearch = memo(function DebouncedSearch({
+  onSearch,
+  disabled,
+}: {
+  onSearch: (q: string) => void;
+  disabled?: boolean;
+}) {
+  const [value, setValue] = useState("");
+  const debounced = useDebounce(value, 500);
+
+  useEffect(() => { onSearch(debounced); }, [debounced, onSearch]);
+
+  return (
+    <SearchInput
+      placeholder="Search tasks… (N to create)"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      aria-label="Search tasks"
+      className="w-full h-7 border-0 bg-transparent shadow-none focus-within:ring-0 text-sm"
+      disabled={disabled}
+    />
   );
 });
 
@@ -483,6 +729,15 @@ interface VirtualTaskListProps {
   onDragOver: (id: string) => void;
   onDrop: (id: string) => void;
   onProjectChange: (id: string, projectId: string | undefined) => void;
+  editingId: string | null;
+  onEditStart: (id: string) => void;
+  onEditSave: (id: string, title: string) => void;
+  onEditCancel: () => void;
+  linkedId: string | null;
+  onLinkTimer: (id: string) => void;
+  onPriorityChange: (id: string, priority: string | undefined) => void;
+  onDueDateChange: (id: string, dueDate: string | undefined) => void;
+  onFocusLog: (id: string, minutes: number) => void;
 }
 
 const VirtualTaskList = memo(function VirtualTaskList({
@@ -509,6 +764,15 @@ const VirtualTaskList = memo(function VirtualTaskList({
   onDragOver,
   onDrop,
   onProjectChange,
+  editingId,
+  onEditStart,
+  onEditSave,
+  onEditCancel,
+  linkedId,
+  onLinkTimer,
+  onPriorityChange,
+  onDueDateChange,
+  onFocusLog,
 }: VirtualTaskListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -530,23 +794,22 @@ const VirtualTaskList = memo(function VirtualTaskList({
 
   return (
     <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
-      {/* Column header — desktop only */}
-      <div className="hidden sm:flex items-center border-b border-border/40 bg-muted/30">
-        <div className={cn(COL_ICON, "shrink-0")} />
-        <div className="flex-1 min-w-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Task</div>
-        <div className={cn(COL_STATUS, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Status</div>
-        <div className={cn(COL_PRIORITY, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Priority</div>
-        <div className={cn(COL_DUE, "shrink-0 py-1.5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Due</div>
-        <div className={cn(COL_PROJECT, "hidden md:block shrink-0 py-1.5 pr-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Project</div>
-        <div className={cn(COL_ICON, "shrink-0")} />
-      </div>
-
-      {/* Virtualized rows */}
+      {/* Scroll container — header lives inside so both share the same width context (scrollbar included) */}
       <div
         ref={parentRef}
-        className="overflow-auto"
-        style={{ maxHeight: "calc(100vh - 320px)", minHeight: "120px" }}
+        className="overflow-auto max-h-[calc(100vh-320px)] lg:max-h-[calc(100vh-260px)]"
       >
+        {/* Column header — sticky so it stays visible while scrolling */}
+        <div className="hidden sm:flex items-center border-b border-border/40 bg-muted/30 sticky top-0 z-10">
+          <div className={cn(COL_ICON, "shrink-0")} />
+          <div className="flex-1 min-w-0 py-1.5 pl-5 pr-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Task</div>
+          <div className={cn(COL_STATUS, "shrink-0 flex items-center justify-center py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Status</div>
+          <div className={cn(COL_PRIORITY, "shrink-0 flex items-center justify-center py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Priority</div>
+          <div className={cn(COL_DUE, "shrink-0 flex items-center justify-center py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Due</div>
+          <div className={cn(COL_PROJECT, "hidden md:flex items-center justify-center shrink-0 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Project</div>
+          <div className={cn(COL_ACTIONS, "shrink-0")} />
+        </div>
+
         <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
           {virtualizer.getVirtualItems().map((vItem) => {
             const row = rows[vItem.index]!;
@@ -592,6 +855,15 @@ const VirtualTaskList = memo(function VirtualTaskList({
                   projects={projects}
                   onProjectChange={onProjectChange}
                   taskStatuses={taskStatuses}
+                  isEditing={editingId === task.id}
+                  onEditStart={() => onEditStart(task.id)}
+                  onEditSave={(title) => onEditSave(task.id, title)}
+                  onEditCancel={onEditCancel}
+                  isLinked={linkedId === task.id}
+                  onLinkTimer={onLinkTimer}
+                  onPriorityChange={onPriorityChange}
+                  onDueDateChange={onDueDateChange}
+                  onFocusLog={onFocusLog}
                 />
               </div>
             );
@@ -608,6 +880,7 @@ export function TasksScreen() {
   const [createOpen, setCreateOpen] = useState(false);
   const [drawerTask, setDrawerTask] = useState<Task | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [projectFilterOpen, setProjectFilterOpen] = useState(false);
   const [statusesSheetOpen, setStatusesSheetOpen] = useState(false);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
@@ -618,10 +891,11 @@ export function TasksScreen() {
 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const handleSearch = useCallback((q: string) => setDebouncedSearch(q), []);
+
   const {
     workspaceId,
-    searchQuery,
-    setSearchQuery,
     filterProjectId,
     setFilterProjectId,
     filterPriority,
@@ -655,8 +929,9 @@ export function TasksScreen() {
     handleToggle,
     handleToggleExpand,
     handleDelete,
+    handleTitleSave,
     handleLoadMore,
-  } = useTasksScreen();
+  } = useTasksScreen({ search: debouncedSearch });
 
   // Pre-compute terminal status IDs as a Set — O(1) lookups in rows
   const terminalIds = useMemo(
@@ -712,6 +987,13 @@ export function TasksScreen() {
     setDrawerOpen(true);
   }, []);
 
+  const handleEditStart = useCallback((id: string) => setEditingId(id), []);
+  const handleEditSave = useCallback((id: string, title: string) => {
+    setEditingId(null);
+    handleTitleSave(id, title);
+  }, [handleTitleSave]);
+  const handleEditCancel = useCallback(() => setEditingId(null), []);
+
   const handleStatusChange = useCallback((id: string, status: string) => {
     updateMutation.mutate({ id, body: { status } });
   }, [updateMutation]);
@@ -739,6 +1021,31 @@ export function TasksScreen() {
   const handleProjectChange = useCallback((id: string, projectId: string | undefined) => {
     updateMutation.mutate({ id, body: { projectId: projectId ?? null } });
   }, [updateMutation]);
+
+  const { linkedId, setLinkedId } = usePomodoroLink();
+  const logTaskFocusMutation = useLogTaskFocusMutation(workspaceId);
+
+  const handlePriorityChange = useCallback((id: string, priority: string | undefined) => {
+    updateMutation.mutate({ id, body: { priority: priority as "low" | "medium" | "high" | undefined } });
+  }, [updateMutation]);
+
+  const handleDueDateChange = useCallback((id: string, dueDate: string | undefined) => {
+    updateMutation.mutate({ id, body: { dueDate: dueDate || undefined } });
+  }, [updateMutation]);
+
+  const handleFocusLog = useCallback((id: string, minutes: number) => {
+    logTaskFocusMutation.mutate({ id, minutes });
+  }, [logTaskFocusMutation]);
+  const handleLinkTimer = useCallback((id: string) => {
+    if (linkedId === id) {
+      setLinkedId(null);
+      toast.info("Focus timer unlinked");
+    } else {
+      setLinkedId(id);
+      const task = tasks.find((t) => t.id === id);
+      toast.success(`Focusing: ${task?.title ?? "task"}`, { duration: 2000 });
+    }
+  }, [linkedId, setLinkedId, tasks]);
 
   const handleSelectAll = useCallback((visibleTasks: Task[]) => {
     const allIds = new Set(visibleTasks.map((t) => t.id));
@@ -848,13 +1155,7 @@ export function TasksScreen() {
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-0 rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
           <div className="px-3 py-2 border-b border-border/50 sm:border-b-0 sm:border-r sm:flex-1">
-            <SearchInput
-              placeholder="Search tasks… (N to create)"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Search tasks"
-              className="w-full h-7 border-0 bg-transparent shadow-none focus-within:ring-0 text-sm"
-            />
+            <DebouncedSearch onSearch={handleSearch} disabled={!workspaceId} />
           </div>
           <div className="flex items-center gap-0.5 px-2 py-1.5 overflow-x-auto scrollbar-none">
             <Popover open={projectFilterOpen} onOpenChange={setProjectFilterOpen}>
@@ -865,7 +1166,7 @@ export function TasksScreen() {
                   size="sm"
                   role="combobox"
                   disabled={!workspaceId || projectsLoading}
-                  className={cn("h-7 text-xs px-2 font-normal gap-1 shrink-0", filterProjectId !== "all" && "text-foreground font-medium")}
+                  className={cn(FILTER_BTN, filterProjectId !== "all" && "text-foreground font-medium")}
                 >
                   {projectFilterLabel}
                   <ChevronDown className="size-3 opacity-50" />
@@ -894,7 +1195,7 @@ export function TasksScreen() {
             </Popover>
 
             <Select value={filterPriority} onValueChange={(v) => setFilterPriority(v as typeof filterPriority)}>
-              <SelectTrigger className={cn("h-7 text-xs border-0 bg-transparent shadow-none w-auto px-2 gap-1 font-normal shrink-0", filterPriority !== "all" && "font-medium text-foreground")}>
+              <SelectTrigger className={cn(FILTER_BTN, "w-auto", filterPriority !== "all" && "text-foreground font-medium")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -910,8 +1211,8 @@ export function TasksScreen() {
               onClick={() => setShowOverdueOnly((v) => !v)}
               disabled={!workspaceId}
               className={cn(
-                "flex items-center gap-1 h-7 px-2 rounded-md text-xs transition-colors shrink-0",
-                showOverdueOnly ? "text-red-500 font-medium bg-red-500/10" : "text-muted-foreground hover:text-foreground",
+                FILTER_BTN,
+                showOverdueOnly && "text-red-500 font-medium bg-red-500/10 hover:text-red-500 hover:bg-red-500/15 dark:hover:bg-red-500/20",
               )}
             >
               <AlertCircle className="size-3.5" />
@@ -922,7 +1223,7 @@ export function TasksScreen() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="flex items-center gap-0.5 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
+                className={FILTER_BTN}
                 title="Clear all filters"
               >
                 <X className="size-3" />
@@ -933,7 +1234,7 @@ export function TasksScreen() {
             <div className="w-px h-4 bg-border/60 shrink-0 mx-1" />
 
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-              <SelectTrigger className="h-7 text-xs border-0 bg-transparent shadow-none w-auto px-2 gap-1 font-normal shrink-0">
+              <SelectTrigger className={cn(FILTER_BTN, "w-auto")}>
                 <ArrowUpDown className="size-3 opacity-50 shrink-0" />
                 <SelectValue />
               </SelectTrigger>
@@ -1004,12 +1305,12 @@ export function TasksScreen() {
                   <TabsTrigger
                     key={s.id}
                     value={s.id}
-                    className="cursor-pointer text-xs h-9 px-4 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground font-medium bg-transparent shadow-none"
+                    className="cursor-pointer text-xs h-9 px-4 shrink-0 rounded-none font-medium text-muted-foreground bg-transparent shadow-none border-x-0 border-t-0 border-b-2 border-b-transparent data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent dark:data-[state=active]:border-b-primary focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none focus-visible:border-b-transparent"
                   >
                     {s.name}
                     <span className={cn(
                       "ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-                      activeStatusTab === s.id ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                      activeStatusTab === s.id ? "bg-primary/15 dark:bg-primary/25 text-primary" : "bg-muted text-muted-foreground",
                     )}>
                       {showFraction ? `${count}/${colTasks.length}` : count}
                     </span>
@@ -1043,6 +1344,15 @@ export function TasksScreen() {
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
                   onProjectChange={handleProjectChange}
+                  editingId={editingId}
+                  onEditStart={handleEditStart}
+                  onEditSave={handleEditSave}
+                  onEditCancel={handleEditCancel}
+                  linkedId={linkedId}
+                  onLinkTimer={handleLinkTimer}
+                  onPriorityChange={handlePriorityChange}
+                  onDueDateChange={handleDueDateChange}
+                  onFocusLog={handleFocusLog}
                 />
               </TabsContent>
             ))}
@@ -1107,8 +1417,7 @@ export function TasksScreen() {
           <SheetHeader className="shrink-0 space-y-1 border-b border-border/60 p-4 pb-3 text-left">
             <SheetTitle>Task statuses</SheetTitle>
             <SheetDescription>
-              Columns and check-off behavior for this workspace. The server must implement{" "}
-              <code className="rounded bg-muted px-1 text-[11px]">/workspaces/…/task-statuses</code> for changes to persist.
+              Define the stages tasks move through in this workspace.
             </SheetDescription>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-4">

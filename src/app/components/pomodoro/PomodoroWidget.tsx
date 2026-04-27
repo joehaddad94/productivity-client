@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
-import { Play, Pause, RotateCcw, SkipForward, Timer, Link2, Unlink } from "lucide-react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { Play, Pause, RotateCcw, SkipForward, ChevronDown, Link2, X, Settings2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { usePomodoroTimer, type SessionType } from "./usePomodoroTimer";
+import { usePomodoroSettings } from "./usePomodoroSettings";
+import { usePomodoroLink } from "./PomodoroContext";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { useLogStatMutation } from "@/app/hooks/useAnalyticsApi";
 import { useTasksQuery, useLogTaskFocusMutation } from "@/app/hooks/useTasksApi";
@@ -12,263 +14,352 @@ import { cn } from "@/app/components/ui/utils";
 import type { TaskStatusDefinition } from "@/lib/types";
 import { ensureTaskStatuses, isTaskStatusTerminal } from "@/features/tasks/lib/taskStatusHelpers";
 
-const SESSION_CONFIG: Record<
-  SessionType,
-  { label: string; gradient: string; glow: string }
-> = {
-  work: {
-    label: "Focus",
-    gradient: "from-emerald-700 to-teal-600",
-    glow: "shadow-emerald-700/40",
-  },
-  short_break: {
-    label: "Short Break",
-    gradient: "from-emerald-500 to-teal-400",
-    glow: "shadow-emerald-500/40",
-  },
-  long_break: {
-    label: "Long Break",
-    gradient: "from-teal-600 to-cyan-500",
-    glow: "shadow-teal-600/40",
-  },
+// Session accent colours — emerald/teal/cyan family matching the app primary.
+const SESSION: Record<SessionType, { label: string; color: string; bg: string; glow: string }> = {
+  work:        { label: "Focus",       color: "#059669", bg: "rgba(5,150,105,0.18)",   glow: "rgba(5,150,105,0.45)"  },
+  short_break: { label: "Short Break", color: "#0d9488", bg: "rgba(13,148,136,0.16)",  glow: "rgba(13,148,136,0.40)" },
+  long_break:  { label: "Long Break",  color: "#0891b2", bg: "rgba(8,145,178,0.16)",   glow: "rgba(8,145,178,0.40)"  },
 };
 
-const SESSION_SECONDS: Record<SessionType, number> = {
-  work: 25 * 60,
-  short_break: 5 * 60,
-  long_break: 15 * 60,
-};
-
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
-  const s = (seconds % 60).toString().padStart(2, "0");
-  return `${m}:${s}`;
+function fmt(s: number) {
+  return `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 }
 
+async function askNotificationPermission() {
+  if (typeof Notification === "undefined") return false;
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied") return false;
+  return (await Notification.requestPermission()) === "granted";
+}
+
+function fireNotification(title: string, body: string) {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  try { new Notification(title, { body, icon: "/favicon.ico" }); } catch { /* ignore */ }
+}
+
+// ── Mini progress ring (collapsed pill) ─────────────────────────────────────
+// Uses stroke="currentColor" so the track colour flips with the text colour class.
+function MiniRing({ progress, color }: { progress: number; color: string }) {
+  const r = 13;
+  const circ = 2 * Math.PI * r;
+  return (
+    <svg width={32} height={32} viewBox="0 0 32 32" style={{ transform: "rotate(-90deg)" }}>
+      {/* Inverted: white/10 on dark card (light mode), black/10 on white card (dark mode) */}
+      <circle cx="16" cy="16" r={r} fill="none"
+        className="text-white/[0.12] dark:text-black/[0.10]"
+        stroke="currentColor" strokeWidth="2.5" />
+      <circle cx="16" cy="16" r={r} fill="none"
+        stroke={color} strokeWidth="2.5"
+        strokeDasharray={circ}
+        strokeDashoffset={circ * (1 - progress)}
+        strokeLinecap="round"
+        style={{ transition: "stroke-dashoffset 1s linear" }}
+      />
+    </svg>
+  );
+}
+
+// ── Shared inverted-card class strings ──────────────────────────────────────
+// Light mode → dark card.  Dark mode → light card.
+const CARD_BG     = "bg-[#111111] dark:bg-white";
+const CARD_BORDER = "border-white/[0.08] dark:border-black/[0.08]";
+const HOVER_BG    = "hover:bg-white/[0.07] dark:hover:bg-black/[0.06]";
+const FG          = "text-white dark:text-[#0a0a0a]";
+const FG_MUTED    = "text-white/50 dark:text-black/50";
+const FG_SUBTLE   = "text-white/30 dark:text-black/30";
+const DIVIDER     = "bg-white/[0.10] dark:bg-black/[0.10]";
+
 export function PomodoroWidget() {
-  const [expanded, setExpanded] = useState(false);
-  const [showTaskPicker, setShowTaskPicker] = useState(false);
-  const [linkedTaskId, setLinkedTaskId] = useState<string | null>(null);
+  const [expanded,     setExpanded]     = useState(false);
+  const [showPicker,   setShowPicker]   = useState(false);
+  const [pickerQuery,  setPickerQuery]  = useState("");
+  const { linkedId, setLinkedId } = usePomodoroLink();
 
+  const { settings } = usePomodoroSettings();
   const { currentWorkspace } = useWorkspace();
-  const workspaceId = currentWorkspace?.id ?? null;
-  const logStatMutation = useLogStatMutation(workspaceId);
-  const logTaskFocusMutation = useLogTaskFocusMutation(workspaceId);
+  const wsId = currentWorkspace?.id ?? null;
+  const logStat      = useLogStatMutation(wsId);
+  const logTaskFocus = useLogTaskFocusMutation(wsId);
 
-  const { data: tasksPage } = useTasksQuery(workspaceId);
-  const { data: rawStatuses = [] } = useTaskStatusesQuery(workspaceId);
-  const taskStatuses: TaskStatusDefinition[] = useMemo(
-    () => ensureTaskStatuses(workspaceId, rawStatuses),
-    [workspaceId, rawStatuses],
+  const { data: tasksPage }        = useTasksQuery(wsId);
+  const { data: rawStatuses = [] } = useTaskStatusesQuery(wsId);
+  const statuses: TaskStatusDefinition[] = useMemo(
+    () => ensureTaskStatuses(wsId, rawStatuses), [wsId, rawStatuses],
   );
-  const tasks = (tasksPage?.tasks ?? []).filter((t) => !isTaskStatusTerminal(t.status, taskStatuses));
-  const linkedTask = tasks.find((t) => t.id === linkedTaskId) ?? null;
+  const tasks      = (tasksPage?.tasks ?? []).filter((t) => !isTaskStatusTerminal(t.status, statuses));
+  const linkedTask = tasks.find((t) => t.id === linkedId) ?? null;
+  const filteredTasks = useMemo(() => {
+    if (!pickerQuery.trim()) return tasks;
+    const q = pickerQuery.toLowerCase();
+    return tasks.filter((t) => t.title.toLowerCase().includes(q));
+  }, [tasks, pickerQuery]);
 
-  const handleSessionComplete = useCallback(
-    (type: SessionType, focusMinutes: number) => {
-      const { label } = SESSION_CONFIG[type];
-      toast.success(`${label} session complete!`, {
-        description:
-          type === "work"
-            ? `Great work! You focused for ${focusMinutes} minutes${linkedTask ? ` on "${linkedTask.title}"` : ""}.`
-            : "Time to get back to work!",
-      });
-      if (type === "work" && focusMinutes > 0 && workspaceId) {
-        logStatMutation.mutate({ focusMinutes });
-        if (linkedTaskId) {
-          logTaskFocusMutation.mutate({ id: linkedTaskId, minutes: focusMinutes });
-        }
+  const onComplete = useCallback(async (type: SessionType, focusMinutes: number) => {
+    const isWork = type === "work";
+    const { label } = SESSION[type];
+    const toastBody = isWork
+      ? `${focusMinutes} min focused${linkedTask ? ` on "${linkedTask.title}"` : ""}. Take a break.`
+      : "Break over — time to focus!";
+
+    if (settings.inAppToasts) {
+      toast.success(`${label} session complete!`, { description: toastBody });
+    }
+
+    if (settings.browserNotifications) {
+      const granted = await askNotificationPermission();
+      if (granted) {
+        fireNotification(
+          `${label} complete!`,
+          isWork
+            ? `${focusMinutes} min focused${linkedTask ? ` on "${linkedTask.title}"` : ""}. Time for a break.`
+            : "Break over — ready to focus?",
+        );
+      } else if (!settings.inAppToasts) {
+        // Notifications enabled but permission denied — fall back to toast so the session end isn't silent
+        toast.info(`${label} session complete!`, { description: toastBody });
       }
-    },
-    [workspaceId, logStatMutation, logTaskFocusMutation, linkedTask, linkedTaskId]
-  );
+    }
 
-  const { state, start, pause, reset, skip } = usePomodoroTimer(
-    undefined,
-    handleSessionComplete
-  );
+    if (isWork && focusMinutes > 0 && wsId) {
+      logStat.mutate({ focusMinutes });
+      if (linkedId) logTaskFocus.mutate({ id: linkedId, minutes: focusMinutes });
+    }
+  }, [settings, wsId, logStat, logTaskFocus, linkedTask, linkedId]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    function onMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setExpanded(false);
+        setShowPicker(false);
+        setPickerQuery("");
+      }
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [expanded]);
+
+  const { state, start, pause, reset, skip } = usePomodoroTimer(settings, onComplete);
   const { sessionType, secondsLeft, isRunning, sessionCount } = state;
-  const cfg = SESSION_CONFIG[sessionType];
-  const circumference = 2 * Math.PI * 38;
-  const progress = 1 - secondsLeft / SESSION_SECONDS[sessionType];
+  const cfg = SESSION[sessionType];
+
+  const total = sessionType === "work"        ? settings.workMinutes * 60
+    : sessionType === "short_break"           ? settings.shortBreakMinutes * 60
+    : settings.longBreakMinutes * 60;
+  const progress = 1 - secondsLeft / total;
+
+  const R    = 74;
+  const circ = 2 * Math.PI * R;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-      {/* Expanded panel */}
+    <div ref={containerRef} className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
+
+      {/* ── Expanded panel ──────────────────────────────────────────────── */}
       {expanded && (
-        <div
-          className={cn(
-            "w-72 rounded-2xl overflow-hidden",
-            "bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl",
-            "border border-white/30 dark:border-gray-700/50",
-            "shadow-2xl",
-            cfg.glow
-          )}
-        >
-          {/* Gradient header */}
-          <div className={cn("bg-gradient-to-br px-5 pt-5 pb-6", cfg.gradient)}>
-            <div className="flex items-center justify-between mb-5">
-              <span className="text-white/90 text-xs font-semibold uppercase tracking-widest">
+        <div className={cn("w-[304px] max-w-[calc(100vw-2.5rem)] rounded-2xl overflow-hidden border shadow-2xl", CARD_BG, CARD_BORDER)}>
+
+          {/* Session-coloured accent line */}
+          <div className="h-[2px] transition-colors duration-500" style={{ background: cfg.color }} />
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 pt-4 pb-1">
+            <div className="flex items-center gap-2">
+              <span
+                className="text-[10px] font-bold tracking-[0.12em] uppercase px-2.5 py-1 rounded-full"
+                style={{ color: cfg.color, background: cfg.bg }}
+              >
                 {cfg.label}
               </span>
-              <span className="text-white/50 text-xs tabular-nums">
-                {sessionCount} completed
-              </span>
+              {isRunning && (
+                <span className={cn("flex items-center gap-1 text-[10px] tracking-wide uppercase", FG_MUTED)}>
+                  <span className="size-1.5 rounded-full animate-pulse" style={{ background: cfg.color }} />
+                  Live
+                </span>
+              )}
             </div>
-
-            {/* Progress ring */}
-            <div className="flex justify-center">
-              <div className="relative size-32">
-                <svg className="size-32 -rotate-90" viewBox="0 0 96 96">
-                  <circle
-                    cx="48" cy="48" r="38"
-                    fill="none"
-                    stroke="white"
-                    strokeOpacity="0.15"
-                    strokeWidth="5"
-                  />
-                  <circle
-                    cx="48" cy="48" r="38"
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="5"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={circumference * (1 - progress)}
-                    strokeLinecap="round"
-                    style={{ transition: "stroke-dashoffset 1s linear" }}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-                  <span className="font-mono text-[1.75rem] font-bold text-white tracking-tight leading-none">
-                    {formatTime(secondsLeft)}
-                  </span>
-                  <span className="text-white/50 text-[10px] uppercase tracking-wider">
-                    {isRunning ? "running" : "paused"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Session dots */}
-            <div className="flex justify-center gap-2 mt-5">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "rounded-full transition-all duration-300",
-                    i < sessionCount % 4 ? "size-2 bg-white" : "size-1.5 bg-white/30"
-                  )}
-                />
-              ))}
+            <div className="flex items-center gap-2.5">
+              <span className={cn("text-[11px] tabular-nums", FG_SUBTLE)}>{sessionCount} done</span>
+              <a href="/settings" onClick={() => setExpanded(false)} title="Focus settings"
+                className={cn("transition-colors", FG_SUBTLE, "hover:text-white dark:hover:text-black")}>
+                <Settings2 className="size-3.5" />
+              </a>
+              <button onClick={() => setExpanded(false)}
+                className={cn("transition-colors cursor-pointer", FG_SUBTLE, "hover:text-white dark:hover:text-black")}>
+                <ChevronDown className="size-3.5" />
+              </button>
             </div>
           </div>
 
-          {/* Task link section */}
-          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+          {/* Progress ring — the hero */}
+          <div className="flex flex-col items-center pt-5 pb-4 gap-4">
+            <div className="relative">
+              <svg width={192} height={192} viewBox="0 0 192 192"
+                style={{ transform: "rotate(-90deg)" }}>
+                {/* Track — inverted: white/8 on dark (light mode), black/8 on white (dark mode) */}
+                <circle cx="96" cy="96" r={R} fill="none"
+                  className="text-white/[0.10] dark:text-black/[0.08]"
+                  stroke="currentColor" strokeWidth="7" />
+                {/* Progress arc */}
+                <circle cx="96" cy="96" r={R} fill="none"
+                  stroke={cfg.color} strokeWidth="7"
+                  strokeDasharray={circ}
+                  strokeDashoffset={circ * (1 - progress)}
+                  strokeLinecap="round"
+                  style={{
+                    transition: "stroke-dashoffset 1s linear",
+                    filter: `drop-shadow(0 0 10px ${cfg.glow})`,
+                  }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center select-none">
+                <span className={cn("font-mono text-[3.25rem] font-bold tracking-tight leading-none tabular-nums", FG)}>
+                  {fmt(secondsLeft)}
+                </span>
+                <span className={cn("mt-1.5 text-[10px] uppercase tracking-[0.18em]", FG_SUBTLE)}>
+                  {isRunning ? "running" : "paused"}
+                </span>
+              </div>
+            </div>
+
+            {/* Session-cycle dots */}
+            <div className="flex items-center gap-2">
+              {Array.from({ length: settings.sessionsBeforeLongBreak }).map((_, i) => {
+                const filled = i < sessionCount % settings.sessionsBeforeLongBreak;
+                return (
+                  <div key={i}
+                    className={cn("rounded-full transition-all duration-500", !filled && "bg-white/[0.18] dark:bg-black/[0.14]")}
+                    style={filled
+                      ? { width: 9, height: 9, background: cfg.color, boxShadow: `0 0 6px ${cfg.glow}` }
+                      : { width: 6, height: 6 }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Task link */}
+          <div className={cn("mx-4 mb-4 rounded-xl border overflow-visible relative", "bg-white/[0.06] dark:bg-black/[0.05]", CARD_BORDER)}>
             {linkedTask ? (
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 text-xs text-primary min-w-0">
-                  <Link2 className="size-3 flex-shrink-0" />
-                  <span className="truncate font-medium">{linkedTask.title}</span>
-                </div>
-                <button
-                  onClick={() => setLinkedTaskId(null)}
-                  className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-                  title="Unlink task"
-                >
-                  <Unlink className="size-3.5" />
+              <div className="flex items-center gap-2.5 px-3.5 py-3">
+                <div className="size-1.5 rounded-full shrink-0" style={{ background: cfg.color }} />
+                <span className={cn("flex-1 text-[13px] font-medium truncate", FG)}>{linkedTask.title}</span>
+                <button onClick={() => { setLinkedId(null); setPickerQuery(""); }} title="Unlink"
+                  className={cn("transition-colors cursor-pointer shrink-0 hover:text-red-400", FG_SUBTLE)}>
+                  <X className="size-3.5" />
                 </button>
               </div>
             ) : (
-              <div className="relative">
-                <button
-                  onClick={() => setShowTaskPicker((v) => !v)}
-                  className="text-xs text-gray-400 hover:text-primary flex items-center gap-1 transition-colors"
-                >
-                  <Link2 className="size-3" />
-                  {tasks.length === 0 ? "No tasks available" : "Focus on a task…"}
+              <>
+                <button onClick={() => setShowPicker((v) => !v)}
+                  className={cn("w-full flex items-center gap-2.5 px-3.5 py-3 text-[13px] transition-colors cursor-pointer", FG_SUBTLE, "hover:text-white dark:hover:text-black/70")}>
+                  <Link2 className="size-3.5 shrink-0" />
+                  {tasks.length === 0 ? "No active tasks" : "Link a task to this session…"}
                 </button>
-                {showTaskPicker && tasks.length > 0 && (
-                  <div className="absolute bottom-6 left-0 z-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl w-60 max-h-48 overflow-y-auto">
-                    {tasks.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => {
-                          setLinkedTaskId(t.id);
-                          setShowTaskPicker(false);
-                        }}
-                        className="w-full text-left text-xs px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 truncate"
-                      >
-                        {t.title}
-                      </button>
-                    ))}
+                {showPicker && tasks.length > 0 && (
+                  <div className={cn("absolute bottom-[calc(100%+6px)] left-0 right-0 z-20 rounded-xl border shadow-xl overflow-hidden", "bg-[#1c1c1f] dark:bg-[#f5f5f5]", CARD_BORDER)}>
+                    {/* Search input */}
+                    <div className={cn("flex items-center gap-2 px-3.5 py-2.5 border-b", CARD_BORDER)}>
+                      <Search className={cn("size-3 shrink-0", FG_SUBTLE)} />
+                      <input
+                        autoFocus
+                        placeholder="Search tasks…"
+                        value={pickerQuery}
+                        onChange={(e) => setPickerQuery(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn("flex-1 bg-transparent text-[12px] outline-none min-w-0", FG, "placeholder:text-white/30 dark:placeholder:text-black/30")}
+                      />
+                    </div>
+                    {/* Results */}
+                    <div className="max-h-40 overflow-y-auto">
+                      {filteredTasks.length === 0 ? (
+                        <p className={cn("px-4 py-3 text-[12px]", FG_SUBTLE)}>No tasks match</p>
+                      ) : filteredTasks.map((t) => (
+                        <button key={t.id}
+                          onClick={() => { setLinkedId(t.id); setShowPicker(false); setPickerQuery(""); }}
+                          className={cn("w-full text-left text-[13px] px-4 py-2.5 truncate transition-colors cursor-pointer first:rounded-t-none last:rounded-b-xl", FG_MUTED, "hover:text-white dark:hover:text-black hover:bg-white/[0.08] dark:hover:bg-black/[0.06]")}>
+                          {t.title}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
-              </div>
+              </>
             )}
           </div>
 
           {/* Controls */}
-          <div className="flex items-center justify-center gap-4 px-5 py-4 bg-white/50 dark:bg-gray-900/50">
-            <button
-              aria-label="Reset"
-              title="Reset"
-              onClick={reset}
-              className="size-10 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
-            >
-              <RotateCcw className="size-4" />
+          <div className={cn("flex items-center justify-between px-5 py-4 border-t", CARD_BORDER)}>
+            <button onClick={reset} aria-label="Reset" title="Reset"
+              className={cn("size-10 flex items-center justify-center rounded-xl transition-all cursor-pointer", FG_SUBTLE, HOVER_BG, "hover:text-white dark:hover:text-black")}>
+              <RotateCcw className="size-[17px]" />
             </button>
 
             <button
-              aria-label={isRunning ? "Pause" : "Start"}
               onClick={isRunning ? pause : start}
-              className={cn(
-                "size-14 flex items-center justify-center rounded-2xl",
-                "bg-gradient-to-br shadow-lg transition-all active:scale-95 hover:opacity-90",
-                cfg.gradient,
-                cfg.glow
-              )}
+              aria-label={isRunning ? "Pause" : "Start"}
+              className="size-[60px] flex items-center justify-center rounded-2xl transition-all active:scale-[0.93] hover:brightness-110 cursor-pointer"
+              style={{ background: cfg.color, boxShadow: `0 6px 24px ${cfg.glow}, 0 0 0 1px rgba(255,255,255,0.1) inset` }}
             >
-              {isRunning ? (
-                <Pause className="size-5 text-white" />
-              ) : (
-                <Play className="size-5 text-white ml-0.5" />
-              )}
+              {isRunning
+                ? <Pause className="size-[22px] text-white" />
+                : <Play  className="size-[22px] text-white ml-0.5" />
+              }
             </button>
 
-            <button
-              aria-label="Skip session"
-              title="Skip session"
-              onClick={skip}
-              className="size-10 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
-            >
-              <SkipForward className="size-4" />
+            <button onClick={skip} aria-label="Skip" title="Skip session"
+              className={cn("size-10 flex items-center justify-center rounded-xl transition-all cursor-pointer", FG_SUBTLE, HOVER_BG, "hover:text-white dark:hover:text-black")}>
+              <SkipForward className="size-[17px]" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Collapsed pill */}
-      <button
-        aria-label="Toggle Pomodoro timer"
-        onClick={() => setExpanded((p) => !p)}
-        className={cn(
-          "flex items-center gap-2 pl-3 pr-4 h-10 rounded-full",
-          "bg-gradient-to-r shadow-lg transition-all active:scale-95 hover:opacity-90",
-          cfg.gradient,
-          cfg.glow
-        )}
-      >
-        <div className="relative">
-          <Timer className="size-4 text-white" />
-          {isRunning && (
-            <span className="absolute -top-0.5 -right-0.5 size-1.5 bg-white rounded-full animate-pulse" />
-          )}
-        </div>
-        <span className="font-mono text-sm font-bold text-white tabular-nums">
-          {formatTime(secondsLeft)}
-        </span>
-      </button>
+      {/* ── Collapsed pill ──────────────────────────────────────────────── */}
+      <div className={cn("flex items-center rounded-2xl overflow-hidden h-[52px] border shadow-xl", CARD_BG, CARD_BORDER)}>
+
+        {/* Left: ring + label + time → click to expand */}
+        <button
+          onClick={() => setExpanded((p) => !p)}
+          aria-label="Toggle timer"
+          className={cn("flex items-center gap-3 pl-3.5 pr-3 h-full transition-colors cursor-pointer rounded-l-2xl", HOVER_BG)}
+        >
+          <div className="relative shrink-0">
+            <MiniRing progress={progress} color={cfg.color} />
+            <div className="absolute inset-0 flex items-center justify-center">
+              {isRunning
+                ? <span className="size-[5px] rounded-full animate-pulse" style={{ background: cfg.color }} />
+                : <span className="size-[5px] rounded-full bg-white/20 dark:bg-black/20" />
+              }
+            </div>
+          </div>
+
+          <div className="flex flex-col items-start leading-none">
+            <span className="text-[9px] font-bold uppercase tracking-[0.14em] mb-[3px]" style={{ color: cfg.color }}>
+              {cfg.label}
+            </span>
+            <span className={cn("font-mono text-[15px] font-bold tabular-nums tracking-tight", FG)}>
+              {fmt(secondsLeft)}
+            </span>
+          </div>
+        </button>
+
+        {/* Divider */}
+        <div className={cn("w-px h-[26px] shrink-0", DIVIDER)} />
+
+        {/* Inline play/pause */}
+        <button
+          onClick={isRunning ? pause : start}
+          aria-label={isRunning ? "Pause" : "Start"}
+          className={cn("flex items-center justify-center w-12 h-full transition-colors cursor-pointer rounded-r-2xl", HOVER_BG)}
+        >
+          {isRunning
+            ? <Pause className={cn("size-4", FG_MUTED)} />
+            : <Play  className="size-4 ml-0.5" style={{ color: cfg.color }} />
+          }
+        </button>
+      </div>
+
     </div>
   );
 }

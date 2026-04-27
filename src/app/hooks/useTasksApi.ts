@@ -93,39 +93,90 @@ export function useCreateTaskMutation(
         createdAt: new Date().toISOString(),
       };
 
-      queryClient.setQueriesData<TasksPage>(
-        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
-        (old) => {
-          if (!old || !Array.isArray(old.tasks)) return old;
-          return { tasks: [...old.tasks, tempTask], total: old.total + 1 };
-        },
-      );
+      if (body.parentTaskId) {
+        // Subtask: nest inside parent's subtasks array, not the flat top-level list
+        queryClient.setQueriesData<TasksPage>(
+          { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+          (old) => {
+            if (!old || !Array.isArray(old.tasks)) return old;
+            return {
+              ...old,
+              tasks: old.tasks.map((t) =>
+                t.id === body.parentTaskId
+                  ? { ...t, subtasks: [...(t.subtasks ?? []), tempTask] }
+                  : t,
+              ),
+            };
+          },
+        );
+      } else {
+        queryClient.setQueriesData<TasksPage>(
+          { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+          (old) => {
+            if (!old || !Array.isArray(old.tasks)) return old;
+            return { tasks: [...old.tasks, tempTask], total: old.total + 1 };
+          },
+        );
+      }
 
-      return { tempId: tempTask.id };
+      return { tempId: tempTask.id, parentTaskId: body.parentTaskId ?? null };
     },
     onError: (err, vars, context, mutation) => {
-      const ctx = context as { tempId?: string } | undefined;
-      queryClient.setQueriesData<TasksPage>(
-        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
-        (old) => {
-          if (!old || !Array.isArray(old.tasks)) return old;
-          return { tasks: old.tasks.filter((t) => t.id !== ctx?.tempId), total: old.total - 1 };
-        },
-      );
+      const ctx = context as { tempId?: string; parentTaskId?: string | null } | undefined;
+      if (ctx?.parentTaskId) {
+        queryClient.setQueriesData<TasksPage>(
+          { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+          (old) => {
+            if (!old || !Array.isArray(old.tasks)) return old;
+            return {
+              ...old,
+              tasks: old.tasks.map((t) =>
+                t.id === ctx.parentTaskId
+                  ? { ...t, subtasks: (t.subtasks ?? []).filter((s) => s.id !== ctx.tempId) }
+                  : t,
+              ),
+            };
+          },
+        );
+      } else {
+        queryClient.setQueriesData<TasksPage>(
+          { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+          (old) => {
+            if (!old || !Array.isArray(old.tasks)) return old;
+            return { tasks: old.tasks.filter((t) => t.id !== ctx?.tempId), total: old.total - 1 };
+          },
+        );
+      }
       options?.onError?.(err, vars, context, mutation);
     },
     onSuccess: (data, variables, context, mutation) => {
-      const ctx = context as { tempId?: string } | undefined;
-      // Replace the temp entry with the real task
-      queryClient.setQueriesData<TasksPage>(
-        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
-        (old) => {
-          if (!old || !Array.isArray(old.tasks)) return old;
-          return { ...old, tasks: old.tasks.map((t) => (t.id === ctx?.tempId ? data : t)) };
-        },
-      );
+      const ctx = context as { tempId?: string; parentTaskId?: string | null } | undefined;
+      if (ctx?.parentTaskId) {
+        // Replace temp subtask in parent's subtasks array
+        queryClient.setQueriesData<TasksPage>(
+          { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+          (old) => {
+            if (!old || !Array.isArray(old.tasks)) return old;
+            return {
+              ...old,
+              tasks: old.tasks.map((t) =>
+                t.id === ctx.parentTaskId
+                  ? { ...t, subtasks: (t.subtasks ?? []).map((s) => (s.id === ctx.tempId ? data : s)) }
+                  : t,
+              ),
+            };
+          },
+        );
+      } else {
+        queryClient.setQueriesData<TasksPage>(
+          { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+          (old) => {
+            if (!old || !Array.isArray(old.tasks)) return old;
+            return { ...old, tasks: old.tasks.map((t) => (t.id === ctx?.tempId ? data : t)) };
+          },
+        );
+      }
       queryClient.setQueryData(TASK_QUERY_KEY(workspaceId ?? "", data.id), data);
-      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });
@@ -143,12 +194,34 @@ export function useUpdateTaskMutation(
     onMutate: async ({ id, body }) => {
       await queryClient.cancelQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
 
+      // Detect if this update is completing a previously non-terminal task
+      const isCompletingParent = body.status !== undefined && (() => {
+        for (const [, page] of queryClient.getQueriesData<TasksPage>({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") })) {
+          const task = page?.tasks?.find((t) => t.id === id);
+          if (task) return task.status !== body.status;
+        }
+        return false;
+      })();
+
       // Optimistically patch every matching task list
       queryClient.setQueriesData<TasksPage>(
         { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
         (old) => {
           if (!old || !Array.isArray(old.tasks)) return old;
-          return { ...old, tasks: old.tasks.map((t) => (t.id === id ? { ...t, ...body } : t)) };
+          return {
+            ...old,
+            tasks: old.tasks.map((t) => {
+              if (t.id === id) {
+                const updated = { ...t, ...body };
+                // Cascade completion to subtasks when parent transitions to a new status
+                if (isCompletingParent && body.status && t.subtasks?.length) {
+                  updated.subtasks = t.subtasks.map((s) => ({ ...s, status: body.status! }));
+                }
+                return updated;
+              }
+              return t;
+            }),
+          };
         },
       );
 
@@ -159,13 +232,27 @@ export function useUpdateTaskMutation(
       );
     },
     onError: (err, vars, context, mutation) => {
-      // Re-fetch on error to restore correct server state
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
       options?.onError?.(err, vars, context, mutation);
     },
     onSuccess: (data, variables, context, mutation) => {
+      // Write server response directly — avoids the invalidate→refetch→flash cycle
+      queryClient.setQueriesData<TasksPage>(
+        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+        (old) => {
+          if (!old?.tasks) return old;
+          return {
+            ...old,
+            tasks: old.tasks.map((t) => {
+              if (t.id === data.id) return data;
+              if (t.subtasks?.some((s) => s.id === data.id))
+                return { ...t, subtasks: t.subtasks!.map((s) => (s.id === data.id ? data : s)) };
+              return t;
+            }),
+          };
+        },
+      );
       queryClient.setQueryData(TASK_QUERY_KEY(workspaceId ?? "", data.id), data);
-      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });
@@ -182,13 +269,34 @@ export function useDeleteTaskMutation(
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
 
+      // Determine if this is a subtask by finding it inside a parent's subtasks array
+      let parentTaskId: string | null = null;
+      for (const [, page] of queryClient.getQueriesData<TasksPage>({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") })) {
+        for (const t of page?.tasks ?? []) {
+          if (t.subtasks?.some((s) => s.id === id)) { parentTaskId = t.id; break; }
+        }
+        if (parentTaskId) break;
+      }
+
       queryClient.setQueriesData<TasksPage>(
         { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
         (old) => {
           if (!old || !Array.isArray(old.tasks)) return old;
-          return { tasks: old.tasks.filter((t) => t.id !== id), total: old.total - 1 };
+          if (parentTaskId) {
+            return {
+              ...old,
+              tasks: old.tasks.map((t) =>
+                t.id === parentTaskId
+                  ? { ...t, subtasks: (t.subtasks ?? []).filter((s) => s.id !== id) }
+                  : t,
+              ),
+            };
+          }
+          return { tasks: old.tasks.filter((t) => t.id !== id && t.parentTaskId !== id), total: old.total - 1 };
         },
       );
+
+      return { parentTaskId };
     },
     onError: (err, id, context, mutation) => {
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
@@ -227,11 +335,19 @@ export function useLogTaskFocusMutation(
       tasksApi.logFocus(workspaceId!, id, minutes),
     ...options,
     onSuccess: (data, variables, context, mutation) => {
-      queryClient.setQueryData(
-        TASK_QUERY_KEY(workspaceId ?? "", data.id),
-        data
+      // Patch single-task cache
+      queryClient.setQueryData(TASK_QUERY_KEY(workspaceId ?? "", data.id), data);
+      // Patch list caches in-place — no need to invalidate the whole list for a focusMinutes change
+      queryClient.setQueriesData<TasksPage>(
+        { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
+        (old) => {
+          if (!old?.tasks) return old;
+          return {
+            ...old,
+            tasks: old.tasks.map((t) => (t.id === data.id ? data : t)),
+          };
+        },
       );
-      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });

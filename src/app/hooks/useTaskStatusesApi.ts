@@ -37,7 +37,7 @@ export function useTaskStatusesQuery(
       return getDefaultTaskStatuses(workspaceId);
     },
     enabled: !!workspaceId,
-    staleTime: 60_000,
+    staleTime: 10 * 60_000,
     ...options,
   });
 }
@@ -74,12 +74,45 @@ export function useUpdateTaskStatusMutation(
       taskStatusesApi.update(workspaceId!, id, body),
     ...options,
     onSuccess: (data, variables, context, mutation) => {
-      queryClient.invalidateQueries({
-        queryKey: TASK_STATUSES_QUERY_KEY(workspaceId ?? ""),
-      });
+      // Write updated status directly — avoids refetch race when move() fires two mutations back-to-back
+      queryClient.setQueryData<TaskStatusDefinition[]>(
+        TASK_STATUSES_QUERY_KEY(workspaceId ?? ""),
+        (prev) => prev ? prev.map((s) => (s.id === variables.id ? data : s)) : prev,
+      );
       options?.onSuccess?.(data, variables, context, mutation);
     },
-    onError: options?.onError,
+    onError: (err, vars, context, mutation) => {
+      // Refetch only on error to revert optimistic cache patch
+      queryClient.invalidateQueries({ queryKey: TASK_STATUSES_QUERY_KEY(workspaceId ?? "") });
+      options?.onError?.(err, vars, context, mutation);
+    },
+  });
+}
+
+export function useSwapTaskStatusesMutation(
+  workspaceId: string | null | undefined,
+  options?: UseMutationOptions<TaskStatusDefinition[], Error, { idA: string; idB: string }>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ idA, idB }) => taskStatusesApi.swap(workspaceId!, idA, idB),
+    ...options,
+    onSuccess: (updated, variables, context, mutation) => {
+      // Patch both statuses directly in cache — one round trip, no competing refetches
+      queryClient.setQueryData<TaskStatusDefinition[]>(
+        TASK_STATUSES_QUERY_KEY(workspaceId ?? ""),
+        (prev) => {
+          if (!prev) return prev;
+          const map = new Map(updated.map((s) => [s.id, s]));
+          return prev.map((s) => map.get(s.id) ?? s);
+        },
+      );
+      options?.onSuccess?.(updated, variables, context, mutation);
+    },
+    onError: (err, vars, context, mutation) => {
+      queryClient.invalidateQueries({ queryKey: TASK_STATUSES_QUERY_KEY(workspaceId ?? "") });
+      options?.onError?.(err, vars, context, mutation);
+    },
   });
 }
 
