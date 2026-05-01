@@ -51,18 +51,19 @@ export function taskStatusLabel(
   return statusById(statuses, statusId)?.name ?? statusId ?? "Unknown";
 }
 
-/** Dot + badge classes for a status (uses color hint or legacy palette). */
+/** Dot + badge classes for a status. When `color` is returned, callers should apply it via inline style. */
 export function taskStatusVisual(
   statusId: string,
   statuses: TaskStatusDefinition[],
-): { dot: string; label: string; badge: string } {
+): { dot: string; label: string; badge: string; color?: string } {
   const s = statusById(statuses, statusId);
   const label = s?.name ?? statusId;
   if (s?.color) {
     return {
-      dot: "bg-primary",
+      dot: "bg-muted-foreground/30",
       label,
-      badge: "border-primary/30 text-primary bg-primary/5",
+      badge: "border-border/40 text-muted-foreground",
+      color: s.color,
     };
   }
   if (statusId === LEGACY_PENDING) {

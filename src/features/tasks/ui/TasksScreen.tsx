@@ -23,7 +23,7 @@ import {
   Timer,
 } from "lucide-react";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
-import { isTaskStatusTerminal } from "../lib/taskStatusHelpers";
+import { isTaskStatusTerminal, taskStatusVisual } from "../lib/taskStatusHelpers";
 import { getSubtaskProgress } from "../lib/subtaskProgress";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
@@ -196,25 +196,41 @@ const StatusSelect = memo(function StatusSelect({
   onStatusChange: (id: string, status: string) => void;
   isCompleted: boolean;
 }) {
+  const statusCfg = taskStatusVisual(task.status ?? "", taskStatuses);
+  const badgeStyle = statusCfg.color ? {
+    borderColor: statusCfg.color + "4d",
+    color: statusCfg.color,
+    backgroundColor: statusCfg.color + "0d",
+  } : undefined;
+
   return (
     <Select value={task.status} onValueChange={(v) => onStatusChange(task.id, v)}>
-      <SelectTrigger className={cn(
-        "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40 cursor-pointer",
-        isCompleted
-          ? "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5"
-          : "border-border/60 text-muted-foreground",
-      )}>
+      <SelectTrigger
+        className={cn(
+          "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40 cursor-pointer",
+          !statusCfg.color && (isCompleted
+            ? "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5"
+            : "border-border/60 text-muted-foreground"),
+        )}
+        style={badgeStyle}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent align="end">
-        {taskStatuses.map((s) => (
-          <SelectItem key={s.id} value={s.id} className="text-xs">
-            <span className="flex items-center gap-2">
-              <span className={cn("size-1.5 rounded-full shrink-0", terminalIds.has(s.id) ? "bg-green-500" : "bg-muted-foreground/40")} />
-              {s.name}
-            </span>
-          </SelectItem>
-        ))}
+        {taskStatuses.map((s) => {
+          const v = taskStatusVisual(s.id, taskStatuses);
+          return (
+            <SelectItem key={s.id} value={s.id} className="text-xs">
+              <span className="flex items-center gap-2">
+                <span
+                  className={cn("size-1.5 rounded-full shrink-0", !v.color && (terminalIds.has(s.id) ? "bg-green-500" : "bg-muted-foreground/40"))}
+                  style={v.color ? { backgroundColor: v.color } : undefined}
+                />
+                {s.name}
+              </span>
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );
@@ -373,16 +389,26 @@ const TaskRow = memo(function TaskRow({
             )}
           </div>
           {/* Mobile: read-only status chip (no Select — avoids duplicate) */}
-          {depth === 0 && (
-            <span className={cn(
-              "sm:hidden shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium",
-              isCompleted
-                ? "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5"
-                : "border-border/60 text-muted-foreground",
-            )}>
-              {taskStatuses.find((s) => s.id === task.status)?.name ?? "—"}
-            </span>
-          )}
+          {depth === 0 && (() => {
+            const cfg = taskStatusVisual(task.status ?? "", taskStatuses);
+            return (
+              <span
+                className={cn(
+                  "sm:hidden shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                  !cfg.color && (isCompleted
+                    ? "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5"
+                    : "border-border/60 text-muted-foreground"),
+                )}
+                style={cfg.color ? {
+                  borderColor: cfg.color + "4d",
+                  color: cfg.color,
+                  backgroundColor: cfg.color + "0d",
+                } : undefined}
+              >
+                {cfg.label}
+              </span>
+            );
+          })()}
         </div>
 
         {/* Mobile metadata chips */}
