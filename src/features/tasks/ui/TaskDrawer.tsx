@@ -238,7 +238,7 @@ export function TaskDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:w-[480px] flex flex-col p-0 gap-0">
+      <SheetContent side="right" className="w-full sm:w-[480px] flex flex-col p-0 gap-0" aria-describedby={undefined}>
 
         {/* ── Header: title only ────────────────────────────────────── */}
         <SheetHeader className="px-6 pt-5 pb-4 border-b border-border/40 gap-0">
