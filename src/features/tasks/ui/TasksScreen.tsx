@@ -296,7 +296,7 @@ const TaskRow = memo(function TaskRow({
   isLinked?: boolean;
   onLinkTimer?: (id: string) => void;
   onPriorityChange?: (id: string, priority: string | undefined) => void;
-  onDueDateChange?: (id: string, dueDate: string | undefined) => void;
+  onDueDateChange?: (id: string, dueDate: string | undefined, dueTime: string | undefined) => void;
   onFocusLog?: (id: string, minutes: number) => void;
 }) {
   const hasSubtasks = !!task.subtasks?.length;
@@ -583,7 +583,7 @@ const PrioritySelect = memo(function PrioritySelect({
   );
 });
 
-// ─── DueDatePicker — click-to-edit inline due date ────────────────────────────
+// ─── DueDatePicker — click-to-edit inline due date + time ────────────────────
 
 const DueDatePicker = memo(function DueDatePicker({
   task,
@@ -594,20 +594,52 @@ const DueDatePicker = memo(function DueDatePicker({
   task: Task;
   todayYear: number;
   isOverdue: boolean;
-  onDueDateChange: (id: string, dueDate: string | undefined) => void;
+  onDueDateChange: (id: string, dueDate: string | undefined, dueTime: string | undefined) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [localDate, setLocalDate] = useState(task.dueDate?.slice(0, 10) ?? "");
+  const [localTime, setLocalTime] = useState(task.dueTime ?? "");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!editing) {
+      setLocalDate(task.dueDate?.slice(0, 10) ?? "");
+      setLocalTime(task.dueTime ?? "");
+    }
+  }, [task.dueDate, task.dueTime, editing]);
+
+  function commit(date: string, time: string) {
+    onDueDateChange(task.id, date || undefined, date ? (time || undefined) : undefined);
+    setEditing(false);
+  }
+
+  function handleContainerBlur(e: React.FocusEvent) {
+    if (!containerRef.current?.contains(e.relatedTarget as Node)) {
+      commit(localDate, localTime);
+    }
+  }
 
   if (editing) {
     return (
-      <input
-        type="date"
-        autoFocus
-        defaultValue={task.dueDate?.slice(0, 10) ?? ""}
-        onChange={(e) => onDueDateChange(task.id, e.target.value || undefined)}
-        onBlur={() => setEditing(false)}
-        className="w-[90px] text-[11px] font-medium bg-transparent outline-none border-b border-primary/40 text-center cursor-pointer [color-scheme:light] dark:[color-scheme:dark] text-foreground"
-      />
+      <div ref={containerRef} onBlur={handleContainerBlur} className="flex flex-col items-center gap-1">
+        <input
+          type="date"
+          autoFocus
+          value={localDate}
+          onChange={(e) => setLocalDate(e.target.value)}
+          onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch {} }}
+          className="w-[90px] text-[11px] font-medium bg-transparent outline-none border-b border-primary/40 text-center cursor-pointer [color-scheme:light] dark:[color-scheme:dark] text-foreground [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+        />
+        {localDate && (
+          <input
+            type="time"
+            value={localTime}
+            onChange={(e) => setLocalTime(e.target.value)}
+            onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch {} }}
+            className="w-[90px] text-[10px] bg-transparent outline-none border-b border-primary/40 text-center cursor-pointer [color-scheme:light] dark:[color-scheme:dark] text-muted-foreground [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+          />
+        )}
+      </div>
     );
   }
 
@@ -762,7 +794,7 @@ interface VirtualTaskListProps {
   linkedId: string | null;
   onLinkTimer: (id: string) => void;
   onPriorityChange: (id: string, priority: string | undefined) => void;
-  onDueDateChange: (id: string, dueDate: string | undefined) => void;
+  onDueDateChange: (id: string, dueDate: string | undefined, dueTime: string | undefined) => void;
   onFocusLog: (id: string, minutes: number) => void;
 }
 
@@ -1055,8 +1087,8 @@ export function TasksScreen() {
     updateMutation.mutate({ id, body: { priority: priority as "low" | "medium" | "high" | undefined } });
   }, [updateMutation]);
 
-  const handleDueDateChange = useCallback((id: string, dueDate: string | undefined) => {
-    updateMutation.mutate({ id, body: { dueDate: dueDate || undefined } });
+  const handleDueDateChange = useCallback((id: string, dueDate: string | undefined, dueTime: string | undefined) => {
+    updateMutation.mutate({ id, body: { dueDate: dueDate || undefined, dueTime: dueTime || undefined } });
   }, [updateMutation]);
 
   const handleFocusLog = useCallback((id: string, minutes: number) => {

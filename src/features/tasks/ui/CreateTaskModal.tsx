@@ -231,12 +231,13 @@ export function CreateTaskModal({
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
+                    onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch {} }}
                     className={cn(
                       "h-8 min-h-8 w-full py-0 pl-8 text-xs leading-none cursor-pointer",
                       controlRing,
                       controlFocus,
                       "[color-scheme:light] dark:[color-scheme:dark]",
-                      "[&::-webkit-calendar-picker-indicator]:hidden",
+                      "[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer",
                     )}
                   />
                 </div>
