@@ -60,7 +60,7 @@ interface TaskDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (id: string, body: UpdateTaskBody) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, title: string) => void;
   onToggleSubtask: (id: string, completed: boolean) => void;
   workspaceId: string | null;
   taskStatuses: TaskStatusDefinition[];
@@ -608,7 +608,7 @@ export function TaskDrawer({
             variant="ghost"
             size="sm"
             className="text-muted-foreground hover:text-destructive hover:bg-destructive/5 gap-1.5 cursor-pointer"
-            onClick={() => onDelete(task.id)}
+            onClick={() => onDelete(task.id, task.title)}
             disabled={isDeleting}
           >
             {isDeleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}

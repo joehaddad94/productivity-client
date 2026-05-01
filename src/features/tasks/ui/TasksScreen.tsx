@@ -278,7 +278,7 @@ const TaskRow = memo(function TaskRow({
   onToggle: (id: string, completed: boolean) => void;
   onStatusChange: (id: string, status: string) => void;
   onSelect: (task: Task) => void;
-  onDeleteRequest: (id: string) => void;
+  onDeleteRequest: (id: string, title: string) => void;
   isSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
@@ -539,7 +539,7 @@ const TaskRow = memo(function TaskRow({
             </button>
             <button
               title="Delete task"
-              onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id); }}
+              onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id, task.title); }}
               className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all cursor-pointer"
             >
               <Trash2 className="size-3.5" />
@@ -761,6 +761,66 @@ function EmptyState({ message, onAdd }: { message: string; onAdd: () => void }) 
   );
 }
 
+// ─── QuickAddRow — inline task creation at list bottom ────────────────────────
+
+function QuickAddRow({ onAdd }: { onAdd: (title: string) => void }) {
+  const [active, setActive] = useState(false);
+  const [value, setValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function open() {
+    setActive(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function submit() {
+    const trimmed = value.trim();
+    if (trimmed) onAdd(trimmed);
+    setValue("");
+    setActive(false);
+  }
+
+  function cancel() {
+    setValue("");
+    setActive(false);
+  }
+
+  if (active) {
+    return (
+      <div className="flex items-center border-t border-border/30 px-0">
+        <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
+          <Plus className="size-3.5 text-muted-foreground/40" />
+        </div>
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); submit(); }
+            if (e.key === "Escape") { e.preventDefault(); cancel(); }
+          }}
+          onBlur={submit}
+          placeholder="Task title…"
+          className="flex-1 py-2.5 pr-3 text-sm bg-transparent outline-none placeholder:text-muted-foreground/40"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={open}
+      className="w-full flex items-center gap-1.5 border-t border-border/30 px-0 py-2.5 text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors group cursor-pointer"
+    >
+      <div className={cn(COL_ICON, "flex items-center justify-center shrink-0")}>
+        <Plus className="size-3.5" />
+      </div>
+      <span className="text-sm">Add a task…</span>
+    </button>
+  );
+}
+
 // ─── VirtualTaskList — virtualized flat row list ───────────────────────────────
 
 interface VirtualTaskListProps {
@@ -777,11 +837,12 @@ interface VirtualTaskListProps {
   projects: ProjectOption[];
   taskStatuses: TaskStatusDefinition[];
   onAdd: () => void;
+  onQuickAdd: (title: string) => void;
   onToggleExpand: (id: string) => void;
   onToggle: (id: string, completed: boolean) => void;
   onStatusChange: (id: string, status: string) => void;
   onSelect: (task: Task) => void;
-  onDeleteRequest: (id: string) => void;
+  onDeleteRequest: (id: string, title: string) => void;
   onToggleSelect: (id: string) => void;
   onDragStart: (id: string) => void;
   onDragOver: (id: string) => void;
@@ -812,6 +873,7 @@ const VirtualTaskList = memo(function VirtualTaskList({
   projects,
   taskStatuses,
   onAdd,
+  onQuickAdd,
   onToggleExpand,
   onToggle,
   onStatusChange,
@@ -928,6 +990,7 @@ const VirtualTaskList = memo(function VirtualTaskList({
           })}
         </div>
       </div>
+      <QuickAddRow onAdd={onQuickAdd} />
     </div>
   );
 });
@@ -944,7 +1007,7 @@ export function TasksScreen() {
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [sortBy, setSortBy] = useState<"default" | "due" | "priority">("default");
   const [bulkProjectOpen, setBulkProjectOpen] = useState(false);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
   const savedCollapsedIds = useRef<Set<string>>(new Set());
 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -1065,16 +1128,16 @@ export function TasksScreen() {
     });
   }, [updateMutation]);
 
-  const handleDeleteRequest = useCallback((id: string) => {
-    setConfirmDeleteId(id);
+  const handleDeleteRequest = useCallback((id: string, title: string) => {
+    setConfirmDelete({ id, title });
   }, []);
 
   const handleConfirmDelete = useCallback(() => {
-    if (!confirmDeleteId) return;
-    handleDelete(confirmDeleteId);
-    if (drawerTask?.id === confirmDeleteId) setDrawerOpen(false);
-    setConfirmDeleteId(null);
-  }, [confirmDeleteId, handleDelete, drawerTask]);
+    if (!confirmDelete) return;
+    handleDelete(confirmDelete.id);
+    if (drawerTask?.id === confirmDelete.id) setDrawerOpen(false);
+    setConfirmDelete(null);
+  }, [confirmDelete, handleDelete, drawerTask]);
 
   const handleProjectChange = useCallback((id: string, projectId: string | undefined) => {
     updateMutation.mutate({ id, body: { projectId: projectId ?? null } });
@@ -1392,6 +1455,7 @@ export function TasksScreen() {
                   projects={projectsForPicker}
                   taskStatuses={taskStatuses}
                   onAdd={() => setCreateOpen(true)}
+                  onQuickAdd={(title) => handleCreate({ title, status: s.id })}
                   onToggleExpand={handleToggleExpand}
                   onToggle={handleToggle}
                   onStatusChange={handleStatusChange}
@@ -1427,19 +1491,20 @@ export function TasksScreen() {
       </div>
 
       {/* Delete confirmation */}
-      <AlertDialog open={confirmDeleteId !== null} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}>
+      <AlertDialog open={confirmDelete !== null} onOpenChange={(open) => { if (!open) setConfirmDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogTitle>Delete &ldquo;{confirmDelete?.title}&rdquo;?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the task and all its subtasks. This action cannot be undone.
+              This will delete the task and all its subtasks. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
             >
               Delete
             </AlertDialogAction>
