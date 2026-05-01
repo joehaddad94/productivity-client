@@ -1504,7 +1504,7 @@ export function TasksScreen() {
             <AlertDialogAction
               onClick={handleConfirmDelete}
               disabled={deleteMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              className="disabled:opacity-50"
             >
               Delete
             </AlertDialogAction>
