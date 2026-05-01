@@ -23,7 +23,7 @@ import {
   Timer,
 } from "lucide-react";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
-import { isTaskStatusTerminal } from "../lib/taskStatusHelpers";
+import { isTaskStatusTerminal, taskStatusVisual } from "../lib/taskStatusHelpers";
 import { getSubtaskProgress } from "../lib/subtaskProgress";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
@@ -196,25 +196,41 @@ const StatusSelect = memo(function StatusSelect({
   onStatusChange: (id: string, status: string) => void;
   isCompleted: boolean;
 }) {
+  const statusCfg = taskStatusVisual(task.status ?? "", taskStatuses);
+  const badgeStyle = statusCfg.color ? {
+    borderColor: statusCfg.color + "4d",
+    color: statusCfg.color,
+    backgroundColor: statusCfg.color + "0d",
+  } : undefined;
+
   return (
     <Select value={task.status} onValueChange={(v) => onStatusChange(task.id, v)}>
-      <SelectTrigger className={cn(
-        "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40 cursor-pointer",
-        isCompleted
-          ? "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5"
-          : "border-border/60 text-muted-foreground",
-      )}>
+      <SelectTrigger
+        className={cn(
+          "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40 cursor-pointer",
+          !statusCfg.color && (isCompleted
+            ? "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5"
+            : "border-border/60 text-muted-foreground"),
+        )}
+        style={badgeStyle}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent align="end">
-        {taskStatuses.map((s) => (
-          <SelectItem key={s.id} value={s.id} className="text-xs">
-            <span className="flex items-center gap-2">
-              <span className={cn("size-1.5 rounded-full shrink-0", terminalIds.has(s.id) ? "bg-green-500" : "bg-muted-foreground/40")} />
-              {s.name}
-            </span>
-          </SelectItem>
-        ))}
+        {taskStatuses.map((s) => {
+          const v = taskStatusVisual(s.id, taskStatuses);
+          return (
+            <SelectItem key={s.id} value={s.id} className="text-xs">
+              <span className="flex items-center gap-2">
+                <span
+                  className={cn("size-1.5 rounded-full shrink-0", !v.color && (terminalIds.has(s.id) ? "bg-green-500" : "bg-muted-foreground/40"))}
+                  style={v.color ? { backgroundColor: v.color } : undefined}
+                />
+                {s.name}
+              </span>
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );
@@ -262,7 +278,7 @@ const TaskRow = memo(function TaskRow({
   onToggle: (id: string, completed: boolean) => void;
   onStatusChange: (id: string, status: string) => void;
   onSelect: (task: Task) => void;
-  onDeleteRequest: (id: string) => void;
+  onDeleteRequest: (id: string, title: string) => void;
   isSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
@@ -280,7 +296,7 @@ const TaskRow = memo(function TaskRow({
   isLinked?: boolean;
   onLinkTimer?: (id: string) => void;
   onPriorityChange?: (id: string, priority: string | undefined) => void;
-  onDueDateChange?: (id: string, dueDate: string | undefined) => void;
+  onDueDateChange?: (id: string, dueDate: string | undefined, dueTime: string | undefined) => void;
   onFocusLog?: (id: string, minutes: number) => void;
 }) {
   const hasSubtasks = !!task.subtasks?.length;
@@ -373,16 +389,26 @@ const TaskRow = memo(function TaskRow({
             )}
           </div>
           {/* Mobile: read-only status chip (no Select — avoids duplicate) */}
-          {depth === 0 && (
-            <span className={cn(
-              "sm:hidden shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium",
-              isCompleted
-                ? "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5"
-                : "border-border/60 text-muted-foreground",
-            )}>
-              {taskStatuses.find((s) => s.id === task.status)?.name ?? "—"}
-            </span>
-          )}
+          {depth === 0 && (() => {
+            const cfg = taskStatusVisual(task.status ?? "", taskStatuses);
+            return (
+              <span
+                className={cn(
+                  "sm:hidden shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                  !cfg.color && (isCompleted
+                    ? "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5"
+                    : "border-border/60 text-muted-foreground"),
+                )}
+                style={cfg.color ? {
+                  borderColor: cfg.color + "4d",
+                  color: cfg.color,
+                  backgroundColor: cfg.color + "0d",
+                } : undefined}
+              >
+                {cfg.label}
+              </span>
+            );
+          })()}
         </div>
 
         {/* Mobile metadata chips */}
@@ -513,7 +539,7 @@ const TaskRow = memo(function TaskRow({
             </button>
             <button
               title="Delete task"
-              onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id); }}
+              onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id, task.title); }}
               className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all cursor-pointer"
             >
               <Trash2 className="size-3.5" />
@@ -557,7 +583,7 @@ const PrioritySelect = memo(function PrioritySelect({
   );
 });
 
-// ─── DueDatePicker — click-to-edit inline due date ────────────────────────────
+// ─── DueDatePicker — click-to-edit inline due date + time ────────────────────
 
 const DueDatePicker = memo(function DueDatePicker({
   task,
@@ -568,20 +594,52 @@ const DueDatePicker = memo(function DueDatePicker({
   task: Task;
   todayYear: number;
   isOverdue: boolean;
-  onDueDateChange: (id: string, dueDate: string | undefined) => void;
+  onDueDateChange: (id: string, dueDate: string | undefined, dueTime: string | undefined) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [localDate, setLocalDate] = useState(task.dueDate?.slice(0, 10) ?? "");
+  const [localTime, setLocalTime] = useState(task.dueTime ?? "");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!editing) {
+      setLocalDate(task.dueDate?.slice(0, 10) ?? "");
+      setLocalTime(task.dueTime ?? "");
+    }
+  }, [task.dueDate, task.dueTime, editing]);
+
+  function commit(date: string, time: string) {
+    onDueDateChange(task.id, date || undefined, date ? (time || undefined) : undefined);
+    setEditing(false);
+  }
+
+  function handleContainerBlur(e: React.FocusEvent) {
+    if (!containerRef.current?.contains(e.relatedTarget as Node)) {
+      commit(localDate, localTime);
+    }
+  }
 
   if (editing) {
     return (
-      <input
-        type="date"
-        autoFocus
-        defaultValue={task.dueDate?.slice(0, 10) ?? ""}
-        onChange={(e) => onDueDateChange(task.id, e.target.value || undefined)}
-        onBlur={() => setEditing(false)}
-        className="w-[90px] text-[11px] font-medium bg-transparent outline-none border-b border-primary/40 text-center cursor-pointer [color-scheme:light] dark:[color-scheme:dark] text-foreground"
-      />
+      <div ref={containerRef} onBlur={handleContainerBlur} className="flex flex-col items-center gap-1">
+        <input
+          type="date"
+          autoFocus
+          value={localDate}
+          onChange={(e) => setLocalDate(e.target.value)}
+          onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch {} }}
+          className="w-[90px] text-[11px] font-medium bg-transparent outline-none border-b border-primary/40 text-center cursor-pointer [color-scheme:light] dark:[color-scheme:dark] text-foreground [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+        />
+        {localDate && (
+          <input
+            type="time"
+            value={localTime}
+            onChange={(e) => setLocalTime(e.target.value)}
+            onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch {} }}
+            className="w-[90px] text-[10px] bg-transparent outline-none border-b border-primary/40 text-center cursor-pointer [color-scheme:light] dark:[color-scheme:dark] text-muted-foreground [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+          />
+        )}
+      </div>
     );
   }
 
@@ -703,6 +761,66 @@ function EmptyState({ message, onAdd }: { message: string; onAdd: () => void }) 
   );
 }
 
+// ─── QuickAddRow — inline task creation at list bottom ────────────────────────
+
+function QuickAddRow({ onAdd }: { onAdd: (title: string) => void }) {
+  const [active, setActive] = useState(false);
+  const [value, setValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function open() {
+    setActive(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function submit() {
+    const trimmed = value.trim();
+    if (trimmed) onAdd(trimmed);
+    setValue("");
+    setActive(false);
+  }
+
+  function cancel() {
+    setValue("");
+    setActive(false);
+  }
+
+  if (active) {
+    return (
+      <div className="flex items-center border-t border-border/30 px-0">
+        <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
+          <Plus className="size-3.5 text-muted-foreground/40" />
+        </div>
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); submit(); }
+            if (e.key === "Escape") { e.preventDefault(); cancel(); }
+          }}
+          onBlur={submit}
+          placeholder="Task title…"
+          className="flex-1 py-2.5 pr-3 text-sm bg-transparent outline-none placeholder:text-muted-foreground/40"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={open}
+      className="w-full flex items-center gap-1.5 border-t border-border/30 px-0 py-2.5 text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors group cursor-pointer"
+    >
+      <div className={cn(COL_ICON, "flex items-center justify-center shrink-0")}>
+        <Plus className="size-3.5" />
+      </div>
+      <span className="text-sm">Add a task…</span>
+    </button>
+  );
+}
+
 // ─── VirtualTaskList — virtualized flat row list ───────────────────────────────
 
 interface VirtualTaskListProps {
@@ -719,11 +837,12 @@ interface VirtualTaskListProps {
   projects: ProjectOption[];
   taskStatuses: TaskStatusDefinition[];
   onAdd: () => void;
+  onQuickAdd: (title: string) => void;
   onToggleExpand: (id: string) => void;
   onToggle: (id: string, completed: boolean) => void;
   onStatusChange: (id: string, status: string) => void;
   onSelect: (task: Task) => void;
-  onDeleteRequest: (id: string) => void;
+  onDeleteRequest: (id: string, title: string) => void;
   onToggleSelect: (id: string) => void;
   onDragStart: (id: string) => void;
   onDragOver: (id: string) => void;
@@ -736,7 +855,7 @@ interface VirtualTaskListProps {
   linkedId: string | null;
   onLinkTimer: (id: string) => void;
   onPriorityChange: (id: string, priority: string | undefined) => void;
-  onDueDateChange: (id: string, dueDate: string | undefined) => void;
+  onDueDateChange: (id: string, dueDate: string | undefined, dueTime: string | undefined) => void;
   onFocusLog: (id: string, minutes: number) => void;
 }
 
@@ -754,6 +873,7 @@ const VirtualTaskList = memo(function VirtualTaskList({
   projects,
   taskStatuses,
   onAdd,
+  onQuickAdd,
   onToggleExpand,
   onToggle,
   onStatusChange,
@@ -870,6 +990,7 @@ const VirtualTaskList = memo(function VirtualTaskList({
           })}
         </div>
       </div>
+      <QuickAddRow onAdd={onQuickAdd} />
     </div>
   );
 });
@@ -886,7 +1007,7 @@ export function TasksScreen() {
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [sortBy, setSortBy] = useState<"default" | "due" | "priority">("default");
   const [bulkProjectOpen, setBulkProjectOpen] = useState(false);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
   const savedCollapsedIds = useRef<Set<string>>(new Set());
 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -1007,16 +1128,16 @@ export function TasksScreen() {
     });
   }, [updateMutation]);
 
-  const handleDeleteRequest = useCallback((id: string) => {
-    setConfirmDeleteId(id);
+  const handleDeleteRequest = useCallback((id: string, title: string) => {
+    setConfirmDelete({ id, title });
   }, []);
 
   const handleConfirmDelete = useCallback(() => {
-    if (!confirmDeleteId) return;
-    handleDelete(confirmDeleteId);
-    if (drawerTask?.id === confirmDeleteId) setDrawerOpen(false);
-    setConfirmDeleteId(null);
-  }, [confirmDeleteId, handleDelete, drawerTask]);
+    if (!confirmDelete) return;
+    handleDelete(confirmDelete.id);
+    if (drawerTask?.id === confirmDelete.id) setDrawerOpen(false);
+    setConfirmDelete(null);
+  }, [confirmDelete, handleDelete, drawerTask]);
 
   const handleProjectChange = useCallback((id: string, projectId: string | undefined) => {
     updateMutation.mutate({ id, body: { projectId: projectId ?? null } });
@@ -1029,8 +1150,8 @@ export function TasksScreen() {
     updateMutation.mutate({ id, body: { priority: priority as "low" | "medium" | "high" | undefined } });
   }, [updateMutation]);
 
-  const handleDueDateChange = useCallback((id: string, dueDate: string | undefined) => {
-    updateMutation.mutate({ id, body: { dueDate: dueDate || undefined } });
+  const handleDueDateChange = useCallback((id: string, dueDate: string | undefined, dueTime: string | undefined) => {
+    updateMutation.mutate({ id, body: { dueDate: dueDate || undefined, dueTime: dueTime || undefined } });
   }, [updateMutation]);
 
   const handleFocusLog = useCallback((id: string, minutes: number) => {
@@ -1334,6 +1455,7 @@ export function TasksScreen() {
                   projects={projectsForPicker}
                   taskStatuses={taskStatuses}
                   onAdd={() => setCreateOpen(true)}
+                  onQuickAdd={(title) => handleCreate({ title, status: s.id })}
                   onToggleExpand={handleToggleExpand}
                   onToggle={handleToggle}
                   onStatusChange={handleStatusChange}
@@ -1369,19 +1491,20 @@ export function TasksScreen() {
       </div>
 
       {/* Delete confirmation */}
-      <AlertDialog open={confirmDeleteId !== null} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}>
+      <AlertDialog open={confirmDelete !== null} onOpenChange={(open) => { if (!open) setConfirmDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogTitle>Delete &ldquo;{confirmDelete?.title}&rdquo;?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the task and all its subtasks. This action cannot be undone.
+              This will delete the task and all its subtasks. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              className="disabled:opacity-50"
             >
               Delete
             </AlertDialogAction>

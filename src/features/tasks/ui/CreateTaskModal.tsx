@@ -126,10 +126,10 @@ export function CreateTaskModal({
       >
         <DialogHeader className="space-y-1 border-b border-border/50 px-5 py-4 text-left">
           <DialogTitle className="text-base font-semibold tracking-tight text-foreground">
-            New task
+            {defaultParentId ? "New subtask" : "New task"}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Add a task. Optional fields can be set below.
+            {defaultParentId ? "Add a subtask. Optional fields can be set below." : "Add a task. Optional fields can be set below."}
           </DialogDescription>
         </DialogHeader>
 
@@ -161,7 +161,7 @@ export function CreateTaskModal({
 
           <div className="space-y-2">
             <Label htmlFor="new-task-desc" className={fieldLabel}>
-              Description
+              Description <span className="normal-case font-normal opacity-60">(optional)</span>
             </Label>
             <textarea
               id="new-task-desc"
@@ -231,37 +231,33 @@ export function CreateTaskModal({
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
+                    onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch {} }}
                     className={cn(
                       "h-8 min-h-8 w-full py-0 pl-8 text-xs leading-none cursor-pointer",
                       controlRing,
                       controlFocus,
                       "[color-scheme:light] dark:[color-scheme:dark]",
-                      "[&::-webkit-calendar-picker-indicator]:hidden",
+                      "[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer",
                     )}
                   />
                 </div>
+                {dueDate && (
+                  <Input
+                    id="new-task-time"
+                    type="time"
+                    value={dueTime}
+                    onChange={(e) => setDueTime(e.target.value)}
+                    onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch {} }}
+                    className={cn(
+                      "h-8 w-full py-0 text-xs cursor-pointer",
+                      controlRing,
+                      controlFocus,
+                      "[color-scheme:light] dark:[color-scheme:dark]",
+                    )}
+                  />
+                )}
               </div>
             </div>
-
-            {dueDate ? (
-              <div className="space-y-2">
-                <Label htmlFor="new-task-time" className={fieldLabel}>
-                  Due time
-                </Label>
-                <Input
-                  id="new-task-time"
-                  type="time"
-                  value={dueTime}
-                  onChange={(e) => setDueTime(e.target.value)}
-                  className={cn(
-                    "h-8 max-w-[12rem] py-0 text-xs cursor-pointer",
-                    controlRing,
-                    controlFocus,
-                    "[color-scheme:light] dark:[color-scheme:dark]",
-                  )}
-                />
-              </div>
-            ) : null}
 
             <div className="space-y-2">
               <Label className={fieldLabel}>Repeat</Label>

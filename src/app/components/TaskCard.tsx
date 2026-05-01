@@ -145,10 +145,17 @@ export function TaskCard({
             value={task.status ?? statusOptions[0]?.id ?? ""}
             onValueChange={(value) => onStatusChange(task.id, value)}
           >
-            <SelectTrigger className={cn(
-              "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1.5 focus-visible:ring-0 w-auto max-w-[9rem] [&_svg]:size-3 [&_svg]:opacity-40",
-              statusCfg.badge,
-            )}>
+            <SelectTrigger
+              className={cn(
+                "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1.5 focus-visible:ring-0 w-auto max-w-[9rem] [&_svg]:size-3 [&_svg]:opacity-40",
+                !statusCfg.color && statusCfg.badge,
+              )}
+              style={statusCfg.color ? {
+                borderColor: statusCfg.color + "4d",
+                color: statusCfg.color,
+                backgroundColor: statusCfg.color + "0d",
+              } : undefined}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="end">
@@ -157,7 +164,10 @@ export function TaskCard({
                 return (
                   <SelectItem key={s.id} value={s.id} className="text-xs">
                     <span className="flex items-center gap-2 min-w-0">
-                      <span className={cn("size-1.5 rounded-full shrink-0", v.dot)} />
+                      <span
+                        className={cn("size-1.5 rounded-full shrink-0", !v.color && v.dot)}
+                        style={v.color ? { backgroundColor: v.color } : undefined}
+                      />
                       <span className="truncate">{s.name}</span>
                     </span>
                   </SelectItem>
