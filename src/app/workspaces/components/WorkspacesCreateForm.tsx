@@ -34,7 +34,7 @@ export function WorkspacesCreateForm({
 }: WorkspacesCreateFormProps) {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [isPersonal, setIsPersonal] = useState(true);
+  const [isPersonal, setIsPersonal] = useState(false);
   const slugManuallyEdited = useRef(false);
 
   const handleNameChange = (value: string) => {
@@ -54,9 +54,7 @@ export function WorkspacesCreateForm({
     const finalSlug =
       slug.trim() || slugFromName(trimmed).slice(0, SLUG_MAX);
     if (finalSlug && !validateSlug(finalSlug)) {
-      toast.error(
-        "Slug: lowercase letters, numbers, hyphens only (max 64)"
-      );
+      toast.error("Slug: lowercase letters, numbers, hyphens only (max 64 chars)");
       return;
     }
     await onSubmit({

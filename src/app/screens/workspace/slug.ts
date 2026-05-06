@@ -1,7 +1,7 @@
 /** Slug: lowercase letters, numbers, hyphens only; max 64 chars */
 export const SLUG_REGEX = /^[a-z0-9-]*$/;
 export const SLUG_MAX = 64;
-export const NAME_MAX = 255;
+export const NAME_MAX = 200;
 
 export function slugFromName(name: string): string {
   return name

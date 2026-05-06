@@ -37,8 +37,7 @@ export function useWorkspacesPage() {
   }, [workspaces, searchQuery]);
 
   const createMutation = useCreateWorkspaceMutation({
-    onSuccess: (workspace) => {
-      setCurrentWorkspaceId(workspace.id);
+    onSuccess: () => {
       refetchWorkspaces();
     },
   });
@@ -56,7 +55,8 @@ export function useWorkspacesPage() {
       if (currentWorkspace?.id === id) {
         const list =
           queryClient.getQueryData<Workspace[]>(WORKSPACES_QUERY_KEY) ?? [];
-        setCurrentWorkspaceId(list[0]?.id ?? null);
+        const next = list.find((w) => w.id !== id);
+        setCurrentWorkspaceId(next?.id ?? null);
       }
       toast.success("Workspace deleted");
     },
@@ -77,9 +77,7 @@ export function useWorkspacesPage() {
       toast.success("Workspace created");
     } catch (err) {
       setShowCreate(true);
-      toast.error(
-        err instanceof Error ? err.message : "Failed to create workspace"
-      );
+      toast.error(err instanceof Error ? err.message : "Failed to create workspace");
     }
   };
 
@@ -98,9 +96,13 @@ export function useWorkspacesPage() {
   };
 
   const handleDeleteConfirm = () => {
-    if (workspaceToDelete) {
-      deleteMutation.mutate(workspaceToDelete.id);
+    if (!workspaceToDelete) return;
+    if (workspaces.length === 1) {
+      toast.error("You can't delete your only workspace.");
+      setWorkspaceToDelete(null);
+      return;
     }
+    deleteMutation.mutate(workspaceToDelete.id);
   };
 
   return {
