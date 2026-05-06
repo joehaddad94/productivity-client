@@ -241,50 +241,61 @@ export function PomodoroWidget() {
           {/* Task link */}
           <div className={cn("mx-4 mb-4 rounded-xl border overflow-visible relative", "bg-white/[0.06] dark:bg-black/[0.05]", CARD_BORDER)}>
             {linkedTask ? (
-              <div className="flex items-center gap-2.5 px-3.5 py-3">
-                <div className="size-1.5 rounded-full shrink-0" style={{ background: cfg.color }} />
-                <span className={cn("flex-1 text-[13px] font-medium truncate", FG)}>{linkedTask.title}</span>
-                <button onClick={() => { setLinkedId(null); setPickerQuery(""); }} title="Unlink"
-                  className={cn("transition-colors cursor-pointer shrink-0 hover:text-red-400", FG_SUBTLE)}>
+              <div className="flex items-stretch">
+                <button
+                  onClick={() => setShowPicker((v) => !v)}
+                  title="Change linked task"
+                  className={cn("flex-1 flex items-center gap-2.5 px-3.5 py-3 text-left min-w-0 cursor-pointer rounded-l-xl transition-colors", "hover:bg-white/[0.04] dark:hover:bg-black/[0.04]")}
+                >
+                  <div className="size-1.5 rounded-full shrink-0" style={{ background: cfg.color }} />
+                  <span className={cn("flex-1 text-[13px] font-medium truncate", FG)}>{linkedTask.title}</span>
+                </button>
+                <button
+                  onClick={() => { setLinkedId(null); setPickerQuery(""); setShowPicker(false); }}
+                  title="Unlink"
+                  className={cn("flex items-center justify-center px-3 transition-colors cursor-pointer shrink-0 rounded-r-xl hover:text-red-400", FG_SUBTLE)}
+                >
                   <X className="size-3.5" />
                 </button>
               </div>
             ) : (
-              <>
-                <button onClick={() => setShowPicker((v) => !v)}
-                  className={cn("w-full flex items-center gap-2.5 px-3.5 py-3 text-[13px] transition-colors cursor-pointer", FG_SUBTLE, "hover:text-white dark:hover:text-black/70")}>
-                  <Link2 className="size-3.5 shrink-0" />
-                  {tasks.length === 0 ? "No active tasks" : "Link a task to this session…"}
-                </button>
-                {showPicker && tasks.length > 0 && (
-                  <div className={cn("absolute bottom-[calc(100%+6px)] left-0 right-0 z-20 rounded-xl border shadow-xl overflow-hidden", "bg-[#1c1c1f] dark:bg-[#f5f5f5]", CARD_BORDER)}>
-                    {/* Search input */}
-                    <div className={cn("flex items-center gap-2 px-3.5 py-2.5 border-b", CARD_BORDER)}>
-                      <Search className={cn("size-3 shrink-0", FG_SUBTLE)} />
-                      <input
-                        autoFocus
-                        placeholder="Search tasks…"
-                        value={pickerQuery}
-                        onChange={(e) => setPickerQuery(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        className={cn("flex-1 bg-transparent text-[12px] outline-none min-w-0", FG, "placeholder:text-white/30 dark:placeholder:text-black/30")}
-                      />
-                    </div>
-                    {/* Results */}
-                    <div className="max-h-40 overflow-y-auto">
-                      {filteredTasks.length === 0 ? (
-                        <p className={cn("px-4 py-3 text-[12px]", FG_SUBTLE)}>No tasks match</p>
-                      ) : filteredTasks.map((t) => (
-                        <button key={t.id}
-                          onClick={() => { setLinkedId(t.id); setShowPicker(false); setPickerQuery(""); }}
-                          className={cn("w-full text-left text-[13px] px-4 py-2.5 truncate transition-colors cursor-pointer first:rounded-t-none last:rounded-b-xl", FG_MUTED, "hover:text-white dark:hover:text-black hover:bg-white/[0.08] dark:hover:bg-black/[0.06]")}>
-                          {t.title}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
+              <button onClick={() => setShowPicker((v) => !v)}
+                className={cn("w-full flex items-center gap-2.5 px-3.5 py-3 text-[13px] transition-colors cursor-pointer", FG_SUBTLE, "hover:text-white dark:hover:text-black/70")}>
+                <Link2 className="size-3.5 shrink-0" />
+                {tasks.length === 0 ? "No active tasks" : "Link a task to this session…"}
+              </button>
+            )}
+            {showPicker && tasks.length > 0 && (
+              <div className={cn("absolute bottom-[calc(100%+6px)] left-0 right-0 z-20 rounded-xl border shadow-xl overflow-hidden", "bg-[#1c1c1f] dark:bg-[#f5f5f5]", CARD_BORDER)}>
+                {/* Search input */}
+                <div className={cn("flex items-center gap-2 px-3.5 py-2.5 border-b", CARD_BORDER)}>
+                  <Search className={cn("size-3 shrink-0", FG_SUBTLE)} />
+                  <input
+                    autoFocus
+                    placeholder="Search tasks…"
+                    value={pickerQuery}
+                    onChange={(e) => setPickerQuery(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    className={cn("flex-1 bg-transparent text-[12px] outline-none min-w-0", FG, "placeholder:text-white/30 dark:placeholder:text-black/30")}
+                  />
+                </div>
+                {/* Results */}
+                <div className="max-h-40 overflow-y-auto">
+                  {filteredTasks.length === 0 ? (
+                    <p className={cn("px-4 py-3 text-[12px]", FG_SUBTLE)}>No tasks match</p>
+                  ) : filteredTasks.map((t) => {
+                    const isCurrent = t.id === linkedId;
+                    return (
+                      <button key={t.id}
+                        onClick={() => { setLinkedId(t.id); setShowPicker(false); setPickerQuery(""); }}
+                        className={cn("w-full text-left text-[13px] px-4 py-2.5 truncate transition-colors cursor-pointer first:rounded-t-none last:rounded-b-xl", isCurrent ? FG : FG_MUTED, "hover:text-white dark:hover:text-black hover:bg-white/[0.08] dark:hover:bg-black/[0.06]")}>
+                        {isCurrent && <span className="mr-1.5" style={{ color: cfg.color }}>•</span>}
+                        {t.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
 
