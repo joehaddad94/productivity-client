@@ -24,11 +24,25 @@ export function useNotesDeleteFlow({
   const queryClient = useQueryClient();
   const pendingDeletes = useRef<Map<string, PendingDeleteEntry>>(new Map());
 
+  // Refs keep handleDelete stable — no recreation on every notes/selection change.
+  // This prevents timer closures from going stale and fixes rapid-delete navigation.
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const selectedNoteIdRef = useRef(selectedNoteId);
+  selectedNoteIdRef.current = selectedNoteId;
+
   const handleDelete = useCallback(
     (id: string) => {
-      const deletedNote = notes.find((n) => n.id === id);
+      const currentNotes = notesRef.current;
+      const currentSelectedId = selectedNoteIdRef.current;
+
+      const deletedNote = currentNotes.find((n) => n.id === id);
       if (!deletedNote) return;
 
+      const originalIndex = currentNotes.findIndex((n) => n.id === id);
+      const wasSelected = currentSelectedId === id;
+
+      // 1. Optimistic cache removal
       queryClient.setQueriesData<NoteListCache>(
         { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
         (old) =>
@@ -37,22 +51,23 @@ export function useNotesDeleteFlow({
             : old,
       );
 
-      const wasSelected = selectedNoteId === id;
-      if (selectedNoteId === id) {
-        setSelectedNoteId(notes.find((n) => n.id !== id)?.id ?? null);
-      }
-
+      // 2. Register pending delete BEFORE computing next selection so that rapid
+      //    successive deletes correctly skip all notes that are already pending.
       const timer = setTimeout(() => {
         pendingDeletes.current.delete(id);
         deleteMutation.mutate(id);
       }, 5000);
-      pendingDeletes.current.set(id, {
-        timer,
-        note: deletedNote,
-        wasSelected,
-      });
+      pendingDeletes.current.set(id, { timer, note: deletedNote, originalIndex, wasSelected });
+
+      // 3. Navigate to next non-pending note (skips all in-flight deletes)
+      if (wasSelected) {
+        const pendingIds = new Set(pendingDeletes.current.keys());
+        const next = currentNotes.find((n) => !pendingIds.has(n.id));
+        setSelectedNoteId(next?.id ?? null);
+      }
 
       toast.success("Note deleted", {
+        id: `note-delete-${id}`,
         duration: 5000,
         action: {
           label: "Undo",
@@ -62,18 +77,26 @@ export function useNotesDeleteFlow({
             clearTimeout(pending.timer);
             pendingDeletes.current.delete(id);
 
+            // Restore at original index (clamped to current list length)
             queryClient.setQueriesData<NoteListCache>(
               { queryKey: NOTES_QUERY_KEY(workspaceId ?? "") },
               (old) => {
                 if (!old || !Array.isArray(old.notes)) return old;
                 if (old.notes.some((n) => n.id === id)) return old;
-                return { ...old, notes: [pending.note, ...old.notes], total: old.total + 1 };
+                const idx = Math.min(pending.originalIndex, old.notes.length);
+                return {
+                  ...old,
+                  notes: [
+                    ...old.notes.slice(0, idx),
+                    pending.note,
+                    ...old.notes.slice(idx),
+                  ],
+                  total: old.total + 1,
+                };
               },
             );
 
-            if (pending.wasSelected) {
-              setSelectedNoteId(id);
-            }
+            if (pending.wasSelected) setSelectedNoteId(id);
 
             queryClient.invalidateQueries({
               queryKey: NOTES_QUERY_KEY(workspaceId ?? ""),
@@ -83,7 +106,9 @@ export function useNotesDeleteFlow({
         },
       });
     },
-    [queryClient, workspaceId, selectedNoteId, notes, deleteMutation, setSelectedNoteId],
+    // notes and selectedNoteId intentionally omitted — accessed via refs above
+    // so this callback is stable across renders and timer closures stay valid
+    [queryClient, workspaceId, deleteMutation, setSelectedNoteId],
   );
 
   return { handleDelete };
