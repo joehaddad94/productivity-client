@@ -25,6 +25,22 @@ function fmt(s: number) {
   return `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 }
 
+function playBeep() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.6);
+  } catch { /* ignore if AudioContext unavailable */ }
+}
+
 async function askNotificationPermission() {
   if (typeof Notification === "undefined") return false;
   if (Notification.permission === "granted") return true;
@@ -95,6 +111,7 @@ export function PomodoroWidget() {
   }, [tasks, pickerQuery]);
 
   const onComplete = useCallback(async (type: SessionType, focusMinutes: number) => {
+    if (settings.sound) playBeep();
     const isWork = type === "work";
     const { label } = SESSION[type];
     const toastBody = isWork

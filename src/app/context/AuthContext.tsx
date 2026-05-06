@@ -20,6 +20,7 @@ function mapUser(u: AuthUser): User {
     email: u.email,
     name: u.name ?? "",
     isAdmin: u.isAdmin,
+    timezone: u.timezone ?? null,
   };
 }
 

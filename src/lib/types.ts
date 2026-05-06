@@ -8,6 +8,7 @@ export interface User {
   name: string | null;
   email: string;
   avatarUrl?: string | null;
+  timezone?: string | null;
   /** Server-driven; used for admin-only UI (e.g. bug triage). */
   isAdmin?: boolean;
 }

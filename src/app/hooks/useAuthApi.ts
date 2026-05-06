@@ -79,6 +79,15 @@ export function useUpdateMeMutation(
   });
 }
 
+export function useDeleteMeMutation(
+  options?: UseMutationOptions<void, Error, void>
+) {
+  return useMutation({
+    mutationFn: () => authApi.deleteMe(),
+    ...options,
+  });
+}
+
 export function useLogoutMutation(
   options?: UseMutationOptions<
     Awaited<ReturnType<typeof authApi.logout>>,
