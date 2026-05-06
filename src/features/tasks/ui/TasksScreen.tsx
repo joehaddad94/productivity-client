@@ -154,7 +154,7 @@ const RowProjectPicker = memo(function RowProjectPicker({
           onClick={(e) => e.stopPropagation()}
           className="text-[11px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded-md hover:bg-muted/50 truncate max-w-full text-center transition-colors cursor-pointer"
         >
-          {name ?? <span className="opacity-30">—</span>}
+          {name ?? <span className="opacity-30 text-[10px]">No project</span>}
         </button>
       </PopoverTrigger>
       {open && (
@@ -571,7 +571,7 @@ const PrioritySelect = memo(function PrioritySelect({
         "h-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold tracking-wide shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40 cursor-pointer",
         task.priority ? PRIORITY_PILL[task.priority] : "border-border/60 text-muted-foreground/40",
       )}>
-        <SelectValue placeholder="—" />
+        <SelectValue placeholder="None" />
       </SelectTrigger>
       <SelectContent align="center">
         <SelectItem value={PRIORITY_NONE} className="text-xs">None</SelectItem>
@@ -654,7 +654,7 @@ const DueDatePicker = memo(function DueDatePicker({
     >
       <span className="flex items-center gap-1 text-[11px] font-medium">
         <Calendar className="size-3 shrink-0" />
-        {task.dueDate ? formatDate(task.dueDate, todayYear) : "—"}
+        {task.dueDate ? formatDate(task.dueDate, todayYear) : "Set date"}
       </span>
       {task.dueTime && (
         <span className="text-[10px] opacity-70">{formatTime(task.dueTime)}</span>

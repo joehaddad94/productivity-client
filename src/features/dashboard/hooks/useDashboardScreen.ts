@@ -6,6 +6,7 @@ import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { useTasksQuery, useCreateTaskMutation, useUpdateTaskMutation } from "@/app/hooks/useTasksApi";
 import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
 import { useAnalyticsQuery } from "@/app/hooks/useAnalyticsApi";
+import { useProjectsQuery } from "@/app/hooks/useProjectsApi";
 import type { TaskStatusDefinition } from "@/lib/types";
 import {
   defaultNonTerminalStatusId,
@@ -14,22 +15,50 @@ import {
   isTaskStatusTerminal,
 } from "@/features/tasks/lib/taskStatusHelpers";
 
+export type TaskPriority = "low" | "medium" | "high" | null;
+
 export function useDashboardScreen() {
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>(null);
 
   const { data: tasksPage, isLoading: tasksLoading } = useTasksQuery(workspaceId);
   const tasks = tasksPage?.tasks ?? [];
+
   const { data: rawStatuses = [] } = useTaskStatusesQuery(workspaceId);
   const taskStatuses: TaskStatusDefinition[] = useMemo(
     () => ensureTaskStatuses(workspaceId, rawStatuses),
     [workspaceId, rawStatuses],
   );
 
+  const { data: projectsPage } = useProjectsQuery(workspaceId, { limit: 6 });
+  const projects = (projectsPage?.projects ?? []).filter((p) => p.status !== "archived");
+
+  // Open task count per project from already-fetched tasks (no extra request)
+  const openTasksByProject = useMemo(() => {
+    const map: Record<string, number> = {};
+    tasks.forEach((t) => {
+      if (t.projectId && !isTaskStatusTerminal(t.status, taskStatuses)) {
+        map[t.projectId] = (map[t.projectId] ?? 0) + 1;
+      }
+    });
+    return map;
+  }, [tasks, taskStatuses]);
+
+  // Analytics: cover the current month AND at least the last 7 days for streak dots
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+  const sevenDaysAgo = new Date(now);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+  const analyticsFrom = sevenDaysAgo.toISOString().split("T")[0] < monthStart
+    ? sevenDaysAgo.toISOString().split("T")[0]
+    : monthStart;
+  const todayStr = now.toISOString().split("T")[0];
+
   const { data: analytics } = useAnalyticsQuery(workspaceId, {
-    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    to: new Date().toISOString().split("T")[0],
+    from: analyticsFrom,
+    to: todayStr,
   });
 
   const createMutation = useCreateTaskMutation(workspaceId, {
@@ -38,7 +67,6 @@ export function useDashboardScreen() {
   });
 
   const updateMutation = useUpdateTaskMutation(workspaceId, {
-    onSuccess: () => toast.success("Task updated"),
     onError: (err) => toast.error(err.message),
   });
 
@@ -51,51 +79,71 @@ export function useDashboardScreen() {
     updateMutation.mutate({ id, body: { status: next } });
   };
 
-  const handleAddTask = () => {
-    if (!newTaskTitle.trim() || !workspaceId) return;
-    createMutation.mutate({ title: newTaskTitle.trim() });
+  const handleAddTask = (titleOverride?: string) => {
+    const title = (titleOverride ?? newTaskTitle).trim();
+    if (!title || !workspaceId) return;
+    createMutation.mutate({ title, ...(newTaskPriority ? { priority: newTaskPriority } : {}) });
     setNewTaskTitle("");
+    setNewTaskPriority(null);
   };
 
-  const todayStr = new Date().toISOString().split("T")[0];
-  const todayTasks = tasks.filter((t) => t.dueDate && t.dueDate.startsWith(todayStr));
+  // All tasks due today (including completed) — used for progress bar
+  const todayAllTasks = tasks.filter((t) => t.dueDate && t.dueDate.startsWith(todayStr));
+  const todayTasks = todayAllTasks.filter((t) => !isTaskStatusTerminal(t.status, taskStatuses));
+  const todayCompleted = todayAllTasks.length - todayTasks.length;
+
   const overdueTasks = tasks.filter(
-    (t) =>
-      t.dueDate &&
-      t.dueDate.split("T")[0] < todayStr &&
-      !isTaskStatusTerminal(t.status, taskStatuses),
+    (t) => t.dueDate && t.dueDate.split("T")[0] < todayStr && !isTaskStatusTerminal(t.status, taskStatuses),
   );
-  const pendingTasks = tasks
-    .filter((t) => !isTaskStatusTerminal(t.status, taskStatuses))
-    .slice(0, 5);
-  const completedCount = tasks.filter((t) => isTaskStatusTerminal(t.status, taskStatuses)).length;
-  const totals = analytics?.totals ?? { tasksCompleted: 0, focusMinutes: 0, streak: 0 };
 
   const upcomingTasks = tasks
-    .filter(
-      (t) =>
-        t.dueDate &&
-        t.dueDate.slice(0, 10) > todayStr &&
-        !isTaskStatusTerminal(t.status, taskStatuses),
-    )
+    .filter((t) => t.dueDate && t.dueDate.slice(0, 10) > todayStr && !isTaskStatusTerminal(t.status, taskStatuses))
     .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))
     .slice(0, 5);
 
+  const noDateTasks = tasks
+    .filter((t) => !t.dueDate && !isTaskStatusTerminal(t.status, taskStatuses))
+    .slice(0, 5);
+
+  const totals = analytics?.totals ?? { tasksCompleted: 0, focusMinutes: 0, streak: 0 };
+
+  // Last 7 days as YYYY-MM-DD strings (oldest → newest)
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - (6 - i));
+    return d.toISOString().split("T")[0];
+  });
+
+  const activeDates = useMemo(() => new Set(
+    (analytics?.dailyStats ?? [])
+      .filter((s) => s.tasksCompleted > 0 || s.focusMinutes > 0)
+      .map((s) => s.date.slice(0, 10)),
+  ), [analytics?.dailyStats]);
+
+  const isEmpty = !tasksLoading && todayTasks.length === 0 && overdueTasks.length === 0
+    && upcomingTasks.length === 0 && noDateTasks.length === 0;
+
   return {
     workspaceId,
-    newTaskTitle,
-    setNewTaskTitle,
+    newTaskTitle, setNewTaskTitle,
+    newTaskPriority, setNewTaskPriority,
     tasksLoading,
     createMutation,
     handleAddTask,
     handleToggleTask,
-    tasks,
     taskStatuses,
+    todayAllTasks,
     todayTasks,
+    todayCompleted,
     overdueTasks,
     upcomingTasks,
-    pendingTasks,
-    completedCount,
+    noDateTasks,
     totals,
+    projects,
+    openTasksByProject,
+    last7Days,
+    activeDates,
+    todayStr,
+    isEmpty,
   };
 }

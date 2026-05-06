@@ -112,7 +112,7 @@ export function AdminBugsScreen() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Bug reports</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Submissions from users — triage and update status here.
+          Submissions from users. Triage and update status here.
         </p>
       </div>
 

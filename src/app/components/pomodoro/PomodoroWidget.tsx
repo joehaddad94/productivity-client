@@ -116,7 +116,7 @@ export function PomodoroWidget() {
     const { label } = SESSION[type];
     const toastBody = isWork
       ? `${focusMinutes} min focused${linkedTask ? ` on "${linkedTask.title}"` : ""}. Take a break.`
-      : "Break over — time to focus!";
+      : "Break over. Time to focus!";
 
     if (settings.inAppToasts) {
       toast.success(`${label} session complete!`, { description: toastBody });
@@ -129,7 +129,7 @@ export function PomodoroWidget() {
           `${label} complete!`,
           isWork
             ? `${focusMinutes} min focused${linkedTask ? ` on "${linkedTask.title}"` : ""}. Time for a break.`
-            : "Break over — ready to focus?",
+            : "Break over. Ready to focus?",
         );
       } else if (!settings.inAppToasts) {
         // Notifications enabled but permission denied — fall back to toast so the session end isn't silent

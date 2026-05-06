@@ -162,7 +162,7 @@ export function WorkspacesPageView({
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
           Workspaces help you separate work, personal, or project-specific tasks.
-          Switch using the dropdown in the sidebar — your current workspace is used for all new tasks.
+          Switch using the dropdown in the sidebar. Your current workspace is used for all new tasks.
           Expand any workspace to manage its members and invite collaborators.
         </p>
       </div>

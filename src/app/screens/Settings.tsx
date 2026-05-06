@@ -114,7 +114,7 @@ export function Settings() {
     setTestLoading(true);
     try {
       await notificationsApi.sendTestPush();
-      toast.success("Test notification sent — check your browser");
+      toast.success("Test notification sent. Check your browser.");
     } catch {
       toast.error("Failed to send test notification");
     } finally {
@@ -252,7 +252,7 @@ export function Settings() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Email</Label>
                   <Input type="email" value={user?.email ?? ""} disabled className="opacity-60 cursor-not-allowed" />
-                  <p className="text-xs text-muted-foreground">Email cannot be changed — it is used for sign-in.</p>
+                  <p className="text-xs text-muted-foreground">Email cannot be changed. It is used for sign-in.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="timezone" className="text-xs font-medium">Timezone</Label>
@@ -397,8 +397,8 @@ export function Settings() {
                   <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">You will be notified about</p>
                   <ul className="text-xs text-muted-foreground space-y-1">
                     <li className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-primary shrink-0" />Daily agenda (at your configured time, in your timezone)</li>
-                    <li className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-amber-500 shrink-0" />Tasks due today — reminder at 2:00 PM local time</li>
-                    <li className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-destructive shrink-0" />Overdue tasks — check at 9:00 AM local time</li>
+                    <li className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-amber-500 shrink-0" />Tasks due today: reminder at 2:00 PM local time</li>
+                    <li className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-destructive shrink-0" />Overdue tasks: check at 9:00 AM local time</li>
                   </ul>
                 </div>
               )}
@@ -657,7 +657,7 @@ export function Settings() {
                 <div>
                   <p className="text-sm font-semibold text-destructive">Delete account</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Permanently delete your account and all data — workspaces, tasks, projects, and settings. This cannot be undone.
+                    Permanently delete your account and all data: workspaces, tasks, projects, and settings. This cannot be undone.
                   </p>
                 </div>
                 <Button

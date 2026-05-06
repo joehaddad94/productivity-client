@@ -117,7 +117,7 @@ export function usePomodoroTimer(
       const m = Math.floor(state.secondsLeft / 60).toString().padStart(2, "0");
       const s = (state.secondsLeft % 60).toString().padStart(2, "0");
       const label = state.sessionType === "work" ? "Focus" : state.sessionType === "short_break" ? "Break" : "Long Break";
-      document.title = `${m}:${s} · ${label} — Tasky`;
+      document.title = `${m}:${s} · ${label} · Tasky`;
     } else if (originalTitleRef.current !== null) {
       document.title = originalTitleRef.current;
       originalTitleRef.current = null;

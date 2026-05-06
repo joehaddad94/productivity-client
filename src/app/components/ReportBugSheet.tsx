@@ -65,7 +65,7 @@ export function ReportBugSheet({
 
   const createMutation = useCreateBugReportMutation({
     onSuccess: (res) => {
-      toast.success("Thanks — we received your report.", {
+      toast.success("Thanks! We received your report.", {
         description: `Reference: ${res.bug.id.slice(0, 8)}…`,
       });
       setTitle("");

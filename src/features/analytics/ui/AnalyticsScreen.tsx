@@ -46,9 +46,9 @@ function ScoreRing({ score }: { score: number }) {
       </div>
       <p className="text-xs text-muted-foreground text-center max-w-32">
         {score >= 70
-          ? "Excellent — keep it up!"
+          ? "Excellent! Keep it up!"
           : score >= 40
-          ? "Good progress — push a bit more"
+          ? "Good progress. Push a bit more!"
           : "Complete tasks and focus sessions to grow your score"}
       </p>
     </div>

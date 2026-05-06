@@ -130,7 +130,7 @@ export function WorkspaceCard({
               </p>
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {workspace.slug || "—"}
+                  {workspace.slug}
                   {workspace.isPersonal && " · Personal"}
                 </span>
                 {!membersLoading && currentMember && (
