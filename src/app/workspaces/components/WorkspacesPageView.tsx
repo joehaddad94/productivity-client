@@ -1,19 +1,11 @@
 "use client";
 
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { Workspace } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
 import { cn } from "@/app/components/ui/utils";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { WorkspacesCreateForm } from "./WorkspacesCreateForm";
 import { WorkspaceCard } from "./WorkspaceCard";
 
@@ -175,56 +167,16 @@ export function WorkspacesPageView({
         </p>
       </div>
 
-      {/* Delete confirmation */}
-      <AlertDialog
+      {/* Delete confirmation — requires typing the workspace name */}
+      <ConfirmDialog
         open={!!workspaceToDelete}
         onOpenChange={(open) => !open && onWorkspaceToDeleteChange(null)}
-      >
-        <AlertDialogContent className="sm:max-w-md">
-          <AlertDialogHeader>
-            <div className="space-y-3">
-              <AlertDialogTitle className="text-base">Delete workspace</AlertDialogTitle>
-              <AlertDialogDescription>
-                You are about to delete this workspace. All tasks and data in it will be permanently removed.
-              </AlertDialogDescription>
-              {workspaceToDelete && (
-                <div className="space-y-2">
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-3 py-2">
-                    <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      Workspace
-                    </p>
-                    <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                      {workspaceToDelete.name}
-                    </p>
-                    {workspaceToDelete.slug && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                        {workspaceToDelete.slug}
-                      </p>
-                    )}
-                  </div>
-                  <p className="text-sm font-medium text-destructive/90 dark:text-destructive/80">
-                    This action cannot be undone.
-                  </p>
-                </div>
-              )}
-            </div>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-row gap-3 sm:justify-end">
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
-            <Button
-              variant="destructive"
-              disabled={deleteMutation.isPending}
-              onClick={onDeleteConfirm}
-            >
-              {deleteMutation.isPending ? (
-                <><Loader2 className="size-4 animate-spin mr-2" />Deleting…</>
-              ) : (
-                "Delete workspace"
-              )}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Delete workspace"
+        description={`This will permanently delete "${workspaceToDelete?.name}" and all its tasks, projects, and data. This cannot be undone.`}
+        confirmText={workspaceToDelete?.name}
+        confirmLabel="Delete workspace"
+        onConfirm={onDeleteConfirm}
+      />
     </div>
   );
 }
