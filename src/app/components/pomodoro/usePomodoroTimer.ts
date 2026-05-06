@@ -93,6 +93,8 @@ export function usePomodoroTimer(
   prefsRef.current = prefs;
   const skipNextPersist = useRef(false);
   const runningSecondsRef = useRef(0);
+  const onSessionCompleteRef = useRef(onSessionComplete);
+  onSessionCompleteRef.current = onSessionComplete;
 
   // Restore from localStorage after first paint so SSR + first client render match (hydration-safe).
   useLayoutEffect(() => {
@@ -134,32 +136,31 @@ export function usePomodoroTimer(
     runningSecondsRef.current = 0;
     const newCount = cur.sessionCount + (wasWork ? 1 : 0);
     const newTotal = cur.totalFocusMinutes + focusMinutes;
-    const next = nextSessionType(cur.sessionType, newCount, prefs);
+    const next = nextSessionType(cur.sessionType, newCount, prefsRef.current);
 
-    onSessionComplete?.(cur.sessionType, focusMinutes);
+    onSessionCompleteRef.current?.(cur.sessionType, focusMinutes);
 
     setState({
       sessionType: next,
-      secondsLeft: sessionDuration(next, prefs),
-      isRunning: prefs.autoStart,
+      secondsLeft: sessionDuration(next, prefsRef.current),
+      isRunning: prefsRef.current.autoStart,
       sessionCount: newCount,
       totalFocusMinutes: newTotal,
     });
-  }, [prefs, onSessionComplete]);
+  }, []);
 
   useEffect(() => {
     if (!state.isRunning) { clearTimer(); return; }
 
     intervalRef.current = setInterval(() => {
-      setState((prev) => {
-        if (prev.secondsLeft <= 1) {
-          clearTimer();
-          setTimeout(() => advanceSession(), 0);
-          return { ...prev, secondsLeft: 0, isRunning: false };
-        }
+      const cur = stateRef.current;
+      if (cur.secondsLeft <= 1) {
+        clearTimer();
+        advanceSession();
+      } else {
         runningSecondsRef.current += 1;
-        return { ...prev, secondsLeft: prev.secondsLeft - 1 };
-      });
+        setState({ ...cur, secondsLeft: cur.secondsLeft - 1 });
+      }
     }, 1000);
 
     return clearTimer;
