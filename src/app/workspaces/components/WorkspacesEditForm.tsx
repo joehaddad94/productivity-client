@@ -42,9 +42,7 @@ export function WorkspacesEditForm({
     }
     const finalSlug = slug.trim();
     if (finalSlug && !validateSlug(finalSlug)) {
-      toast.error(
-        "Slug: lowercase letters, numbers, hyphens only (max 64)"
-      );
+      toast.error("Slug: lowercase letters, numbers, hyphens only (max 64 chars)");
       return;
     }
     await onSubmit({

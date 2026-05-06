@@ -45,7 +45,7 @@ export function Signup() {
           </div>
           <div className="text-center">
             <h1 className="text-xl font-semibold">Create your account</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Get started with Tasky — free forever</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Get started with Tasky. Free forever.</p>
           </div>
         </div>
 

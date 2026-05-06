@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Bell, CheckCheck, Trash2, X, CalendarClock, AlertCircle, Calendar, CheckSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/app/components/ui/utils";
@@ -18,60 +19,77 @@ import type { AppNotification } from "@/lib/types";
 const PAGE_SIZE = 20;
 
 const TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string }> = {
-  due_today: { icon: CalendarClock, color: "text-amber-500" },
-  overdue: { icon: AlertCircle, color: "text-destructive" },
-  daily_agenda: { icon: Calendar, color: "text-primary" },
-  task_completed: { icon: CheckSquare, color: "text-green-500" },
+  due_today:      { icon: CalendarClock, color: "text-amber-500"   },
+  overdue:        { icon: AlertCircle,   color: "text-destructive"  },
+  daily_agenda:   { icon: Calendar,      color: "text-primary"      },
+  task_completed: { icon: CheckSquare,   color: "text-green-500"    },
 };
 
 const DEFAULT_CONFIG = TYPE_CONFIG.daily_agenda;
 
+function notificationHref(n: AppNotification): string {
+  if (n.taskId && (n.type === "due_today" || n.type === "overdue" || n.type === "task_completed")) {
+    return "/tasks";
+  }
+  return "/dashboard";
+}
+
 function NotificationBellComponent() {
-  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const [open, setOpen]           = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
   const [openToRight, setOpenToRight] = useState(false);
-  const [take, setTake] = useState(PAGE_SIZE);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const [take, setTake]           = useState(PAGE_SIZE);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const panelRef  = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
 
-  const { data: notifications = [], isLoading } = useNotificationsQuery(workspaceId, {
-    enabled: open,
+  // Always fetch (pre-loads on mount), only auto-refetch while panel is open
+  const { data, isLoading } = useNotificationsQuery(workspaceId, {
     skip: 0,
     take,
+    refetchWhenOpen: open,
   });
+  const notifications = data?.items ?? [];
+  const total         = data?.total ?? 0;
+  const hasMore       = notifications.length < total;
+
   const { data: unreadCount = 0 } = useUnreadCountQuery(workspaceId);
-  const markRead = useMarkReadMutation(workspaceId);
+  const markRead    = useMarkReadMutation(workspaceId);
   const markAllRead = useMarkAllReadMutation(workspaceId);
-  const dismiss = useDismissMutation(workspaceId);
-  const dismissAll = useDismissAllMutation(workspaceId);
+  const dismiss     = useDismissMutation(workspaceId);
+  const dismissAll  = useDismissAllMutation(workspaceId);
 
-  const hasMore = notifications.length === take;
-
-  // Reset take when panel closes
+  // Reset take and confirmClear when panel closes
   useEffect(() => {
-    if (!open) setTake(PAGE_SIZE);
+    if (!open) {
+      setTake(PAGE_SIZE);
+      setConfirmClear(false);
+    }
   }, [open]);
 
-  // document.title unread badge
+  // Auto-cancel confirm-clear after 3 s of inactivity
   useEffect(() => {
-    const base = "Tasky";
-    if (!open && unreadCount > 0) {
-      document.title = `(${unreadCount}) ${base}`;
-    } else {
-      document.title = base;
-    }
-    return () => { document.title = base; };
+    if (!confirmClear) return;
+    const t = setTimeout(() => setConfirmClear(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirmClear]);
+
+  // document.title unread badge — separate cleanup effect avoids mid-render flash
+  useEffect(() => {
+    document.title = (!open && unreadCount > 0) ? `(${unreadCount}) Tasky` : "Tasky";
   }, [unreadCount, open]);
+  useEffect(() => () => { document.title = "Tasky"; }, []);
 
   // Close on outside click
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
       if (
-        panelRef.current && !panelRef.current.contains(e.target as Node) &&
+        panelRef.current  && !panelRef.current.contains(e.target as Node) &&
         buttonRef.current && !buttonRef.current.contains(e.target as Node)
       ) setOpen(false);
     }
@@ -79,7 +97,7 @@ function NotificationBellComponent() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  // Positioning
+  // Smart positioning
   useEffect(() => {
     if (!open || !buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
@@ -91,16 +109,26 @@ function NotificationBellComponent() {
     if (!n.read) markRead.mutate(n.id);
   }
 
-  function handleDismiss(id: string) {
+  function handleNotificationClick(n: AppNotification) {
+    handleMarkRead(n);
+    setOpen(false);
+    router.push(notificationHref(n));
+  }
+
+  function handleDismiss(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
     dismiss.mutate(id);
   }
 
   function handleDismissAll() {
-    dismissAll.mutate();
-  }
-
-  function handleMarkAllRead() {
-    markAllRead.mutate();
+    if (!confirmClear) {
+      setConfirmClear(true);
+      return;
+    }
+    dismissAll.mutate(undefined, {
+      onSuccess: () => setTake(PAGE_SIZE),
+    });
+    setConfirmClear(false);
   }
 
   return (
@@ -146,20 +174,43 @@ function NotificationBellComponent() {
             </div>
             <div className="flex items-center gap-1">
               {unreadCount > 0 && (
-                <button onClick={handleMarkAllRead} title="Mark all as read" className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                <button
+                  onClick={() => markAllRead.mutate()}
+                  title="Mark all as read"
+                  className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
                   <CheckCheck className="size-3.5" />
                 </button>
               )}
               {notifications.length > 0 && (
-                <button onClick={handleDismissAll} title="Clear all" className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-destructive transition-colors cursor-pointer">
+                <button
+                  onClick={handleDismissAll}
+                  title={confirmClear ? "Click again to confirm" : "Clear all"}
+                  className={cn(
+                    "p-1 rounded-md transition-colors cursor-pointer text-muted-foreground",
+                    confirmClear
+                      ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                      : "hover:bg-accent hover:text-destructive",
+                  )}
+                >
                   <Trash2 className="size-3.5" />
                 </button>
               )}
-              <button onClick={() => setOpen(false)} className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+              <button
+                onClick={() => setOpen(false)}
+                className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
                 <X className="size-3.5" />
               </button>
             </div>
           </div>
+
+          {/* Confirm-clear banner */}
+          {confirmClear && (
+            <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20">
+              <p className="text-xs text-destructive text-center">Click the trash icon again to clear all</p>
+            </div>
+          )}
 
           {/* List */}
           <div className="max-h-96 overflow-y-auto">
@@ -181,7 +232,7 @@ function NotificationBellComponent() {
                   return (
                     <div
                       key={n.id}
-                      onClick={() => handleMarkRead(n)}
+                      onClick={() => handleNotificationClick(n)}
                       className={cn(
                         "flex gap-3 px-4 py-3 border-b border-border last:border-b-0 cursor-pointer transition-colors",
                         n.read ? "hover:bg-accent/50" : "bg-primary/5 hover:bg-primary/10",
@@ -196,7 +247,7 @@ function NotificationBellComponent() {
                             {n.title}
                           </p>
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleDismiss(n.id); }}
+                            onClick={(e) => handleDismiss(e, n.id)}
                             className="flex-shrink-0 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                             title="Dismiss"
                           >
@@ -222,7 +273,7 @@ function NotificationBellComponent() {
                     disabled={isLoading}
                     className="w-full py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors border-t border-border cursor-pointer disabled:cursor-default"
                   >
-                    {isLoading ? "Loading…" : "Load more"}
+                    {isLoading ? "Loading…" : `Load more (${total - notifications.length} remaining)`}
                   </button>
                 )}
               </>

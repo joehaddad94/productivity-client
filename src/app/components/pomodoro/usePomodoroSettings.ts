@@ -10,6 +10,7 @@ export interface PomodoroPreferences {
   longBreakMinutes: number;
   sessionsBeforeLongBreak: number;
   autoStart: boolean;
+  sound: boolean;
   browserNotifications: boolean;
   inAppToasts: boolean;
 }
@@ -20,6 +21,7 @@ export const POMODORO_DEFAULTS: PomodoroPreferences = {
   longBreakMinutes: 15,
   sessionsBeforeLongBreak: 4,
   autoStart: false,
+  sound: true,
   browserNotifications: true,
   inAppToasts: true,
 };

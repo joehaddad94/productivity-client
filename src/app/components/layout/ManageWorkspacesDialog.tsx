@@ -204,7 +204,7 @@ export function ManageWorkspacesDialog({
                               {ws.name}
                             </p>
                             <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                              {ws.slug || "—"}
+                              {ws.slug}
                               {ws.isPersonal && " · Personal"}
                             </p>
                           </div>

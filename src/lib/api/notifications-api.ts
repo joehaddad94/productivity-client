@@ -27,12 +27,12 @@ function getMessage(data: unknown): string {
 }
 
 export const notificationsApi = {
-  list: async (workspaceId: string, skip = 0, take = 50): Promise<AppNotification[]> => {
+  list: async (workspaceId: string, skip = 0, take = 50): Promise<{ items: AppNotification[]; total: number }> => {
     const res = await api(`/workspaces/${workspaceId}/notifications?skip=${skip}&take=${take}`);
-    if (res.status === 401) return [];
+    if (res.status === 401) return { items: [], total: 0 };
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
-    return data as AppNotification[];
+    return data as { items: AppNotification[]; total: number };
   },
 
   unreadCount: async (workspaceId: string): Promise<number> => {

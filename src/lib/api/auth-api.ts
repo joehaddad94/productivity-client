@@ -102,4 +102,12 @@ export const authApi = {
     if (!res.ok) throw new Error(getMessage(json));
     return (json as MeResponse).user;
   },
+
+  deleteMe: async (): Promise<void> => {
+    const res = await api("/auth/me", { method: "DELETE" });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(getMessage(json));
+    }
+  },
 };
