@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -64,21 +64,12 @@ export function useNotesScreen(): UseNotesScreenResult {
     setSelectedNoteId,
     handleSelectNote,
     selectedNote,
-    noteSelectStartRef,
   } = useNotesScreenSelection(notes);
 
   const pendingCreateTempIdsRef = useRef<Set<string>>(new Set());
-  const createStartRef = useRef<number | null>(null);
 
   const createMutation = useCreateNoteMutation(workspaceId, {
     onSuccess: (note, variables) => {
-      if (createStartRef.current !== null && typeof window !== "undefined") {
-        const e2eMs = Math.round((performance.now() - createStartRef.current) * 10) / 10;
-        console.log("[notes-timing] e2e:create-note-until-mutation-success:", e2eMs, "ms", {
-          noteId: note.id,
-          workspaceId,
-        });
-      }
       if (variables.clientTempId) {
         pendingCreateTempIdsRef.current.delete(variables.clientTempId);
       }
@@ -141,9 +132,6 @@ export function useNotesScreen(): UseNotesScreenResult {
     const tempId = `temp:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
     pendingCreateTempIdsRef.current.add(tempId);
     setSelectedNoteId(tempId);
-    if (typeof window !== "undefined") {
-      createStartRef.current = performance.now();
-    }
     createMutation.mutate({
       title: "Untitled Note",
       tags: [],
@@ -178,30 +166,9 @@ export function useNotesScreen(): UseNotesScreenResult {
     setShouldFetchTasks(true);
   }, []);
 
+  // Projects are loaded eagerly on mount — this callback is intentionally empty
   const ensureProjectsLoaded = useCallback(() => {}, []);
 
-  useEffect(() => {
-    if (createStartRef.current === null || createMutation.isPending || isLoading) return;
-    if (typeof window === "undefined") return;
-    const uiMs = Math.round((performance.now() - createStartRef.current) * 10) / 10;
-    console.log("[notes-timing] ui:create-note-until-list-settled:", uiMs, "ms", {
-      notesInView: notes.length,
-      total,
-      workspaceId,
-    });
-    createStartRef.current = null;
-  }, [createMutation.isPending, isLoading, notes.length, total, workspaceId]);
-
-  useEffect(() => {
-    if (!selectedNote || noteSelectStartRef.current === null) return;
-    if (typeof window === "undefined") return;
-    const switchMs = Math.round((performance.now() - noteSelectStartRef.current) * 10) / 10;
-    console.log("[notes-timing] switch-note-e2e:", switchMs, "ms", {
-      selectedNoteId: selectedNote.id,
-      workspaceId,
-    });
-    noteSelectStartRef.current = null;
-  }, [selectedNote, workspaceId]);
 
   return {
     workspaceId,
