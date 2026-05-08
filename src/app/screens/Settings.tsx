@@ -445,8 +445,8 @@ export function Settings() {
                   )}
                 </div>
 
-                {/* Microsoft */}
-                <div className="flex items-center justify-between p-3 rounded-xl border border-border/60">
+                {/* Microsoft — coming soon */}
+                <div className="flex items-center justify-between p-3 rounded-xl border border-border/40 opacity-50">
                   <div className="flex items-center gap-3">
                     <div className="size-8 rounded-lg bg-white border flex items-center justify-center shadow-sm">
                       <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
@@ -458,22 +458,10 @@ export function Settings() {
                     </div>
                     <div>
                       <p className="text-sm font-medium">Microsoft Calendar</p>
-                      {calendarConnections.find((c) => c.provider === "microsoft") ? (
-                        <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 mt-0.5">
-                          <Check className="size-2.5 mr-1" /> Connected
-                        </Badge>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">Not connected</p>
-                      )}
+                      <p className="text-xs text-muted-foreground">Coming soon</p>
                     </div>
                   </div>
-                  {calendarConnections.find((c) => c.provider === "microsoft") ? (
-                    <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setProviderToDisconnect("microsoft")}>
-                      <Trash2 className="size-3.5 mr-1.5" />Disconnect
-                    </Button>
-                  ) : (
-                    <Button variant="outline" size="sm" onClick={() => { window.location.href = calendarConnectionsApi.getMicrosoftAuthUrl(); }}>Connect</Button>
-                  )}
+                  <Button variant="outline" size="sm" disabled>Connect</Button>
                 </div>
               </div>
 
