@@ -441,7 +441,7 @@ export function Settings() {
                       <Trash2 className="size-3.5 mr-1.5" />Disconnect
                     </Button>
                   ) : (
-                    <Button variant="outline" size="sm" onClick={() => { window.location.href = calendarConnectionsApi.getGoogleAuthUrl(); }}>Connect</Button>
+                    <Button variant="outline" size="sm" onClick={async () => { window.location.href = await calendarConnectionsApi.getGoogleAuthUrl(); }}>Connect</Button>
                   )}
                 </div>
 
