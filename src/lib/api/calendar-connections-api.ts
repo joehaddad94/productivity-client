@@ -60,12 +60,18 @@ export const calendarConnectionsApi = {
     return data as CalendarConnectionInfo[];
   },
 
-  getGoogleAuthUrl: (): string => {
-    return `${API_BASE}/calendar-connections/google/auth`;
+  getGoogleAuthUrl: async (): Promise<string> => {
+    const res = await api("/calendar-connections/google/auth");
+    const data = await parseJson(res);
+    if (!res.ok) throw new Error(getMessage(data));
+    return (data as { url: string }).url;
   },
 
-  getMicrosoftAuthUrl: (): string => {
-    return `${API_BASE}/calendar-connections/microsoft/auth`;
+  getMicrosoftAuthUrl: async (): Promise<string> => {
+    const res = await api("/calendar-connections/microsoft/auth");
+    const data = await parseJson(res);
+    if (!res.ok) throw new Error(getMessage(data));
+    return (data as { url: string }).url;
   },
 
   disconnect: async (provider: "google" | "microsoft"): Promise<void> => {
