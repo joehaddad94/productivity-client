@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { track } from "@/lib/analytics";
 import type { Note, Task } from "@/lib/types";
 import type { CreateTaskBody } from "@/lib/api/tasks-api";
 import type { UpdateNoteBody } from "@/lib/api/notes-api";
@@ -56,6 +57,7 @@ export function useNotesConvertToTask(
               id: loadingToastId,
               description: `"${task.title}" added to your tasks`,
             });
+            track("note_converted_to_task", {});
           },
           onError: (err) => {
             setConvertingNoteIds((prev) => {

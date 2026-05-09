@@ -11,6 +11,7 @@ import {
 } from "@/app/hooks/useWorkspacesApi";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { track } from "@/lib/analytics";
 
 export function useWorkspacesPage() {
   const queryClient = useQueryClient();
@@ -75,6 +76,7 @@ export function useWorkspacesPage() {
       const workspace = await createMutation.mutateAsync(data);
       setCurrentWorkspaceId(workspace.id);
       toast.success("Workspace created");
+      track("workspace_created", {});
     } catch (err) {
       setShowCreate(true);
       toast.error(err instanceof Error ? err.message : "Failed to create workspace");

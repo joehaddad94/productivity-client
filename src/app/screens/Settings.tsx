@@ -19,6 +19,7 @@ import { notificationsApi } from "@/lib/api/notifications-api";
 import { useCalendarConnectionsQuery, useDisconnectCalendarMutation } from "@/app/hooks/useCalendarConnectionsApi";
 import { calendarConnectionsApi } from "@/lib/api/calendar-connections-api";
 import { usePomodoroSettings } from "@/app/components/pomodoro";
+import { track } from "@/lib/analytics";
 
 type TabId = "profile" | "notifications" | "calendars" | "appearance" | "focus" | "security";
 
@@ -84,6 +85,9 @@ export function Settings() {
       const provider = params.get("provider");
       const label = provider === "google" ? "Google" : provider === "microsoft" ? "Microsoft" : "Calendar";
       toast.success(`${label} Calendar connected`);
+      if (provider === "google" || provider === "microsoft") {
+        track("calendar_connected", { provider });
+      }
       calendarToastShown.current = true;
       const url = new URL(window.location.href);
       url.searchParams.delete("calendar");

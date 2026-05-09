@@ -15,6 +15,7 @@ import {
   type ListNotesParams,
   type NotesPage,
 } from "@/lib/api/notes-api";
+import { track } from "@/lib/analytics";
 
 export const NOTES_QUERY_KEY = (workspaceId: string) =>
   ["notes", workspaceId] as const;
@@ -162,6 +163,7 @@ export function useCreateNoteMutation(
           queryKey: NOTE_QUERY_KEY(workspaceKey, tempId),
         });
       }
+      track("note_created", {});
       options?.onSuccess?.(data, variables, context, mutation);
     },
     onError: (error, variables, context, mutation) => {

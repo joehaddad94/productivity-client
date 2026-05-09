@@ -8,6 +8,7 @@ import { usePomodoroSettings } from "./usePomodoroSettings";
 import { usePomodoroLink } from "./PomodoroContext";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { useLogStatMutation } from "@/app/hooks/useAnalyticsApi";
+import { track } from "@/lib/analytics";
 import { useTasksQuery, useLogTaskFocusMutation } from "@/app/hooks/useTasksApi";
 import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
 import { cn } from "@/app/components/ui/utils";
@@ -140,6 +141,11 @@ export function PomodoroWidget() {
     if (isWork && focusMinutes > 0 && wsId) {
       logStat.mutate({ focusMinutes });
       if (linkedId) logTaskFocus.mutate({ id: linkedId, minutes: focusMinutes });
+    track("pomodoro_session_completed", {
+      session_type: type,
+      duration_minutes: focusMinutes,
+      had_linked_task: !!linkedId,
+    });
     }
   }, [settings, wsId, logStat, logTaskFocus, linkedTask, linkedId]);
 
