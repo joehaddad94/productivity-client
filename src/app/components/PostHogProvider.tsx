@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { initAnalytics, identifyUser, resetAnalyticsUser } from "@/lib/analytics";
@@ -46,7 +46,9 @@ function UserIdentifier() {
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <PageViewTracker />
+      <Suspense fallback={null}>
+        <PageViewTracker />
+      </Suspense>
       <UserIdentifier />
       {children}
     </>
