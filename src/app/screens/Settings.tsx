@@ -74,6 +74,7 @@ export function Settings() {
   const { data: calendarConnections = [] } = useCalendarConnectionsQuery();
   const disconnectMutation = useDisconnectCalendarMutation();
   const [providerToDisconnect, setProviderToDisconnect] = useState<"google" | "microsoft" | null>(null);
+  const [connectingProvider, setConnectingProvider] = useState<"google" | "microsoft" | null>(null);
 
   const calendarToastShown = useRef(false);
   useEffect(() => {
@@ -437,16 +438,18 @@ export function Settings() {
                     </div>
                   </div>
                   {calendarConnections.find((c) => c.provider === "google") ? (
-                    <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setProviderToDisconnect("google")}>
+                    <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" disabled={disconnectMutation.isPending && providerToDisconnect === "google"} onClick={() => setProviderToDisconnect("google")}>
                       <Trash2 className="size-3.5 mr-1.5" />Disconnect
                     </Button>
                   ) : (
-                    <Button variant="outline" size="sm" onClick={async () => { window.location.href = await calendarConnectionsApi.getGoogleAuthUrl(); }}>Connect</Button>
+                    <Button variant="outline" size="sm" disabled={connectingProvider === "google"} onClick={async () => { setConnectingProvider("google"); window.location.href = await calendarConnectionsApi.getGoogleAuthUrl(); }}>
+                      {connectingProvider === "google" ? "Connecting…" : "Connect"}
+                    </Button>
                   )}
                 </div>
 
-                {/* Microsoft — coming soon */}
-                <div className="flex items-center justify-between p-3 rounded-xl border border-border/40 opacity-50">
+                {/* Microsoft Calendar */}
+                <div className="flex items-center justify-between p-3 rounded-xl border border-border/40">
                   <div className="flex items-center gap-3">
                     <div className="size-8 rounded-lg bg-white border flex items-center justify-center shadow-sm">
                       <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
@@ -458,10 +461,24 @@ export function Settings() {
                     </div>
                     <div>
                       <p className="text-sm font-medium">Microsoft Calendar</p>
-                      <p className="text-xs text-muted-foreground">Coming soon</p>
+                      {calendarConnections.find((c) => c.provider === "microsoft") ? (
+                        <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 mt-0.5">
+                          <Check className="size-2.5 mr-1" /> Connected
+                        </Badge>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Not connected</p>
+                      )}
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" disabled>Connect</Button>
+                  {calendarConnections.find((c) => c.provider === "microsoft") ? (
+                    <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" disabled={disconnectMutation.isPending && providerToDisconnect === "microsoft"} onClick={() => setProviderToDisconnect("microsoft")}>
+                      <Trash2 className="size-3.5 mr-1.5" />Disconnect
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" disabled={connectingProvider === "microsoft"} onClick={async () => { setConnectingProvider("microsoft"); window.location.href = await calendarConnectionsApi.getMicrosoftAuthUrl(); }}>
+                      {connectingProvider === "microsoft" ? "Connecting…" : "Connect"}
+                    </Button>
+                  )}
                 </div>
               </div>
 
