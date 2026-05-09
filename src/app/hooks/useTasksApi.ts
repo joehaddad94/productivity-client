@@ -18,6 +18,8 @@ import {
 } from "@/lib/api/tasks-api";
 import type { TaskStatusDefinition } from "@/lib/types";
 import { TASK_STATUSES_QUERY_KEY } from "@/app/hooks/useTaskStatusesApi";
+import { track } from "@/lib/analytics";
+import { isTaskStatusTerminal } from "@/features/tasks/lib/taskStatusHelpers";
 
 type CreateTaskMutationContext = { tempId?: string; parentTaskId?: string | null };
 import { defaultNonTerminalStatusId } from "@/features/tasks/lib/taskStatusHelpers";
@@ -179,6 +181,15 @@ export function useCreateTaskMutation(
         );
       }
       queryClient.setQueryData(TASK_QUERY_KEY(workspaceId ?? "", data.id), data);
+      track("task_created", {
+        has_due_date: !!variables.dueDate,
+        has_priority: !!variables.priority,
+        is_recurring: !!variables.recurrenceRule,
+        has_project: !!variables.projectId,
+      });
+      if (variables.recurrenceRule) {
+        track("recurring_task_created", { rule: variables.recurrenceRule });
+      }
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });
@@ -255,6 +266,21 @@ export function useUpdateTaskMutation(
         },
       );
       queryClient.setQueryData(TASK_QUERY_KEY(workspaceId ?? "", data.id), data);
+      // Track completion: status changed to terminal and wasn't terminal before
+      if (variables.body.status) {
+        const statuses = queryClient.getQueryData<import("@/lib/types").TaskStatusDefinition[]>(
+          TASK_STATUSES_QUERY_KEY(workspaceId ?? ""),
+        ) ?? [];
+        const prevTask = queryClient.getQueryData<Task>(TASK_QUERY_KEY(workspaceId ?? "", data.id));
+        const wasTerminal = isTaskStatusTerminal(prevTask?.status, statuses);
+        const isNowTerminal = isTaskStatusTerminal(data.status, statuses);
+        if (!wasTerminal && isNowTerminal) {
+          track("task_completed", {
+            had_due_date: !!data.dueDate,
+            had_priority: !!data.priority,
+          });
+        }
+      }
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });

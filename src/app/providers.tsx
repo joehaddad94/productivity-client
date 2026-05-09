@@ -7,6 +7,7 @@ import { AuthProvider } from "@/app/context/AuthContext";
 import { WorkspaceProvider } from "@/app/context/WorkspaceContext";
 import { NavigationProvider } from "@/app/context/NavigationContext";
 import { Toaster } from "@/app/components/ui/sonner";
+import { PostHogProvider } from "@/app/components/PostHogProvider";
 
 function ServiceWorkerRegistrar() {
   useEffect(() => {
@@ -24,13 +25,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <QueryProvider>
         <AuthProvider>
-          <WorkspaceProvider>
-            <NavigationProvider>
-              <ServiceWorkerRegistrar />
-              {children}
-              <Toaster />
-            </NavigationProvider>
-          </WorkspaceProvider>
+          <PostHogProvider>
+            <WorkspaceProvider>
+              <NavigationProvider>
+                <ServiceWorkerRegistrar />
+                {children}
+                <Toaster />
+              </NavigationProvider>
+            </WorkspaceProvider>
+          </PostHogProvider>
         </AuthProvider>
       </QueryProvider>
     </ThemeProvider>
