@@ -3,17 +3,35 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu, X, Moon, Sun, LogOut, Loader2, Bug, Shield } from "lucide-react";
-import { ReportBugSheet } from "@/app/components/ReportBugSheet";
-import { NotificationBell } from "@/app/components/notifications/NotificationBell";
+import dynamic from "next/dynamic";
 import { useLayout } from "./useLayout";
 import { NAV_ITEMS } from "./types";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { Button } from "../ui/button";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
-import { PomodoroWidget, PomodoroProvider } from "@/app/components/pomodoro";
-import { CreateFirstWorkspace } from "@/app/screens/workspace/CreateFirstWorkspace";
+import { PomodoroProvider } from "@/app/components/pomodoro";
 import { useAdminBugReportsStatsQuery } from "@/app/hooks/useBugReportsApi";
+
+const PomodoroWidget = dynamic(
+  () => import("@/app/components/pomodoro").then((m) => ({ default: m.PomodoroWidget })),
+  { ssr: false, loading: () => null },
+);
+
+const ReportBugSheet = dynamic(
+  () => import("@/app/components/ReportBugSheet").then((m) => ({ default: m.ReportBugSheet })),
+  { ssr: false, loading: () => null },
+);
+
+const CreateFirstWorkspace = dynamic(
+  () => import("@/app/screens/workspace/CreateFirstWorkspace").then((m) => ({ default: m.CreateFirstWorkspace })),
+  { ssr: false, loading: () => <ScreenLoader variant="app" /> },
+);
+
+const NotificationBell = dynamic(
+  () => import("@/app/components/notifications/NotificationBell").then((m) => ({ default: m.NotificationBell })),
+  { ssr: false, loading: () => null },
+);
 import { Badge } from "../ui/badge";
 import { cn } from "../ui/utils";
 
