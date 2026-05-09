@@ -9,6 +9,13 @@ import { useAnalyticsQuery } from "@/app/hooks/useAnalyticsApi";
 import { useProjectsQuery } from "@/app/hooks/useProjectsApi";
 import type { TaskStatusDefinition } from "@/lib/types";
 import {
+  filterTodayTasks,
+  filterTodayAllTasks,
+  filterOverdueTasks,
+  filterUpcomingTasks,
+  filterNoDateTasks,
+} from "@/lib/task-filters";
+import {
   defaultNonTerminalStatusId,
   ensureTaskStatuses,
   firstTerminalStatusId,
@@ -87,23 +94,12 @@ export function useDashboardScreen() {
     setNewTaskPriority(null);
   };
 
-  // All tasks due today (including completed) — used for progress bar
-  const todayAllTasks = tasks.filter((t) => t.dueDate && t.dueDate.startsWith(todayStr));
-  const todayTasks = todayAllTasks.filter((t) => !isTaskStatusTerminal(t.status, taskStatuses));
+  const todayAllTasks = filterTodayAllTasks(tasks, todayStr);
+  const todayTasks    = filterTodayTasks(tasks, todayStr, taskStatuses);
   const todayCompleted = todayAllTasks.length - todayTasks.length;
-
-  const overdueTasks = tasks.filter(
-    (t) => t.dueDate && t.dueDate.split("T")[0] < todayStr && !isTaskStatusTerminal(t.status, taskStatuses),
-  );
-
-  const upcomingTasks = tasks
-    .filter((t) => t.dueDate && t.dueDate.slice(0, 10) > todayStr && !isTaskStatusTerminal(t.status, taskStatuses))
-    .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))
-    .slice(0, 5);
-
-  const noDateTasks = tasks
-    .filter((t) => !t.dueDate && !isTaskStatusTerminal(t.status, taskStatuses))
-    .slice(0, 5);
+  const overdueTasks  = filterOverdueTasks(tasks, todayStr, taskStatuses);
+  const upcomingTasks = filterUpcomingTasks(tasks, todayStr, taskStatuses);
+  const noDateTasks   = filterNoDateTasks(tasks, taskStatuses);
 
   const totals = analytics?.totals ?? { tasksCompleted: 0, focusMinutes: 0, streak: 0 };
 

@@ -66,25 +66,7 @@ import {
   SheetTitle,
 } from "@/app/components/ui/sheet";
 import type { CreateTaskBody } from "@/lib/api/tasks-api";
-
-function formatDate(isoDate: string, todayYear: number): string {
-  const [year, month, day] = isoDate.slice(0, 10).split("-").map(Number);
-  const date = new Date(year!, month! - 1, day!);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    ...(year !== todayYear ? { year: "numeric" } : {}),
-  });
-}
-
-function formatTime(time: string): string {
-  const [hStr, mStr] = time.split(":");
-  const h = parseInt(hStr ?? "0", 10);
-  const m = mStr ?? "00";
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${m} ${ampm}`;
-}
+import { formatDate, formatTime } from "@/lib/date-utils";
 
 function formatFocus(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;

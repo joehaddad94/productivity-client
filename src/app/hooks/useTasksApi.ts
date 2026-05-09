@@ -18,6 +18,8 @@ import {
 } from "@/lib/api/tasks-api";
 import type { TaskStatusDefinition } from "@/lib/types";
 import { TASK_STATUSES_QUERY_KEY } from "@/app/hooks/useTaskStatusesApi";
+
+type CreateTaskMutationContext = { tempId?: string; parentTaskId?: string | null };
 import { defaultNonTerminalStatusId } from "@/features/tasks/lib/taskStatusHelpers";
 import { getDefaultTaskStatuses } from "@/features/tasks/lib/taskStatusDefaults";
 
@@ -122,7 +124,7 @@ export function useCreateTaskMutation(
       return { tempId: tempTask.id, parentTaskId: body.parentTaskId ?? null };
     },
     onError: (err, vars, context, mutation) => {
-      const ctx = context as { tempId?: string; parentTaskId?: string | null } | undefined;
+      const ctx = context as CreateTaskMutationContext | undefined;
       if (ctx?.parentTaskId) {
         queryClient.setQueriesData<TasksPage>(
           { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
@@ -150,7 +152,7 @@ export function useCreateTaskMutation(
       options?.onError?.(err, vars, context, mutation);
     },
     onSuccess: (data, variables, context, mutation) => {
-      const ctx = context as { tempId?: string; parentTaskId?: string | null } | undefined;
+      const ctx = context as CreateTaskMutationContext | undefined;
       if (ctx?.parentTaskId) {
         // Replace temp subtask in parent's subtasks array
         queryClient.setQueriesData<TasksPage>(

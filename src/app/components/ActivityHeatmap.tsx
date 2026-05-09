@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { formatDisplayDate as formatDate } from "@/lib/date-utils";
+import { getHeatmapColor as getColor } from "@/lib/analytics-utils";
 
 interface ActivityDay {
   date: string;
@@ -35,21 +37,6 @@ function buildGrid(data: ActivityDay[]): ActivityDay[][] {
   return weeks;
 }
 
-function getColor(count: number) {
-  if (count === 0) return "bg-gray-100 dark:bg-gray-800";
-  if (count <= 2) return "bg-green-200 dark:bg-green-900";
-  if (count <= 5) return "bg-green-400 dark:bg-green-700";
-  if (count <= 8) return "bg-green-600 dark:bg-green-500";
-  return "bg-green-700 dark:bg-green-400";
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
   const weeks = buildGrid(data ?? []);

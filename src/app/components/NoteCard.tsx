@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import type { Note } from "@/lib/types";
 import { cn } from "./ui/utils";
 import { TagChip } from "./tags/TagChip";
+import { relativeNoteDate as relativeDate } from "@/lib/date-utils";
 
 interface NoteCardProps {
   note: Note;
@@ -10,16 +11,6 @@ interface NoteCardProps {
   onSelect: (id: string) => void;
 }
 
-function relativeDate(dateStr: string): string {
-  const now = new Date();
-  const d = new Date(dateStr);
-  const diffMs = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffMs / 86_400_000);
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
 
 function NoteCardComponent({ note, isActive, onSelect }: NoteCardProps) {
   const isSaving = note.id.startsWith("temp:");

@@ -6,65 +6,11 @@ import Link from "next/link";
 import { Button } from "@/app/components/ui/button";
 import { TaskCard } from "@/app/components/TaskCard";
 import { cn } from "@/app/components/ui/utils";
+import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { useAuth } from "@/app/context/AuthContext";
-import { useDashboardScreen, type TaskPriority } from "../hooks/useDashboardScreen";
-
-function relativeDate(dateStr: string): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const d = new Date(dateStr + "T00:00:00");
-  const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Tomorrow";
-  if (diff === -1) return "Yesterday";
-  if (diff < 0) return `${Math.abs(diff)} days ago`;
-  return `In ${diff} days`;
-}
-
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
-}
-
-function todayLabel(): string {
-  return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-}
-
-function formatFocusTime(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
-
-const PRIORITY_CONFIG: Record<NonNullable<TaskPriority>, { label: string; dot: string; btn: string }> = {
-  low:    { label: "L", dot: "bg-gray-400",   btn: "border-gray-300   text-gray-500   bg-gray-50   dark:bg-gray-900   dark:border-gray-600" },
-  medium: { label: "M", dot: "bg-amber-500",  btn: "border-amber-300  text-amber-600  bg-amber-50  dark:bg-amber-950  dark:border-amber-700" },
-  high:   { label: "H", dot: "bg-red-500",    btn: "border-red-300    text-red-600    bg-red-50    dark:bg-red-950    dark:border-red-700"   },
-};
-
-const PRIORITY_CYCLE: TaskPriority[] = [null, "low", "medium", "high"];
-
-function PriorityToggle({ value, onChange }: { value: TaskPriority; onChange: (v: TaskPriority) => void }) {
-  const next = PRIORITY_CYCLE[(PRIORITY_CYCLE.indexOf(value) + 1) % PRIORITY_CYCLE.length];
-  const cfg = value ? PRIORITY_CONFIG[value] : null;
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(next)}
-      title={`Priority: ${value ?? "none"} (click to change)`}
-      className={cn(
-        "h-9 w-9 shrink-0 rounded-lg border text-xs font-bold transition-colors cursor-pointer",
-        cfg ? cfg.btn : "border-border/60 text-muted-foreground hover:border-border",
-      )}
-    >
-      {cfg ? cfg.label : "—"}
-    </button>
-  );
-}
+import { useDashboardScreen } from "../hooks/useDashboardScreen";
+import { PriorityToggle } from "./PriorityToggle";
+import { relativeDate, greeting, todayLabel, formatFocusTime } from "@/lib/date-utils";
 
 export function DashboardScreen() {
   const { user } = useAuth();
@@ -190,9 +136,7 @@ export function DashboardScreen() {
               )}
 
               {tasksLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => <div key={i} className="h-10 rounded-lg bg-muted animate-pulse" />)}
-                </div>
+                <ScreenLoader />
               ) : todayTasks.length === 0 && todayTotal === 0 ? (
                 <div className="flex items-center gap-2 px-3 py-3 rounded-lg border border-border/40 text-sm text-muted-foreground">
                   <CheckCheck className="size-4 text-primary" />
