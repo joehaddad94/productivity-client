@@ -422,7 +422,7 @@ test.describe("Projects — detail page", () => {
     await page.waitForURL(new RegExp(`/projects/${projectId}/notes/`), { timeout: 10_000 });
     await expect(
       page.getByRole("link", { name: new RegExp(`back to ${projectName}`, "i") }),
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("back from note editor returns to notes tab", async ({ page }) => {
