@@ -4,7 +4,7 @@ const PLAYWRIGHT_BASE_URL =
   process.env.PLAYWRIGHT_BASE_URL?.replace(/\/$/, '') || 'http://localhost:3000';
 
 /**
- * E2E: auth + notes only. Requires Next dev + API; setup hits POST /api/auth/dev-session.
+ * E2E suite. Requires Next dev + API; setup hits POST /api/auth/dev-session.
  * Hosted: PLAYWRIGHT_BASE_URL=https://your-app.example.com (dev-session must be allowed on API).
  */
 export default defineConfig({
@@ -13,7 +13,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'playwright-results.json' }]],
 
   timeout: 60_000,
 
@@ -32,7 +32,7 @@ export default defineConfig({
     },
     {
       name: 'chromium',
-      testMatch: /(auth|notes|projects)\.spec\.ts/,
+      testMatch: /(auth|notes|projects|tasks|dashboard|calendar|analytics|settings|workspaces|navigation|pomodoro)\.spec\.ts/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },

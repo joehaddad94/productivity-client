@@ -3,48 +3,19 @@
 import { useMemo, useState } from "react";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { useAnalyticsQuery } from "@/app/hooks/useAnalyticsApi";
+import { localDateStr, formatFocusTime } from "@/lib/date-utils";
+import { computeScoreComponents } from "@/lib/analytics-utils";
 
+export { formatFocusTime };
 export type RangeDays = 7 | 30 | 90;
 
-// 16 weeks — always fetch enough for the full heatmap
 const HEATMAP_DAYS = 112;
-
-// Use local date components to avoid UTC off-by-one near midnight
-function localDateStr(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
 
 function getDateRange(days: number) {
   const to = new Date();
   const from = new Date();
   from.setDate(from.getDate() - days);
   return { from: localDateStr(from), to: localDateStr(to) };
-}
-
-export function formatFocusTime(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
-
-function computeScoreComponents(
-  tasksCompleted: number,
-  focusMinutes: number,
-  streak: number,
-  rangeDays: number,
-) {
-  // Benchmarks scale with the selected range so score is always meaningful
-  const taskBenchmark  = Math.round(50  * rangeDays / 30); // ~50 tasks / 30 days
-  const focusBenchmark = Math.round(750 * rangeDays / 30); // ~25 min / day
-  const taskScore  = Math.min(tasksCompleted / taskBenchmark,  1) * 50;
-  const focusScore = Math.min(focusMinutes   / focusBenchmark, 1) * 30;
-  const streakScore = Math.min(streak / 7, 1) * 20;
-  return { taskScore, focusScore, streakScore };
 }
 
 export function useAnalyticsScreen() {

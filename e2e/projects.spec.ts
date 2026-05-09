@@ -303,7 +303,7 @@ test.describe("Projects — detail page", () => {
     await waitForTaskSaved(page, title);
     // Now clickable — opens drawer
     await card.click();
-    await expect(page.getByText(/task details/i)).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('textarea[placeholder="Task title…"]')).toBeVisible({ timeout: 5_000 });
     await page.keyboard.press("Escape");
   });
 
@@ -320,20 +320,18 @@ test.describe("Projects — detail page", () => {
     await expect(pill).toContainText(/in progress/i, { timeout: 5_000 });
   });
 
-  test("task drawer: open, save, shows toast", async ({ page }) => {
+  test("task drawer: open and auto-save on edit", async ({ page }) => {
     const title = `E2E-Drawer-${Date.now()}`;
     await page.locator('input[placeholder*="Add a task" i]').fill(title);
     await page.keyboard.press("Enter");
     await waitForTaskSaved(page, title);
 
     await page.getByTestId("task-card").filter({ hasText: title }).click();
-    await expect(page.getByText(/task details/i)).toBeVisible({ timeout: 5_000 });
     const titleField = page.locator('textarea[placeholder="Task title…"]');
+    await expect(titleField).toBeVisible({ timeout: 5_000 });
     await titleField.fill(`${title} edited`);
-    const saveBtn = page.getByRole("button", { name: /save changes/i });
-    await expect(saveBtn).toBeEnabled({ timeout: 5_000 });
-    await saveBtn.click();
-    await expectToast(page, /task updated/i);
+    // Drawer auto-saves — wait for "All changes saved" indicator
+    await expect(page.getByText(/all changes saved/i)).toBeVisible({ timeout: 10_000 });
   });
 
   test("task drawer: delete task removes it from list", async ({ page }) => {
@@ -343,8 +341,9 @@ test.describe("Projects — detail page", () => {
     await waitForTaskSaved(page, title);
 
     await page.getByTestId("task-card").filter({ hasText: title }).click();
-    await expect(page.getByText(/task details/i)).toBeVisible({ timeout: 5_000 });
-    await page.getByRole("button", { name: /delete task/i }).click();
+    await expect(page.locator('textarea[placeholder="Task title…"]')).toBeVisible({ timeout: 5_000 });
+    // Delete button label is "Delete" (with Trash2 icon)
+    await page.getByRole("button", { name: /^delete$/i }).click();
     await expectToast(page, /task deleted/i);
     await expect(page.getByTestId("task-card").filter({ hasText: title })).not.toBeVisible({ timeout: 5_000 });
   });
