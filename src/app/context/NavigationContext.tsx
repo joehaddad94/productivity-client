@@ -13,6 +13,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createRoot, type Root } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
+import { isAuthOrFocusRoute } from "@/app/components/layout/types";
 
 /**
  * Global navigation state + an imperative, route-aware skeleton overlay.
@@ -81,6 +82,20 @@ function samePath(a: string, b: string): boolean {
   const stripB = b.split("?")[0] ?? b;
   if (stripA === stripB) return true;
   return stripB.startsWith(stripA + "/") || stripA.startsWith(stripB + "/");
+}
+
+/**
+ * Marketing/auth pages render instantly — no data loading — so the overlay
+ * just adds friction. Skip it for navigation involving these routes.
+ */
+function shouldSkipOverlay(targetPath: string): boolean {
+  const pathOnly = targetPath.split("?")[0] ?? targetPath;
+  if (isAuthOrFocusRoute(pathOnly)) {
+    // Don't skip /focus/* — focus mode loads task data
+    if (pathOnly.startsWith("/focus/")) return false;
+    return true;
+  }
+  return false;
 }
 
 // ---- Imperative overlay controller ---------------------------------------
@@ -287,6 +302,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       if (!next) return;
       const current = window.location.pathname + window.location.search;
       if (samePath(next, current)) return;
+      if (shouldSkipOverlay(next)) return;
       setPendingNavigation(next);
     };
     document.addEventListener("click", onClick, true);
@@ -302,7 +318,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       const next = toPathWithQuery(href);
       if (next) {
         const current = window.location.pathname + window.location.search;
-        if (!samePath(next, current)) setPendingNavigation(next);
+        if (!samePath(next, current) && !shouldSkipOverlay(next)) setPendingNavigation(next);
       }
       return origPush(href, options);
     };
@@ -310,7 +326,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       const next = toPathWithQuery(href);
       if (next) {
         const current = window.location.pathname + window.location.search;
-        if (!samePath(next, current)) setPendingNavigation(next);
+        if (!samePath(next, current) && !shouldSkipOverlay(next)) setPendingNavigation(next);
       }
       return origReplace(href, options);
     };
