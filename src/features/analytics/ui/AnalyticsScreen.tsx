@@ -283,7 +283,7 @@ export function AnalyticsScreen() {
         <RangeToggle value={selectedRange} onChange={setSelectedRange} />
       </div>
 
-      {error && <p className="text-sm text-destructive py-8 text-center">Failed to load analytics</p>}
+      {error && <p role="alert" className="text-sm text-destructive py-8 text-center">Failed to load analytics</p>}
 
       {!error && (
         <>

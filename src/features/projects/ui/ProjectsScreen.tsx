@@ -71,7 +71,7 @@ export function ProjectsScreen() {
         />
       )}
 
-      {error && <p className="text-sm text-destructive text-center py-8">Failed to load projects</p>}
+      {error && <p role="alert" className="text-sm text-destructive text-center py-8">Failed to load projects</p>}
 
       {!error && projects.length === 0 && !showCreate && (
         <div className="flex flex-col items-center justify-center py-16 text-center">

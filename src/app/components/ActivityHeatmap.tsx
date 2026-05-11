@@ -69,8 +69,10 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
                   {week.map((day, dayIdx) => (
                     <Tooltip key={dayIdx}>
                       <TooltipTrigger asChild>
-                        <div
-                          className={`size-3 rounded-sm ${getColor(day.count)} transition-all hover:ring-2 hover:ring-gray-400 dark:hover:ring-gray-500 cursor-pointer`}
+                        <button
+                          type="button"
+                          aria-label={`${day.count} task${day.count !== 1 ? "s" : ""} on ${formatDate(day.date)}`}
+                          className={`size-3 rounded-sm ${getColor(day.count)} transition-all hover:ring-2 hover:ring-gray-400 dark:hover:ring-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
                         />
                       </TooltipTrigger>
                       <TooltipContent>

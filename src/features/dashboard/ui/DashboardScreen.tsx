@@ -73,6 +73,7 @@ export function DashboardScreen() {
         <input
           ref={quickAddRef}
           type="text"
+          aria-label="New task title"
           placeholder="Add a task and press Enter…"
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
@@ -127,7 +128,14 @@ export function DashboardScreen() {
 
               {/* Progress bar */}
               {!tasksLoading && todayTotal > 0 && (
-                <div className="h-1 w-full bg-muted rounded-full mb-3 overflow-hidden">
+                <div
+                  role="progressbar"
+                  aria-valuenow={progressPct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`Today's progress: ${todayCompleted} of ${todayTotal} tasks done`}
+                  className="h-1 w-full bg-muted rounded-full mb-3 overflow-hidden"
+                >
                   <div
                     className="h-full bg-primary rounded-full transition-all duration-500"
                     style={{ width: `${progressPct}%` }}
@@ -167,8 +175,8 @@ export function DashboardScreen() {
                     Overdue · {overdueTasks.length}
                   </h2>
                   {overdueExpanded
-                    ? <ChevronUp className="size-3.5 text-muted-foreground" />
-                    : <ChevronDown className="size-3.5 text-muted-foreground" />
+                    ? <ChevronUp className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                    : <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
                   }
                 </button>
                 {overdueExpanded && (
@@ -208,7 +216,7 @@ export function DashboardScreen() {
                 <div className="space-y-1.5">
                   {upcomingTasks.map((task) => (
                     <div key={task.id} className="flex items-center gap-3 py-1.5 px-1">
-                      <span className={cn(
+                      <span aria-hidden="true" className={cn(
                         "size-1.5 rounded-full shrink-0",
                         task.priority === "high" ? "bg-red-500"
                           : task.priority === "medium" ? "bg-amber-500"
@@ -271,7 +279,7 @@ export function DashboardScreen() {
                           {project.name}
                         </span>
                         <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
-                          {open > 0 ? `${open} open` : <FolderOpen className="size-3 opacity-40" />}
+                          {open > 0 ? `${open} open` : <FolderOpen className="size-3 opacity-40" aria-hidden="true" />}
                         </span>
                       </Link>
                     );
@@ -298,16 +306,17 @@ export function DashboardScreen() {
 
               {/* Streak with 7-day dots */}
               <div className="flex items-center gap-2.5 py-2 border-b border-border/40 last:border-0">
-                <Flame className="size-3.5 text-amber-500 shrink-0" />
+                <Flame className="size-3.5 text-amber-500 shrink-0" aria-hidden="true" />
                 <span className="flex-1 text-sm text-muted-foreground">Streak</span>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" role="list" aria-label="Last 7 days activity">
                   {last7Days.map((day) => {
                     const isToday = day === todayStr;
                     const active = activeDates.has(day);
                     return (
                       <span
                         key={day}
-                        title={day}
+                        role="listitem"
+                        aria-label={`${day}${active ? ": active" : isToday ? ": today, no activity" : ": no activity"}`}
                         className={cn(
                           "size-2 rounded-full transition-colors",
                           active
@@ -340,7 +349,7 @@ function StatRow({ icon, label, value, suffix }: {
 }) {
   return (
     <div className="flex items-center gap-2.5 py-2 border-b border-border/40 last:border-0">
-      <span className="shrink-0">{icon}</span>
+      <span className="shrink-0" aria-hidden="true">{icon}</span>
       <span className="flex-1 text-sm text-muted-foreground">{label}</span>
       <span className="text-sm font-medium tabular-nums">{value}</span>
       {suffix && <span className="text-[11px] text-muted-foreground">{suffix}</span>}

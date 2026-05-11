@@ -20,12 +20,15 @@ function NoteCardComponent({ note, isActive, onSelect }: NoteCardProps) {
   );
 
   return (
-    <div
+    <button
+      type="button"
       onClick={() => !isSaving && onSelect(note.id)}
+      disabled={isSaving}
       data-testid="note-card"
       data-note-id={note.id}
       className={cn(
-        "px-3 py-2.5 pr-10 rounded-lg transition-colors min-h-[48px]",
+        "w-full text-left px-3 py-2.5 pr-10 rounded-lg transition-colors min-h-[48px]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         isSaving
           ? "opacity-60 cursor-default"
           : isActive
@@ -58,7 +61,7 @@ function NoteCardComponent({ note, isActive, onSelect }: NoteCardProps) {
           )}
         </div>
       )}
-    </div>
+    </button>
   );
 }
 

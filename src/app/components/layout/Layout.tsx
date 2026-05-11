@@ -195,8 +195,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* Actions row */}
         <div className="flex items-center gap-0.5 px-1.5 pb-1">
           <button
+            type="button"
             onClick={toggleTheme}
-            className="p-1.5 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            aria-label="Toggle theme"
+            className="p-1.5 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Sun className="size-3.5 hidden dark:block" aria-hidden />
             <Moon className="size-3.5 block dark:hidden" aria-hidden />
@@ -237,8 +239,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Mobile header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-12 bg-background border-b border-border/60 z-50 flex items-center justify-between px-3">
         <button
+          type="button"
           onClick={toggleSidebar}
-          className="p-1.5 hover:bg-muted rounded-md text-muted-foreground cursor-pointer"
+          aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+          className="p-1.5 hover:bg-muted rounded-md text-muted-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {sidebarOpen ? <X className="size-4" /> : <Menu className="size-4" />}
         </button>
@@ -254,8 +258,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </button>
           <NotificationBell />
           <button
+            type="button"
             onClick={toggleTheme}
-            className="p-1.5 hover:bg-muted rounded-md text-muted-foreground cursor-pointer"
+            aria-label="Toggle theme"
+            className="p-1.5 hover:bg-muted rounded-md text-muted-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Sun className="size-4 hidden dark:block" aria-hidden />
             <Moon className="size-4 block dark:hidden" aria-hidden />
@@ -282,8 +288,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
+          role="presentation"
           className="lg:hidden fixed inset-0 bg-black/40 z-40 cursor-pointer"
           onClick={closeSidebar}
+          onKeyDown={(e) => e.key === "Escape" && closeSidebar()}
         />
       )}
 

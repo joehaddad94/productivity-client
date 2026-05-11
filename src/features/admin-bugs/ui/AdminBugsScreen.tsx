@@ -155,7 +155,7 @@ export function AdminBugsScreen() {
         </div>
       )}
 
-      {listError && <p className="text-sm text-destructive">Failed to load bug reports.</p>}
+      {listError && <p role="alert" className="text-sm text-destructive">Failed to load bug reports.</p>}
 
       <div className="min-w-0">
         <div className="flex h-auto min-h-9 w-full flex-wrap gap-0.5 bg-muted/40 border border-border/50 p-0.5 rounded-lg">

@@ -63,7 +63,7 @@ export function ProjectNoteEditorScreen({
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <p className="text-sm text-muted-foreground">Failed to load note</p>
+        <p role="alert" className="text-sm text-muted-foreground">Failed to load note</p>
         <Button asChild variant="outline" size="sm">
           <Link href={backHref}>Back to project</Link>
         </Button>

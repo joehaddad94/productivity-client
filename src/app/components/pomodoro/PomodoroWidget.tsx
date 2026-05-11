@@ -159,8 +159,19 @@ export function PomodoroWidget() {
         setPickerQuery("");
       }
     }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setExpanded(false);
+        setShowPicker(false);
+        setPickerQuery("");
+      }
+    }
     document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [expanded]);
 
   const { state, start, pause, reset, skip } = usePomodoroTimer(settings, onComplete);
@@ -196,20 +207,20 @@ export function PomodoroWidget() {
               </span>
               {isRunning && (
                 <span className={cn("flex items-center gap-1 text-[10px] tracking-wide uppercase", FG_MUTED)}>
-                  <span className="size-1.5 rounded-full animate-pulse" style={{ background: cfg.color }} />
+                  <span className="size-1.5 rounded-full animate-pulse" style={{ background: cfg.color }} aria-hidden="true" />
                   Live
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2.5">
               <span className={cn("text-[11px] tabular-nums", FG_SUBTLE)}>{sessionCount} done</span>
-              <a href="/settings" onClick={() => setExpanded(false)} title="Focus settings"
+              <a href="/settings" onClick={() => setExpanded(false)} title="Focus settings" aria-label="Focus settings"
                 className={cn("transition-colors", FG_SUBTLE, "hover:text-white dark:hover:text-black")}>
-                <Settings2 className="size-3.5" />
+                <Settings2 className="size-3.5" aria-hidden="true" />
               </a>
-              <button onClick={() => setExpanded(false)}
+              <button onClick={() => setExpanded(false)} aria-label="Collapse timer"
                 className={cn("transition-colors cursor-pointer", FG_SUBTLE, "hover:text-white dark:hover:text-black")}>
-                <ChevronDown className="size-3.5" />
+                <ChevronDown className="size-3.5" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -246,11 +257,12 @@ export function PomodoroWidget() {
             </div>
 
             {/* Session-cycle dots */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" aria-label={`${sessionCount % settings.sessionsBeforeLongBreak} of ${settings.sessionsBeforeLongBreak} sessions completed`}>
               {Array.from({ length: settings.sessionsBeforeLongBreak }).map((_, i) => {
                 const filled = i < sessionCount % settings.sessionsBeforeLongBreak;
                 return (
                   <div key={i}
+                    aria-hidden="true"
                     className={cn("rounded-full transition-all duration-500", !filled && "bg-white/[0.18] dark:bg-black/[0.14]")}
                     style={filled
                       ? { width: 9, height: 9, background: cfg.color, boxShadow: `0 0 6px ${cfg.glow}` }
@@ -276,9 +288,10 @@ export function PomodoroWidget() {
                 <button
                   onClick={() => { setLinkedId(null); setPickerQuery(""); setShowPicker(false); }}
                   title="Unlink"
+                  aria-label="Unlink task"
                   className={cn("flex items-center justify-center px-3 transition-colors cursor-pointer shrink-0 rounded-r-xl hover:text-red-400", FG_SUBTLE)}
                 >
-                  <X className="size-3.5" />
+                  <X className="size-3.5" aria-hidden="true" />
                 </button>
               </div>
             ) : (
@@ -295,6 +308,7 @@ export function PomodoroWidget() {
                   <Search className={cn("size-3 shrink-0", FG_SUBTLE)} />
                   <input
                     autoFocus
+                    aria-label="Search tasks"
                     placeholder="Search tasks…"
                     value={pickerQuery}
                     onChange={(e) => setPickerQuery(e.target.value)}
