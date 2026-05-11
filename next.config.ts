@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 /**
  * Reverse-proxy target for the NestJS backend.
@@ -47,4 +48,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  sourcemaps: {
+    // Enable by setting SENTRY_AUTH_TOKEN + SENTRY_ORG + SENTRY_PROJECT in CI
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+});

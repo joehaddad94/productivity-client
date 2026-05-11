@@ -209,6 +209,7 @@ export function Settings() {
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
 
+
       <div className="flex gap-8">
         {/* Left nav */}
         <nav className="flex flex-col gap-0.5 w-40 shrink-0">
