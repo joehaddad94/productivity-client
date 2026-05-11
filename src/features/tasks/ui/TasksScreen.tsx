@@ -82,11 +82,11 @@ const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
 const PRIORITY_PILL: Record<string, string> = {
   low: "text-gray-500 bg-gray-100 dark:bg-gray-800",
   medium: "text-amber-700 bg-amber-50 dark:bg-amber-950/50 dark:text-amber-400",
-  high: "text-red-600 bg-red-50 dark:bg-red-950/50",
+  high: "text-red-700 bg-red-50 dark:bg-red-950/50 dark:text-red-400",
 };
 
 const COL_STATUS = "w-[108px]";
-const COL_PRIORITY = "w-[72px]";
+const COL_PRIORITY = "w-[80px]";
 const COL_DUE = "w-[96px]";
 const COL_PROJECT = "w-[116px]";
 const COL_ICON = "w-10";
@@ -550,7 +550,7 @@ const PrioritySelect = memo(function PrioritySelect({
       onValueChange={(v) => onPriorityChange(task.id, v === PRIORITY_NONE ? undefined : v)}
     >
       <SelectTrigger className={cn(
-        "h-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold tracking-wide shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40 cursor-pointer",
+        "h-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold shadow-none gap-1 focus-visible:ring-0 w-auto max-w-full [&_svg]:size-3 [&_svg]:opacity-40 cursor-pointer",
         task.priority ? PRIORITY_PILL[task.priority] : "border-border/60 text-muted-foreground/40",
       )}>
         <SelectValue placeholder="None" />

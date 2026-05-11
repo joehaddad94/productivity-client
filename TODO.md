@@ -18,7 +18,7 @@
 ## Accessibility
 - [x] **Keyboard navigation audit** — NoteCard/notification rows → button; icon-only buttons → aria-label + type; Escape closes notification panel and pomodoro widget; mobile overlay gets Escape handler; heatmap cells → button; ColorPicker/PriorityToggle → focus-visible:ring + aria-pressed
 - [x] **Screen reader support** — aria-label on all icon-only buttons; role="alert" on all error messages; role="progressbar" on today's progress bar; streak/activity dots get aria-label; decorative icons get aria-hidden; date/time inputs get aria-label; pomodoro task picker search labeled; session dots labeled
-- [ ] **Color contrast check** — verify all text meets WCAG AA contrast ratios
+- [x] **Color contrast check** — fixed 3 failures: muted-foreground #71717a→#6d6d73 (was 4.39:1 on muted bg, now 4.68:1); medium priority badge amber-600→amber-700 (was 2.89:1, now 4.84:1); high priority badge red-600→red-700 (was 4.02:1, now 5.91:1); dark mode gets amber-400/red-400 for same badges
 
 ## DevOps
 - [ ] **CI/CD pipeline** — run tests automatically on every push (GitHub Actions)
