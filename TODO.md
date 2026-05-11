@@ -13,7 +13,7 @@
 ## Security
 - [ ] **Content Security Policy headers** — add CSP headers on the server (helmet not installed)
 - [x] **Rate limiting** — global 100 req/min per IP via `@nestjs/throttler`; health check excluded; magic link custom limiter (3/email/10min) unchanged
-- [ ] **Dependency audit** — run `npm audit` and keep packages up to date
+- [~] **Dependency audit** — client: upgraded Next.js 16.2.6 (fixed high DoS); server: `npm audit fix` corrupts Prisma node_modules on Windows, skip for now; remaining issues are low real-world risk (OTel/dev-only deps)
 
 ## Accessibility
 - [ ] **Keyboard navigation audit** — ensure all interactive elements are reachable via keyboard
