@@ -26,5 +26,38 @@
 - [ ] **Automated deployments** — deploy on merge to main without manual steps
 
 ## Observability
-- [ ] **Structured logging** — NestJS Logger is used but outputs plain text; switch to JSON format (pino or winston) for searchable logs
-- [ ] **Uptime monitoring** — get alerted if the server goes down (e.g. Better Uptime, UptimeRobot — free)
+- [~] **Structured logging** — skipped; Sentry already covers errors, performance, and searchable traces
+- [~] **Uptime monitoring** — deferred to production deployment; health endpoint at GET /health is ready
+
+## Marketing Site & Documentation
+> Goal: same Next.js app, separate layout for public-facing pages. Target: individuals. Currently in closed beta.
+
+### Routing plan
+Use Next.js route groups to separate marketing from the app:
+- `src/app/(marketing)/` — new layout: navbar + footer, no sidebar
+- `src/app/(app)/` — existing layout: sidebar (dashboard, tasks, notes, etc.)
+
+### Pages to build
+- [ ] **`/` Landing page** — hero, feature highlights, CTA buttons
+- [ ] **`/features` Features page** — breakdown of all major features
+- [ ] **`/pricing` Pricing page** — placeholder "Free during beta" for now; real tiers TBD
+- [ ] **`/docs` Docs** — feature guides; depth and structure TBD
+- [ ] **`/changelog` Changelog** — static for now; update strategy TBD
+- [ ] **FAQ** — optional, add if needed
+
+### Marketing navbar behaviour
+- User not logged in → show **Login** + **Get started** (→ `/register`)
+- User logged in → show **Go to dashboard** (→ `/dashboard`)
+
+### Design
+- Match the existing app aesthetic (Linear/Notion style, Inter font, same CSS variables)
+- No separate design needed — derive from existing design system
+
+### In-app onboarding (phase 2)
+- First-login onboarding modal: create workspace → add task → try pomodoro
+- Richer empty states that guide new users
+- `/help` page with keyboard shortcuts and feature overview
+
+### Docs site (phase 3 — when going public)
+- Mintlify connected to GitHub repo (reads markdown files)
+- Or Notion public page for zero-maintenance option
