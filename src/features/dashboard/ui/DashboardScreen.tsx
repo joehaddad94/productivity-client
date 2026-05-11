@@ -136,7 +136,7 @@ export function DashboardScreen() {
               )}
 
               {tasksLoading ? (
-                <ScreenLoader />
+                <ScreenLoader variant="app" />
               ) : todayTasks.length === 0 && todayTotal === 0 ? (
                 <div className="flex items-center gap-2 px-3 py-3 rounded-lg border border-border/40 text-sm text-muted-foreground">
                   <CheckCheck className="size-4 text-primary" />
