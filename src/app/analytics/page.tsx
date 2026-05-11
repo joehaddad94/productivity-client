@@ -1,6 +1,9 @@
-"use client";
+import dynamic from "next/dynamic";
 
-import { AnalyticsScreen } from "@/features/analytics";
+const AnalyticsScreen = dynamic(
+  () => import("@/features/analytics").then((m) => ({ default: m.AnalyticsScreen })),
+  { ssr: false }
+);
 
 export default function AnalyticsPage() {
   return <AnalyticsScreen />;

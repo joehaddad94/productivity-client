@@ -1,13 +1,13 @@
 # Productivity App — To Do
 
 ## Reliability
-- [ ] **Error monitoring (Sentry)** — know when things break in production before users report it (free tier: 5k errors/month)
-- [ ] **Error boundaries** — wrap major UI sections so crashes don't take down the whole app
-- [ ] **API retry logic** — automatic retries for flaky network conditions on the client
+- [x] **Error monitoring (Sentry)** — know when things break in production before users report it (free tier: 5k errors/month)
+- [x] **Error boundaries** — route-level (`error.tsx`) and root-level (`global-error.tsx`) boundaries in place; both capture to Sentry
+- [ ] **API retry logic** — create shared `ApiError` class (with `status` field) + shared `apiFetch` helper; update all ~12 API files to use it; configure React Query `retry` to skip 4xx and retry 5xx/network errors up to 2x with exponential backoff; follow up with full E2E suite to confirm nothing broke
 
 ## Performance
-- [ ] **Bundle size audit** — run `next build` analyzer, lazy load any remaining heavy deps
-- [ ] **HTTP caching headers** — add cache headers on the backend for static/slow-changing data
+- [x] **Bundle size audit** — lazy-loaded Tiptap (notes only) and Recharts (analytics only) with `next/dynamic`; removed unused `motion` package
+- [~] **HTTP caching headers** — skipped; React Query `staleTime: 2min` already covers client-side caching; HTTP cache adds stale data risk with marginal benefit for a single-user app
 - [x] **Database indexing** — Prisma schema has composite indexes on all major tables (Task, Note, Project, Notification, etc.)
 
 ## Security
