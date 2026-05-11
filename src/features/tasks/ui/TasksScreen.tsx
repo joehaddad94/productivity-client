@@ -607,6 +607,7 @@ const DueDatePicker = memo(function DueDatePicker({
         <input
           type="date"
           autoFocus
+          aria-label="Due date"
           value={localDate}
           onChange={(e) => setLocalDate(e.target.value)}
           onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch {} }}
@@ -615,6 +616,7 @@ const DueDatePicker = memo(function DueDatePicker({
         {localDate && (
           <input
             type="time"
+            aria-label="Due time"
             value={localTime}
             onChange={(e) => setLocalTime(e.target.value)}
             onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch {} }}
@@ -1395,7 +1397,7 @@ export function TasksScreen() {
           );
         })()}
 
-        {error && <p className="text-sm text-destructive">Failed to load tasks</p>}
+        {error && <p role="alert" className="text-sm text-destructive">Failed to load tasks</p>}
 
         {/* Status tabs */}
         {!error && statusColumns.length > 0 && (

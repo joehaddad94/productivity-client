@@ -242,7 +242,7 @@ export function NotesScreen() {
         {/* Note list */}
         <div className="flex-1 overflow-y-auto py-1">
           {error && (
-            <p className="text-xs text-destructive text-center py-4">Failed to load</p>
+            <p role="alert" className="text-xs text-destructive text-center py-4">Failed to load</p>
           )}
 
           {!error && visibleNotes.length === 0 && (
@@ -289,10 +289,11 @@ export function NotesScreen() {
                         e.stopPropagation();
                         handleDelete(note.id);
                       }}
-                      className="absolute bottom-2 right-4 opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all cursor-pointer"
+                      className="absolute bottom-2 right-4 opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all cursor-pointer focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={`Delete note: ${note.title || "Untitled"}`}
                       title="Delete note"
                     >
-                      <Trash2 className="size-3.5" />
+                      <Trash2 className="size-3.5" aria-hidden="true" />
                     </button>
                   </div>
                 ))}

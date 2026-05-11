@@ -16,8 +16,8 @@
 - [~] **Dependency audit** — client: upgraded Next.js 16.2.6 (fixed high DoS); server: `npm audit fix` corrupts Prisma node_modules on Windows, skip for now; remaining issues are low real-world risk (OTel/dev-only deps)
 
 ## Accessibility
-- [ ] **Keyboard navigation audit** — ensure all interactive elements are reachable via keyboard
-- [ ] **Screen reader support** — add missing ARIA labels throughout the app
+- [x] **Keyboard navigation audit** — NoteCard/notification rows → button; icon-only buttons → aria-label + type; Escape closes notification panel and pomodoro widget; mobile overlay gets Escape handler; heatmap cells → button; ColorPicker/PriorityToggle → focus-visible:ring + aria-pressed
+- [x] **Screen reader support** — aria-label on all icon-only buttons; role="alert" on all error messages; role="progressbar" on today's progress bar; streak/activity dots get aria-label; decorative icons get aria-hidden; date/time inputs get aria-label; pomodoro task picker search labeled; session dots labeled
 - [ ] **Color contrast check** — verify all text meets WCAG AA contrast ratios
 
 ## DevOps
