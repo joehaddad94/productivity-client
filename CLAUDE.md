@@ -28,7 +28,7 @@ npm run test:e2e
 
 ## Current backlog (in priority order)
 1. ~~Pomodoro per-task focus minutes~~ ✅
-2. **Notifications & Reminders** (next — see below)
+2. ~~Notifications & Reminders~~ ✅ (in-app + email + web push + quiet hours)
 3. Recurring tasks
 4. Team / workspace sharing
 
