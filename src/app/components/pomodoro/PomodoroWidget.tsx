@@ -159,8 +159,19 @@ export function PomodoroWidget() {
         setPickerQuery("");
       }
     }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setExpanded(false);
+        setShowPicker(false);
+        setPickerQuery("");
+      }
+    }
     document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [expanded]);
 
   const { state, start, pause, reset, skip } = usePomodoroTimer(settings, onComplete);

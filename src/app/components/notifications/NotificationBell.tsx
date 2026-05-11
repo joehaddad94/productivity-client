@@ -84,7 +84,7 @@ function NotificationBellComponent() {
   }, [unreadCount, open]);
   useEffect(() => () => { document.title = "Tasky"; }, []);
 
-  // Close on outside click
+  // Close on outside click or Escape
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
@@ -93,8 +93,18 @@ function NotificationBellComponent() {
         buttonRef.current && !buttonRef.current.contains(e.target as Node)
       ) setOpen(false);
     }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [open]);
 
   // Smart positioning
@@ -175,19 +185,23 @@ function NotificationBellComponent() {
             <div className="flex items-center gap-1">
               {unreadCount > 0 && (
                 <button
+                  type="button"
                   onClick={() => markAllRead.mutate()}
+                  aria-label="Mark all as read"
                   title="Mark all as read"
-                  className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <CheckCheck className="size-3.5" />
                 </button>
               )}
               {notifications.length > 0 && (
                 <button
+                  type="button"
                   onClick={handleDismissAll}
+                  aria-label={confirmClear ? "Click again to confirm clearing all" : "Clear all notifications"}
                   title={confirmClear ? "Click again to confirm" : "Clear all"}
                   className={cn(
-                    "p-1 rounded-md transition-colors cursor-pointer text-muted-foreground",
+                    "p-1 rounded-md transition-colors cursor-pointer text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     confirmClear
                       ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
                       : "hover:bg-accent hover:text-destructive",
@@ -197,8 +211,10 @@ function NotificationBellComponent() {
                 </button>
               )}
               <button
+                type="button"
                 onClick={() => setOpen(false)}
-                className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                aria-label="Close notifications"
+                className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <X className="size-3.5" />
               </button>
@@ -230,11 +246,13 @@ function NotificationBellComponent() {
                   const cfg = TYPE_CONFIG[n.type] ?? DEFAULT_CONFIG;
                   const Icon = cfg.icon;
                   return (
-                    <div
+                    <button
                       key={n.id}
+                      type="button"
                       onClick={() => handleNotificationClick(n)}
                       className={cn(
-                        "flex gap-3 px-4 py-3 border-b border-border last:border-b-0 cursor-pointer transition-colors",
+                        "w-full text-left flex gap-3 px-4 py-3 border-b border-border last:border-b-0 cursor-pointer transition-colors",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
                         n.read ? "hover:bg-accent/50" : "bg-primary/5 hover:bg-primary/10",
                       )}
                     >
@@ -246,13 +264,17 @@ function NotificationBellComponent() {
                           <p className={cn("text-xs leading-snug", !n.read ? "font-semibold" : "font-medium")}>
                             {n.title}
                           </p>
-                          <button
-                            onClick={(e) => handleDismiss(e, n.id)}
-                            className="flex-shrink-0 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => { e.stopPropagation(); dismiss.mutate(n.id); }}
+                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); dismiss.mutate(n.id); } }}
+                            className="flex-shrink-0 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-destructive transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            aria-label="Dismiss notification"
                             title="Dismiss"
                           >
                             <X className="size-3" />
-                          </button>
+                          </span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{n.body}</p>
                         <div className="flex items-center gap-2 mt-1">
@@ -262,7 +284,7 @@ function NotificationBellComponent() {
                           {!n.read && <span className="size-1.5 rounded-full bg-primary" aria-label="unread" />}
                         </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
 

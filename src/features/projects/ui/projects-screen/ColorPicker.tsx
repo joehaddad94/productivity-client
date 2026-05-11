@@ -17,9 +17,11 @@ export function ColorPicker({
         onClick={() => onChange(undefined)}
         className={cn(
           "size-5 rounded-full border-2 bg-muted transition-colors cursor-pointer",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
           !value ? "border-foreground" : "border-transparent hover:border-muted-foreground",
         )}
         aria-label="No color"
+        aria-pressed={!value}
       />
       {PROJECT_CARD_COLOR_PRESETS.map((c) => (
         <button
@@ -28,10 +30,12 @@ export function ColorPicker({
           onClick={() => onChange(c.name)}
           className={cn(
             "size-5 rounded-full border-2 transition-colors cursor-pointer",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
             c.dot,
             value === c.name ? "border-foreground" : "border-transparent hover:border-muted-foreground",
           )}
           aria-label={c.name}
+          aria-pressed={value === c.name}
         />
       ))}
     </div>

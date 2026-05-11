@@ -23,9 +23,12 @@ export function PriorityToggle({ value, onChange }: PriorityToggleProps) {
     <button
       type="button"
       onClick={() => onChange(next)}
+      aria-label={`Priority: ${value ?? "none"} (click to change)`}
+      aria-pressed={value !== null}
       title={`Priority: ${value ?? "none"} (click to change)`}
       className={cn(
         "h-9 w-9 shrink-0 rounded-lg border text-xs font-bold transition-colors cursor-pointer",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         cfg ? cfg.btn : "border-border/60 text-muted-foreground hover:border-border",
       )}
     >
