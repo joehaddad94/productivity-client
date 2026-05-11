@@ -12,7 +12,7 @@
 
 ## Security
 - [ ] **Content Security Policy headers** — add CSP headers on the server (helmet not installed)
-- [ ] **Rate limiting** — magic link has a custom limiter (3/email/10min) but general API endpoints are unprotected
+- [x] **Rate limiting** — global 100 req/min per IP via `@nestjs/throttler`; health check excluded; magic link custom limiter (3/email/10min) unchanged
 - [ ] **Dependency audit** — run `npm audit` and keep packages up to date
 
 ## Accessibility
