@@ -16,7 +16,11 @@ import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ManageTagsDialog } from "@/app/components/tags/ManageTagsDialog";
 import { useNotesScreen } from "../hooks/useNotesScreen";
 import { groupNotesByDate } from "../lib/groupNotesByDate";
-import { NoteEditor } from "./NoteEditor";
+import dynamic from "next/dynamic";
+const NoteEditor = dynamic(
+  () => import("./NoteEditor").then((m) => ({ default: m.NoteEditor })),
+  { ssr: false, loading: () => <ScreenLoader variant="app" /> }
+);
 import { NotesSidebarNavItem, NotesSidebarSectionHeader } from "./NotesScreenNav";
 
 // ─── Types ────────────────────────────────────────────────────────────────────

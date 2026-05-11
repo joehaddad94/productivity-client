@@ -1,5 +1,10 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
 
 /**
  * Reverse-proxy target for the NestJS backend.
@@ -48,10 +53,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
+export default withBundleAnalyzer(withSentryConfig(nextConfig, {
   silent: true,
   sourcemaps: {
     // Enable by setting SENTRY_AUTH_TOKEN + SENTRY_ORG + SENTRY_PROJECT in CI
     disable: !process.env.SENTRY_AUTH_TOKEN,
   },
-});
+}));
