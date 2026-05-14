@@ -85,6 +85,28 @@ export interface TaskStatusDefinition {
   createdAt?: string;
 }
 
+export type ThreadItem =
+  | {
+      kind: "comment";
+      id: string;
+      userId: string;
+      userName: string | null;
+      userAvatarUrl: string | null;
+      content: string;
+      createdAt: string;
+      updatedAt: string;
+    }
+  | {
+      kind: "activity";
+      id: string;
+      userId: string;
+      userName: string | null;
+      userAvatarUrl: string | null;
+      type: string;
+      metadata: Record<string, unknown> | null;
+      createdAt: string;
+    };
+
 export interface TaskAssignee {
   taskId: string;
   userId: string;

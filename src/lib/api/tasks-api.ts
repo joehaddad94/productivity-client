@@ -1,18 +1,9 @@
 /**
  * Tasks API client.
  * Base: {NEXT_PUBLIC_API_URL}/workspaces/:workspaceId/tasks
- *
- * All routes require auth (cookie).
- *
- * Method   Path                                        Description
- * GET      /workspaces/:wid/tasks                      List top-level tasks (with subtasks nested; projectId?, …)
- * POST     /workspaces/:wid/tasks                      Create task
- * GET      /workspaces/:wid/tasks/:id                  Get one task with subtasks
- * PATCH    /workspaces/:wid/tasks/:id                  Update task
- * DELETE   /workspaces/:wid/tasks/:id                  Soft-delete task
  */
 
-import type { Task } from "@/lib/types";
+import type { Task, ThreadItem } from "@/lib/types";
 
 const API_BASE =
   (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_URL) || "";
@@ -180,6 +171,33 @@ export const tasksApi = {
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
     return (data as { task: Task }).task;
+  },
+
+  getThread: async (workspaceId: string, taskId: string): Promise<ThreadItem[]> => {
+    const res = await api(`/workspaces/${workspaceId}/tasks/${taskId}/comments`);
+    const data = await parseJson(res);
+    if (!res.ok) throw new Error(getMessage(data));
+    return (data as { thread: ThreadItem[] }).thread ?? [];
+  },
+
+  postComment: async (workspaceId: string, taskId: string, content: string): Promise<ThreadItem> => {
+    const res = await api(`/workspaces/${workspaceId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    });
+    const data = await parseJson(res);
+    if (!res.ok) throw new Error(getMessage(data));
+    return (data as { item: ThreadItem }).item;
+  },
+
+  deleteComment: async (workspaceId: string, taskId: string, commentId: string): Promise<void> => {
+    const res = await api(
+      `/workspaces/${workspaceId}/tasks/${taskId}/comments/${commentId}`,
+      { method: "DELETE" },
+    );
+    if (res.ok) return;
+    const data = await parseJson(res);
+    throw new Error(getMessage(data));
   },
 
   unassign: async (

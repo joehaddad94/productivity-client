@@ -25,6 +25,7 @@ import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 import { activeTaskStatuses, firstTerminalStatusId, defaultNonTerminalStatusId, isTaskStatusTerminal } from "../lib/taskStatusHelpers";
 import { ProjectPicker } from "./ProjectPicker";
 import { AssigneePicker, type AssigneeOption } from "./AssigneePicker";
+import { TaskThread } from "./TaskThread";
 import { toast } from "sonner";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -642,6 +643,20 @@ export function TaskDrawer({
                 ))}
               </div>
             )}
+          </div>
+
+          {/* ── Thread ────────────────────────────────────────────── */}
+          <div className="px-6 py-4 border-t border-border/40">
+            <SectionHeader title="Comments & Activity" />
+            <TaskThread
+              workspaceId={workspaceId}
+              taskId={task.id}
+              currentUserId={currentUserId}
+              canComment={
+                canAssign ||
+                assigneeIds.includes(currentUserId ?? "")
+              }
+            />
           </div>
 
           {/* ── Metadata ──────────────────────────────────────────── */}
