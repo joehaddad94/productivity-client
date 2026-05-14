@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { WifiOff } from "lucide-react";
 import type { Task } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
@@ -32,6 +33,7 @@ export function ProjectDetailScreen({
     workspaceId,
     project,
     projectLoading,
+    projectError,
     tasks,
     tasksLoading,
     notes,
@@ -88,6 +90,22 @@ export function ProjectDetailScreen({
 
   if (projectLoading) {
     return <ScreenLoader variant="app" />;
+  }
+
+  if (projectError && !project) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-2 text-muted-foreground">
+        <WifiOff className="h-8 w-8 opacity-40" />
+        <p className="text-sm font-medium">
+          {!navigator.onLine ? "You're offline" : "Failed to load project"}
+        </p>
+        <p className="text-xs opacity-60">
+          {!navigator.onLine
+            ? "Connect to the internet to view this project"
+            : "Check your connection and try again"}
+        </p>
+      </div>
+    );
   }
 
   if (!project) {

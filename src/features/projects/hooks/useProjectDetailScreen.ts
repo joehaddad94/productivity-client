@@ -52,7 +52,7 @@ export function useProjectDetailScreen(
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const { data: project, isLoading: projectLoading } = useProjectQuery(workspaceId, projectId, {
+  const { data: project, isLoading: projectLoading, isError: projectError } = useProjectQuery(workspaceId, projectId, {
     enabled: !projectId.startsWith("temp_"),
   });
 
@@ -185,6 +185,7 @@ export function useProjectDetailScreen(
     taskStatuses,
     project,
     projectLoading,
+    projectError,
     tasks,
     tasksLoading,
     notes,

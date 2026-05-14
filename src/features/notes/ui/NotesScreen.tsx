@@ -8,6 +8,7 @@ import {
   Plus,
   Tag,
   Trash2,
+  WifiOff,
 } from "lucide-react";
 import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
@@ -52,7 +53,6 @@ export function NotesScreen() {
     allTasks,
     tasksLoading,
     selectedNote,
-    isLoading,
     error,
     createIsPending,
     updateIsPending,
@@ -104,8 +104,6 @@ export function NotesScreen() {
       setSelectedTags([]);
     }
   }
-
-  if (isLoading) return <ScreenLoader variant="app" />;
 
   const navProjects = allProjects.slice(0, MAX_NAV_PROJECTS);
   const hiddenProjectCount = Math.max(0, allProjects.length - MAX_NAV_PROJECTS);
@@ -241,8 +239,18 @@ export function NotesScreen() {
 
         {/* Note list */}
         <div className="flex-1 overflow-y-auto py-1">
-          {error && (
-            <p role="alert" className="text-xs text-destructive text-center py-4">Failed to load</p>
+          {error && notes.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground px-4">
+              <WifiOff className="h-6 w-6 opacity-40" />
+              <p className="text-xs font-medium text-center">
+                {!navigator.onLine ? "You're offline" : "Failed to load notes"}
+              </p>
+              <p className="text-[11px] opacity-60 text-center">
+                {!navigator.onLine
+                  ? "Connect to the internet to load your notes"
+                  : "Check your connection and try again"}
+              </p>
+            </div>
           )}
 
           {!error && visibleNotes.length === 0 && (
@@ -271,8 +279,7 @@ export function NotesScreen() {
             </div>
           )}
 
-          {!error &&
-            noteGroups.map(({ label, notes: groupNotes }) => (
+          {noteGroups.map(({ label, notes: groupNotes }) => (
               <div key={label}>
                 <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wide px-4 pt-3 pb-1 select-none">
                   {label}
@@ -300,7 +307,7 @@ export function NotesScreen() {
               </div>
             ))}
 
-          {!error && notes.length < total && activeSection.type !== "recent" && (
+          {notes.length < total && activeSection.type !== "recent" && (
             <button
               onClick={handleLoadMore}
               className="w-full text-[11px] text-center py-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
