@@ -85,6 +85,19 @@ export interface TaskStatusDefinition {
   createdAt?: string;
 }
 
+export interface MemberStat {
+  userId: string;
+  role: string;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    avatarUrl: string | null;
+  };
+  tasksCompleted: number;
+  focusMinutes: number;
+}
+
 export type ThreadItem =
   | {
       kind: "comment";

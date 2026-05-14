@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/ca
 import { WifiOff } from "lucide-react";
 import { cn } from "@/app/components/ui/utils";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/components/ui/tooltip";
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import {
   BarChart, Bar,
   ComposedChart, Line,
@@ -14,6 +15,11 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useAnalyticsScreen, formatFocusTime, type RangeDays } from "../hooks/useAnalyticsScreen";
+import { useMembersQuery } from "@/app/hooks/useMembersApi";
+import { useTeamAnalyticsQuery } from "@/app/hooks/useAnalyticsApi";
+import { useAuth } from "@/app/context/AuthContext";
+import { useWorkspace } from "@/app/context/WorkspaceContext";
+import type { MemberStat } from "@/lib/types";
 
 // Returns YYYY-MM-DD using local timezone — avoids UTC off-by-one near midnight
 function localDateStr(date: Date): string {
@@ -254,10 +260,75 @@ const tooltipStyle = {
   fontSize: "12px",
 };
 
+// ── Team tab ─────────────────────────────────────────────────────────────────
+
+function initialsFor(name: string | null, email: string): string {
+  const src = name ?? email;
+  return src.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("");
+}
+
+function TeamTab({ workspaceId, range }: { workspaceId: string; range: RangeDays }) {
+  const today = new Date();
+  const from = new Date(today);
+  from.setDate(from.getDate() - range);
+
+  const { data: members = [], isLoading } = useTeamAnalyticsQuery(workspaceId, {
+    from: localDateStr(from),
+    to: localDateStr(today),
+  });
+
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground py-8 text-center">Loading…</p>;
+  }
+  if (members.length === 0) {
+    return <p className="text-sm text-muted-foreground py-8 text-center">No data for this period.</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {members.map((m) => (
+        <MemberStatRow key={m.userId} stat={m} />
+      ))}
+    </div>
+  );
+}
+
+function MemberStatRow({ stat }: { stat: MemberStat }) {
+  const maxBar = 100; // just a visual scale — bar fills relative to first row
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border/60 bg-card">
+      <Avatar className="size-8 shrink-0">
+        <AvatarImage src={stat.user.avatarUrl ?? undefined} />
+        <AvatarFallback className="text-[11px]">{initialsFor(stat.user.name, stat.user.email)}</AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{stat.user.name ?? stat.user.email}</p>
+        <p className="text-[10px] text-muted-foreground capitalize">{stat.role}</p>
+      </div>
+      <div className="text-right shrink-0">
+        <p className="text-sm font-semibold tabular-nums">{stat.tasksCompleted}</p>
+        <p className="text-[10px] text-muted-foreground">tasks</p>
+      </div>
+      <div className="text-right shrink-0">
+        <p className="text-sm font-semibold tabular-nums">{formatFocusTime(stat.focusMinutes)}</p>
+        <p className="text-[10px] text-muted-foreground">focus</p>
+      </div>
+    </div>
+  );
+}
+
 // ── Main screen ──────────────────────────────────────────────────────────────
 
 export function AnalyticsScreen() {
   const [heatmapMetric, setHeatmapMetric] = useState<"tasks" | "focus">("tasks");
+  const [activeTab, setActiveTab] = useState<"personal" | "team">("personal");
+
+  const { user } = useAuth();
+  const { currentWorkspace } = useWorkspace();
+  const workspaceId = currentWorkspace?.id ?? null;
+  const { data: members = [] } = useMembersQuery(workspaceId ?? "", { enabled: !!workspaceId, staleTime: 60_000 });
+  const currentMember = members.find(m => m.userId === user?.id);
+  const canSeeTeam = currentMember?.role === "owner" || currentMember?.role === "admin";
 
   const {
     error,
@@ -276,10 +347,35 @@ export function AnalyticsScreen() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
+          {canSeeTeam && (
+            <div className="flex items-center gap-0.5 rounded-lg border border-border/60 p-0.5 bg-muted/30">
+              {(["personal", "team"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    "px-3 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer capitalize",
+                    activeTab === tab
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <RangeToggle value={selectedRange} onChange={setSelectedRange} />
       </div>
+
+      {canSeeTeam && activeTab === "team" && workspaceId && (
+        <TeamTab workspaceId={workspaceId} range={selectedRange} />
+      )}
+      {(!canSeeTeam || activeTab === "personal") && (<>
 
       {error && chartData.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
@@ -400,6 +496,7 @@ export function AnalyticsScreen() {
           </div>
         </>
       )}
+      </>)}
     </div>
   );
 }

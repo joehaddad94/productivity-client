@@ -3,7 +3,7 @@
  * Base: {NEXT_PUBLIC_API_URL}/workspaces/:workspaceId/analytics
  */
 
-import type { AnalyticsResult, DailyStat } from "@/lib/types";
+import type { AnalyticsResult, DailyStat, MemberStat } from "@/lib/types";
 
 const API_BASE =
   (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_URL) || "";
@@ -64,6 +64,18 @@ export const analyticsApi = {
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));
     return (data as { analytics: AnalyticsResult }).analytics;
+  },
+
+  getTeam: async (workspaceId: string, params?: AnalyticsQueryParams): Promise<MemberStat[]> => {
+    const qs = new URLSearchParams();
+    if (params?.from) qs.set("from", params.from);
+    if (params?.to) qs.set("to", params.to);
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await api(`/workspaces/${workspaceId}/analytics/team${query}`);
+    if (res.status === 401 || res.status === 403) return [];
+    const data = await parseJson(res);
+    if (!res.ok) throw new Error(getMessage(data));
+    return (data as { members: MemberStat[] }).members ?? [];
   },
 
   log: async (workspaceId: string, body: LogStatBody): Promise<DailyStat> => {
