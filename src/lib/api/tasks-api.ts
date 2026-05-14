@@ -71,6 +71,7 @@ export type CreateTaskBody = {
   parentTaskId?: string;
   recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY";
   projectId?: string;
+  assigneeIds?: string[];
 };
 
 export type UpdateTaskBody = Partial<Omit<CreateTaskBody, "projectId">> & { projectId?: string | null };
@@ -165,5 +166,33 @@ export const tasksApi = {
     if (res.ok) return;
     const data = await parseJson(res);
     throw new Error(getMessage(data));
+  },
+
+  assign: async (
+    workspaceId: string,
+    taskId: string,
+    userIds: string[],
+  ): Promise<Task> => {
+    const res = await api(`/workspaces/${workspaceId}/tasks/${taskId}/assign`, {
+      method: "POST",
+      body: JSON.stringify({ userIds }),
+    });
+    const data = await parseJson(res);
+    if (!res.ok) throw new Error(getMessage(data));
+    return (data as { task: Task }).task;
+  },
+
+  unassign: async (
+    workspaceId: string,
+    taskId: string,
+    userId: string,
+  ): Promise<Task> => {
+    const res = await api(
+      `/workspaces/${workspaceId}/tasks/${taskId}/assign/${userId}`,
+      { method: "DELETE" },
+    );
+    const data = await parseJson(res);
+    if (!res.ok) throw new Error(getMessage(data));
+    return (data as { task: Task }).task;
   },
 };

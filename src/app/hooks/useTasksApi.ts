@@ -381,6 +381,56 @@ export function useLogTaskFocusMutation(
   });
 }
 
+function patchTaskCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  workspaceId: string,
+  task: Task,
+) {
+  queryClient.setQueryData(TASK_QUERY_KEY(workspaceId, task.id), task);
+  queryClient.setQueriesData<TasksPage>(
+    { queryKey: TASKS_QUERY_KEY(workspaceId) },
+    (old) => {
+      if (!old?.tasks) return old;
+      return {
+        ...old,
+        tasks: old.tasks.map((t) => (t.id === task.id ? task : t)),
+      };
+    },
+  );
+}
+
+export function useAssignTaskMutation(
+  workspaceId: string | null | undefined,
+  options?: UseMutationOptions<Task, Error, { taskId: string; userIds: string[] }>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, userIds }) =>
+      tasksApi.assign(workspaceId!, taskId, userIds),
+    ...options,
+    onSuccess: (data, variables, context, mutation) => {
+      patchTaskCaches(queryClient, workspaceId ?? "", data);
+      options?.onSuccess?.(data, variables, context, mutation);
+    },
+  });
+}
+
+export function useUnassignTaskMutation(
+  workspaceId: string | null | undefined,
+  options?: UseMutationOptions<Task, Error, { taskId: string; userId: string }>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, userId }) =>
+      tasksApi.unassign(workspaceId!, taskId, userId),
+    ...options,
+    onSuccess: (data, variables, context, mutation) => {
+      patchTaskCaches(queryClient, workspaceId ?? "", data);
+      options?.onSuccess?.(data, variables, context, mutation);
+    },
+  });
+}
+
 export function useBulkTasksMutation(
   workspaceId: string | null | undefined,
   options?: UseMutationOptions<{ affected: number }, Error, BulkTaskBody>

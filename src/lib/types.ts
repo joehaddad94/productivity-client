@@ -84,6 +84,19 @@ export interface TaskStatusDefinition {
   createdAt?: string;
 }
 
+export interface TaskAssignee {
+  taskId: string;
+  userId: string;
+  assignedById: string;
+  assignedAt: string;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    avatarUrl: string | null;
+  };
+}
+
 export interface Task {
   id: string;
   workspaceId: string;
@@ -101,9 +114,11 @@ export interface Task {
   recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY" | null;
   recurrenceParentId?: string | null;
   projectId?: string | null;
+  creatorId?: string | null;
   completedAt?: string | null;
   deletedAt?: string | null;
   createdAt: string;
+  assignees?: TaskAssignee[];
 }
 
 export interface Note {

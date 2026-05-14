@@ -16,6 +16,7 @@ import { Calendar } from "lucide-react";
 import { cn } from "@/app/components/ui/utils";
 import type { CreateTaskBody } from "@/lib/api/tasks-api";
 import { ProjectPicker } from "./ProjectPicker";
+import { AssigneePicker, type AssigneeOption } from "./AssigneePicker";
 
 const PRIORITIES = ["low", "medium", "high"] as const;
 const RECURRENCE = ["DAILY", "WEEKLY", "MONTHLY"] as const;
@@ -45,6 +46,10 @@ interface CreateTaskModalProps {
   projects?: CreateTaskModalProjectOption[];
   /** When set (e.g. list filtered to one project), pre-select in the picker */
   defaultProjectId?: string | null;
+  /** When true, show the assignee picker (owner/admin only). */
+  canAssign?: boolean;
+  members?: AssigneeOption[];
+  currentUserId?: string;
 }
 
 export function CreateTaskModal({
@@ -55,6 +60,9 @@ export function CreateTaskModal({
   defaultParentId,
   projects = [],
   defaultProjectId,
+  canAssign,
+  members = [],
+  currentUserId,
 }: CreateTaskModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -63,6 +71,7 @@ export function CreateTaskModal({
   const [dueTime, setDueTime] = useState("");
   const [recurrenceRule, setRecurrenceRule] = useState<"DAILY" | "WEEKLY" | "MONTHLY" | undefined>();
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -86,6 +95,7 @@ export function CreateTaskModal({
     setDueTime("");
     setRecurrenceRule(undefined);
     setProjectId(undefined);
+    setAssigneeIds([]);
   }
 
   function handleSubmit() {
@@ -99,6 +109,7 @@ export function CreateTaskModal({
       recurrenceRule,
       parentTaskId: defaultParentId,
       projectId: projectId || undefined,
+      assigneeIds: assigneeIds.length > 0 ? assigneeIds : undefined,
     });
     reset();
     onOpenChange(false);
@@ -187,6 +198,19 @@ export function CreateTaskModal({
                   value={projectId}
                   onChange={setProjectId}
                   disabled={isPending}
+                />
+              </div>
+            )}
+
+            {canAssign && members.length > 0 && (
+              <div className="space-y-2">
+                <Label className={fieldLabel}>Assignees</Label>
+                <AssigneePicker
+                  members={members}
+                  selected={assigneeIds}
+                  onChange={setAssigneeIds}
+                  disabled={isPending}
+                  currentUserId={currentUserId}
                 />
               </div>
             )}

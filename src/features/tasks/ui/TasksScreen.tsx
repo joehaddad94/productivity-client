@@ -56,6 +56,9 @@ import { usePomodoroLink } from "@/app/components/pomodoro";
 import { useLogTaskFocusMutation } from "@/app/hooks/useTasksApi";
 import { useTasksScreen } from "../hooks/useTasksScreen";
 import { useDebounce } from "@/app/hooks/useDebounce";
+import { useMembersQuery } from "@/app/hooks/useMembersApi";
+import { useAuth } from "@/app/context/AuthContext";
+import type { AssigneeOption } from "./AssigneePicker";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TaskDrawer } from "./TaskDrawer";
 import { TaskStatusesSettings } from "./TaskStatusesSettings";
@@ -1039,6 +1042,25 @@ export function TasksScreen() {
     handleLoadMore,
   } = useTasksScreen({ search: debouncedSearch });
 
+  const { user } = useAuth();
+  const { data: workspaceMembers = [] } = useMembersQuery(workspaceId ?? "", {
+    enabled: !!workspaceId,
+    staleTime: 60_000,
+  });
+  const currentMember = workspaceMembers.find((m) => m.userId === user?.id);
+  const canAssign =
+    currentMember?.role === "owner" || currentMember?.role === "admin";
+  const assigneeOptions: AssigneeOption[] = useMemo(
+    () =>
+      workspaceMembers.map((m) => ({
+        userId: m.userId,
+        name: m.user.name,
+        email: m.user.email,
+        avatarUrl: m.user.avatarUrl,
+      })),
+    [workspaceMembers],
+  );
+
   // Pre-compute terminal status IDs as a Set — O(1) lookups in rows
   const terminalIds = useMemo(
     () => new Set(taskStatuses.filter((s) => s.isTerminal && !s.archivedAt).map((s) => s.id)),
@@ -1516,6 +1538,9 @@ export function TasksScreen() {
         isPending={createMutation.isPending}
         projects={projectsForPicker}
         defaultProjectId={filterProjectId === "all" ? undefined : filterProjectId}
+        canAssign={canAssign}
+        members={assigneeOptions}
+        currentUserId={user?.id}
       />
 
       <TaskDrawer
@@ -1530,6 +1555,9 @@ export function TasksScreen() {
         projects={projectsForPicker}
         isSaving={updateMutation.isPending}
         isDeleting={deleteMutation.isPending}
+        canAssign={canAssign}
+        members={assigneeOptions}
+        currentUserId={user?.id}
       />
 
       <Sheet open={statusesSheetOpen} onOpenChange={setStatusesSheetOpen}>
