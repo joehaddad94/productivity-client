@@ -1,10 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Plus, FolderOpen } from "lucide-react";
+import { Plus, FolderOpen, WifiOff } from "lucide-react";
 import type { Project } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
-import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { useProjectsScreen } from "../hooks/useProjectsScreen";
 import { ProjectCard } from "./projects-screen/ProjectCard";
@@ -19,7 +18,6 @@ export function ProjectsScreen() {
     setEditing,
     projects,
     total,
-    isLoading,
     error,
     createMutation,
     updateMutation,
@@ -29,10 +27,6 @@ export function ProjectsScreen() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
-
-  if (isLoading) {
-    return <ScreenLoader variant="app" />;
-  }
 
   return (
     <div className="space-y-6">
@@ -71,7 +65,19 @@ export function ProjectsScreen() {
         />
       )}
 
-      {error && <p role="alert" className="text-sm text-destructive text-center py-8">Failed to load projects</p>}
+      {error && projects.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
+          <WifiOff className="h-7 w-7 opacity-40" />
+          <p className="text-sm font-medium">
+            {!navigator.onLine ? "You're offline" : "Failed to load projects"}
+          </p>
+          <p className="text-xs opacity-60">
+            {!navigator.onLine
+              ? "Connect to the internet to load your projects"
+              : "Check your connection and try again"}
+          </p>
+        </div>
+      )}
 
       {!error && projects.length === 0 && !showCreate && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -94,7 +100,7 @@ export function ProjectsScreen() {
         </div>
       )}
 
-      {!error && projects.length > 0 && (
+      {projects.length > 0 && (
         <>
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {projects.map((project) =>

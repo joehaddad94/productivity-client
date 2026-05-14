@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
-import { ScreenLoader } from "@/app/components/ScreenLoader";
+import { WifiOff } from "lucide-react";
 import { cn } from "@/app/components/ui/utils";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/components/ui/tooltip";
 import {
@@ -260,14 +260,12 @@ export function AnalyticsScreen() {
   const [heatmapMetric, setHeatmapMetric] = useState<"tasks" | "focus">("tasks");
 
   const {
-    isLoading, error,
+    error,
     totals, chartData, last7,
     avgDaily, productivityScore, scoreComponents,
     heatmapData,
     selectedRange, setSelectedRange,
   } = useAnalyticsScreen();
-
-  if (isLoading) return <ScreenLoader variant="app" />;
 
   const rangeLabel = `last ${selectedRange} days`;
 
@@ -283,9 +281,21 @@ export function AnalyticsScreen() {
         <RangeToggle value={selectedRange} onChange={setSelectedRange} />
       </div>
 
-      {error && <p role="alert" className="text-sm text-destructive py-8 text-center">Failed to load analytics</p>}
+      {error && chartData.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
+          <WifiOff className="h-7 w-7 opacity-40" />
+          <p className="text-sm font-medium">
+            {!navigator.onLine ? "You're offline" : "Failed to load analytics"}
+          </p>
+          <p className="text-xs opacity-60">
+            {!navigator.onLine
+              ? "Connect to the internet to load your analytics"
+              : "Check your connection and try again"}
+          </p>
+        </div>
+      )}
 
-      {!error && (
+      {(!error || chartData.length > 0) && (
         <>
           {/* Stat cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

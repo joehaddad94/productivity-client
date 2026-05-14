@@ -18,6 +18,7 @@ import {
   ListChecks,
   ArrowUpDown,
   AlertCircle,
+  WifiOff,
   X,
   PanelRight,
   Timer,
@@ -1397,10 +1398,22 @@ export function TasksScreen() {
           );
         })()}
 
-        {error && <p role="alert" className="text-sm text-destructive">Failed to load tasks</p>}
+        {error && tasks.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
+            <WifiOff className="h-7 w-7 opacity-40" />
+            <p className="text-sm font-medium">
+              {!navigator.onLine ? "You're offline" : "Failed to load tasks"}
+            </p>
+            <p className="text-xs opacity-60">
+              {!navigator.onLine
+                ? "Connect to the internet to load your tasks"
+                : "Check your connection and try again"}
+            </p>
+          </div>
+        )}
 
         {/* Status tabs */}
-        {!error && statusColumns.length > 0 && (
+        {statusColumns.length > 0 && (
           <Tabs value={activeStatusTab} onValueChange={setActiveStatusTab} className="min-w-0">
             <TabsList className="flex h-9 w-full bg-transparent border-b border-border/50 rounded-none p-0 gap-0 justify-start overflow-x-auto">
               {statusColumns.map(({ status: s, tasks: colTasks }) => {
@@ -1465,7 +1478,7 @@ export function TasksScreen() {
           </Tabs>
         )}
 
-        {!error && tasks.length < total && (
+        {tasks.length < total && (
           <div className="flex justify-center pt-2">
             <Button variant="ghost" size="sm" onClick={handleLoadMore} className="text-muted-foreground text-xs">
               Load more ({tasks.length} / {total})
