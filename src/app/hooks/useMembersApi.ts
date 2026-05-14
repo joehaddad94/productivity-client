@@ -76,6 +76,36 @@ export function useUpdateMemberRoleMutation(
   });
 }
 
+export function useUpdateMemberVisibilityMutation(
+  workspaceId: string | null | undefined,
+  options?: UseMutationOptions<
+    WorkspaceMember,
+    Error,
+    { userId: string; canSeeAllTasks: boolean }
+  >
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, canSeeAllTasks }) =>
+      membersApi.updateMember(workspaceId!, userId, { canSeeAllTasks }),
+    ...options,
+    onSuccess: (data, variables, context, mutation) => {
+      queryClient.setQueryData(
+        MEMBERS_QUERY_KEY(workspaceId ?? ""),
+        (prev: WorkspaceMember[] | undefined) =>
+          prev
+            ? prev.map((m) =>
+                m.userId === data.userId
+                  ? { ...m, canSeeAllTasks: data.canSeeAllTasks }
+                  : m
+              )
+            : []
+      );
+      options?.onSuccess?.(data, variables, context, mutation);
+    },
+  });
+}
+
 export function useRemoveMemberMutation(
   workspaceId: string | null | undefined,
   options?: UseMutationOptions<void, Error, string>

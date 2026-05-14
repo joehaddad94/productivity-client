@@ -12,9 +12,12 @@ import {
   useMembersQuery,
   useInviteMemberMutation,
   useUpdateMemberRoleMutation,
+  useUpdateMemberVisibilityMutation,
   useRemoveMemberMutation,
 } from "@/app/hooks/useMembersApi";
 import { useAuth } from "@/app/context/AuthContext";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/components/ui/tooltip";
+import { Eye, EyeOff } from "lucide-react";
 
 const PALETTE = [
   "#059669", "#0d9488", "#0891b2", "#7c3aed",
@@ -38,7 +41,7 @@ function roleBadgeClass(role: string) {
   return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
 }
 
-const ROLES = ["owner", "admin", "member"] as const;
+const ASSIGNABLE_ROLES = ["admin", "member"] as const;
 
 export interface WorkspaceCardProps {
   workspace: Workspace;
@@ -85,6 +88,16 @@ export function WorkspaceCard({
 
   const updateRoleMutation = useUpdateMemberRoleMutation(workspace.id, {
     onSuccess: () => toast.success("Role updated"),
+    onError: (err) => toast.error(err.message),
+  });
+
+  const updateVisibilityMutation = useUpdateMemberVisibilityMutation(workspace.id, {
+    onSuccess: (data) =>
+      toast.success(
+        data.canSeeAllTasks
+          ? "Member can now see all tasks"
+          : "Member can only see assigned tasks",
+      ),
     onError: (err) => toast.error(err.message),
   });
 
@@ -250,15 +263,56 @@ export function WorkspaceCard({
                           )}
                         </div>
 
-                        {/* Role: editable dropdown for owners (not on self), badge otherwise */}
-                        {isOwner && !isSelf ? (
+                        {/* Visibility indicator (member role only) */}
+                        {member.role === "member" && (
+                          isOwner && !isSelf ? (
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateVisibilityMutation.mutate({
+                                      userId: member.userId,
+                                      canSeeAllTasks: !member.canSeeAllTasks,
+                                    })}
+                                    disabled={updateVisibilityMutation.isPending}
+                                    aria-pressed={member.canSeeAllTasks}
+                                    aria-label={member.canSeeAllTasks
+                                      ? `${displayName} sees all tasks (click to restrict)`
+                                      : `${displayName} sees only assigned tasks (click to grant full visibility)`}
+                                    className="flex-shrink-0 text-gray-500 hover:text-foreground disabled:opacity-50"
+                                  >
+                                    {member.canSeeAllTasks
+                                      ? <Eye className="size-3.5" />
+                                      : <EyeOff className="size-3.5" />}
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-[11px]">
+                                  {member.canSeeAllTasks ? "Sees all tasks" : "Sees only assigned tasks"}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <span
+                              className="inline-flex items-center text-gray-400"
+                              title={member.canSeeAllTasks ? "Sees all tasks" : "Sees only assigned tasks"}
+                            >
+                              {member.canSeeAllTasks
+                                ? <Eye className="size-3.5" />
+                                : <EyeOff className="size-3.5" />}
+                            </span>
+                          )
+                        )}
+
+                        {/* Role: editable dropdown for owners (not on self, not the owner row), badge otherwise */}
+                        {isOwner && !isSelf && member.role !== "owner" ? (
                           <select
                             value={member.role}
                             onChange={(e) => updateRoleMutation.mutate({ userId: member.userId, role: e.target.value })}
                             disabled={updateRoleMutation.isPending}
                             className="text-[11px] rounded border border-gray-200 dark:border-gray-700 bg-background px-1.5 py-0.5 text-gray-600 dark:text-gray-400 cursor-pointer"
                           >
-                            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                            {ASSIGNABLE_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                           </select>
                         ) : (
                           <span className={cn("text-[11px] px-1.5 py-0.5 rounded font-semibold", roleBadgeClass(member.role))}>
