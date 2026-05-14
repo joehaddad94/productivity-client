@@ -202,18 +202,19 @@ export function CreateTaskModal({
               </div>
             )}
 
-            {canAssign && members.length > 0 && (
-              <div className="space-y-2">
-                <Label className={fieldLabel}>Assignees</Label>
-                <AssigneePicker
-                  members={members}
-                  selected={assigneeIds}
-                  onChange={setAssigneeIds}
-                  disabled={isPending}
-                  currentUserId={currentUserId}
-                />
-              </div>
-            )}
+            {canAssign &&
+              members.some((m) => m.userId !== currentUserId) && (
+                <div className="space-y-2">
+                  <Label className={fieldLabel}>Assignees</Label>
+                  <AssigneePicker
+                    members={members}
+                    selected={assigneeIds}
+                    onChange={setAssigneeIds}
+                    disabled={isPending}
+                    currentUserId={currentUserId}
+                  />
+                </div>
+              )}
 
             {/* Priority + due date: same row, equal control height, labels aligned */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">

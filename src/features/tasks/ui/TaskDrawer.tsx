@@ -399,7 +399,8 @@ export function TaskDrawer({
               </PropRow>
             )}
 
-            {members.length > 0 && (
+            {(members.some((m) => m.userId !== currentUserId) ||
+              assigneeIds.length > 0) && (
               <PropRow label="Assignees">
                 <AssigneePicker
                   members={members}
