@@ -284,17 +284,19 @@ function TeamTab({ workspaceId, range }: { workspaceId: string; range: RangeDays
     return <p className="text-sm text-muted-foreground py-8 text-center">No data for this period.</p>;
   }
 
+  const maxTasks = members[0]?.tasksCompleted ?? 0;
+
   return (
     <div className="space-y-2">
       {members.map((m) => (
-        <MemberStatRow key={m.userId} stat={m} />
+        <MemberStatRow key={m.userId} stat={m} maxTasks={maxTasks} />
       ))}
     </div>
   );
 }
 
-function MemberStatRow({ stat }: { stat: MemberStat }) {
-  const maxBar = 100; // just a visual scale — bar fills relative to first row
+function MemberStatRow({ stat, maxTasks }: { stat: MemberStat; maxTasks: number }) {
+  const pct = maxTasks > 0 ? Math.round((stat.tasksCompleted / maxTasks) * 100) : 0;
   return (
     <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border/60 bg-card">
       <Avatar className="size-8 shrink-0">
@@ -303,7 +305,15 @@ function MemberStatRow({ stat }: { stat: MemberStat }) {
       </Avatar>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{stat.user.name ?? stat.user.email}</p>
-        <p className="text-[10px] text-muted-foreground capitalize">{stat.role}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary/70 transition-all"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <span className="text-[10px] text-muted-foreground capitalize shrink-0">{stat.role}</span>
+        </div>
       </div>
       <div className="text-right shrink-0">
         <p className="text-sm font-semibold tabular-nums">{stat.tasksCompleted}</p>
