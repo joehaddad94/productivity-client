@@ -235,53 +235,49 @@ Same filter applied to `tasks.findOne()` and dashboard queries.
 
 ## Implementation Milestones
 
-### Milestone 1 — Schema & Migration
-Schema changes above applied and migrated. No query or API changes yet.
-Test: migrations clean, existing data intact, no broken queries.
+### ✅ Milestone 1 — Schema & Migration
+Schema applied and migrated. `creatorId` backfilled (1,028 tasks), `canSeeAllTasks` backfilled (95 members).
+`creatorId` subsequently made non-nullable (migration `20260515000128_make_creator_id_required`).
 
-### Milestone 2 — Role enforcement
-- `assertMember` returns role
-- Membership cache stores role
-- Role guards on all relevant endpoints
-- `inviteMember` sets `canSeeAllTasks: false`
-- `updateMemberRole` supports admin
-Test: permission rules enforced, existing endpoints unaffected.
+### ✅ Milestone 2 — Role enforcement
+`assertMember` returns `{ role, canSeeAllTasks }`, cached together. Membership cache stores object not boolean.
+`inviteMember` owner-only. `removeMember` owner-only + self-removal blocked. `updateMember` handles role +
+canSeeAllTasks in one PATCH; prevents demoting owner. Role change invalidates cache.
 
-### Milestone 3 — Task visibility filtering
-- `tasks.list()`, `tasks.findOne()`, dashboard queries all filtered by role + `canSeeAllTasks`
-- Notifications scheduler updated to route to correct users
-Test: each role sees exactly what they should.
+### ✅ Milestone 3 — Task visibility filtering
+`buildTaskVisibilityWhere` applied to `list`, `findOne`, `bulkUpdate`, `reorder`, and subtask includes.
+`tasks.create` sets `creatorId: userId`; recurrence spawn inherits parent `creatorId`.
+Scheduler switched to `buildTaskRelevanceWhere` (creator OR assignee OR assigner) so notifications
+reach the right people without spamming canSeeAllTasks=true members.
 
-### Milestone 4 — Assignment
-- Assignment endpoints (add/remove assignees)
-- Subtask assignment inheritance
-- Assignees included in all task responses
-- Frontend: assignee picker in drawer + creation modal
-- Frontend: assignee avatars on task cards
-Test: assignment works, subtask inheritance correct, visibility updates after assignment.
+### ✅ Milestone 4 — Assignment
+`POST /tasks/:id/assign` + `DELETE /tasks/:id/assign/:userId`. Owner/admin only, no self-assign.
+Subtask inherits parent assignees on creation (preserves `assignedById`). `addAssignees` dedupes.
+Frontend: `AssigneePicker` (multi-select popover), picker in drawer + modal, stacked avatars on cards.
+Picker hidden when no other workspace members exist.
 
-### Milestone 5 — Member management UI
-- Workspace settings: member list, role management, visibility toggle, remove member
-- Member removal triggers unassign + soft delete of self-created tasks
-Test: all management actions correct, removal cleans up properly.
+### ✅ Milestone 5 — Member management UI
+`removeMember` wraps in a transaction: delete `TaskAssignee` rows, soft-delete creator's tasks, delete membership.
+Frontend: Eye/EyeOff toggle per member row (owner-clickable), role dropdown limited to admin/member,
+tooltip shows visibility state.
 
-### Milestone 6 — Assignment notifications
-- Notify assignee on assignment
-- Due date reminders to assignee + assigning owner/admin
-- Each user's notification preferences respected
-Test: notifications fire correctly, no duplicates.
+### ✅ Milestone 6 — Assignment notifications
+`notifyAssigned` helper fires `task_assigned` notifications on `create` (with assigneeIds) and `addAssignees`
+(new assignees only, deduped). Scheduler uses `buildTaskRelevanceWhere` — reminders reach assignee +
+assigner regardless of role. All notifications go through `NotificationsService.createAndDeliver` (respects
+per-user in-app/email/push prefs + quiet hours).
 
-### Milestone 7 — Comments & Activity log
-- `TaskComment` and `TaskActivity` models wired up
-- Endpoints for comments CRUD and activity read
-- Frontend: unified thread in task drawer
-- Activity auto-logged on assign, status change, due date change, priority change
-Test: comments post correctly, activity entries fire on right events.
+### ✅ Milestone 7 — Comments & Activity log
+`CommentsService`: `getThread` (merged + sorted), `createComment` (owner/admin always; member if assignee),
+`deleteComment` (own only). `logActivity` (fire-and-forget) wired to: `created`, `status_changed`,
+`due_date_changed`, `priority_changed`, `assigned`, `unassigned`. Frontend: `TaskThread` component
+at bottom of task drawer — comment bubbles + activity timeline, post box (⌘Enter) for authorised users.
 
-### Milestone 8 — Workspace analytics
-- Owner/admin: workspace-level analytics tab (per-member stats)
-- Member: own analytics unchanged
-Test: owner sees team data, member sees only their own.
+### ✅ Milestone 8 — Workspace analytics
+`getTeamAnalytics` aggregates `DailyStat` by userId, owner/admin only, sorted by tasks desc.
+`GET /analytics/team` endpoint. Frontend: Personal/Team tab switcher (hidden from members).
+Team tab: per-member card with avatar, role, tasks completed, focus time, and a relative progress bar
+(top performer = 100%, others scale proportionally).
 
 ---
 
