@@ -150,7 +150,7 @@ export interface Task {
   recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY" | null;
   recurrenceParentId?: string | null;
   projectId?: string | null;
-  creatorId?: string | null;
+  creatorId?: string;
   completedAt?: string | null;
   deletedAt?: string | null;
   createdAt: string;
