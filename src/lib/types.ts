@@ -50,6 +50,7 @@ export interface WorkspaceMember {
   userId: string;
   workspaceId: string;
   role: string;
+  canSeeAllTasks: boolean;
   user: {
     id: string;
     email: string;
@@ -84,6 +85,54 @@ export interface TaskStatusDefinition {
   createdAt?: string;
 }
 
+export interface MemberStat {
+  userId: string;
+  role: string;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    avatarUrl: string | null;
+  };
+  tasksCompleted: number;
+  focusMinutes: number;
+}
+
+export type ThreadItem =
+  | {
+      kind: "comment";
+      id: string;
+      userId: string;
+      userName: string | null;
+      userAvatarUrl: string | null;
+      content: string;
+      createdAt: string;
+      updatedAt: string;
+    }
+  | {
+      kind: "activity";
+      id: string;
+      userId: string;
+      userName: string | null;
+      userAvatarUrl: string | null;
+      type: string;
+      metadata: Record<string, unknown> | null;
+      createdAt: string;
+    };
+
+export interface TaskAssignee {
+  taskId: string;
+  userId: string;
+  assignedById: string;
+  assignedAt: string;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    avatarUrl: string | null;
+  };
+}
+
 export interface Task {
   id: string;
   workspaceId: string;
@@ -101,9 +150,11 @@ export interface Task {
   recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY" | null;
   recurrenceParentId?: string | null;
   projectId?: string | null;
+  creatorId?: string;
   completedAt?: string | null;
   deletedAt?: string | null;
   createdAt: string;
+  assignees?: TaskAssignee[];
 }
 
 export interface Note {

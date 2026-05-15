@@ -12,11 +12,21 @@ import { Checkbox } from "@/app/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { cn } from "@/app/components/ui/utils";
 import { useNotesQuery, useCreateNoteMutation } from "@/app/hooks/useNotesApi";
-import { useCreateTaskMutation, useDeleteTaskMutation, useLogTaskFocusMutation, useUpdateTaskMutation } from "@/app/hooks/useTasksApi";
+import {
+  useAssignTaskMutation,
+  useCreateTaskMutation,
+  useDeleteTaskMutation,
+  useLogTaskFocusMutation,
+  useUnassignTaskMutation,
+  useUpdateTaskMutation,
+} from "@/app/hooks/useTasksApi";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 import { activeTaskStatuses, firstTerminalStatusId, defaultNonTerminalStatusId, isTaskStatusTerminal } from "../lib/taskStatusHelpers";
 import { ProjectPicker } from "./ProjectPicker";
+import { AssigneePicker, type AssigneeOption } from "./AssigneePicker";
+import { TaskThread } from "./TaskThread";
+import { toast } from "sonner";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -67,6 +77,10 @@ interface TaskDrawerProps {
   projects?: TaskDrawerProjectOption[];
   isSaving?: boolean;
   isDeleting?: boolean;
+  /** When true, the viewer can add/remove assignees (owner/admin). */
+  canAssign?: boolean;
+  members?: AssigneeOption[];
+  currentUserId?: string;
 }
 
 // ─── TaskDrawer ───────────────────────────────────────────────────────────────
@@ -83,6 +97,9 @@ export function TaskDrawer({
   projects = [],
   isSaving,
   isDeleting,
+  canAssign,
+  members = [],
+  currentUserId,
 }: TaskDrawerProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -188,6 +205,45 @@ export function TaskDrawer({
         });
       },
     });
+  }
+
+  // ── Assignees ──────────────────────────────────────────────────────────────
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  useEffect(() => {
+    setAssigneeIds((task?.assignees ?? []).map((a) => a.userId));
+  }, [task?.id, task?.assignees]);
+
+  const assignMutation = useAssignTaskMutation(workspaceId, {
+    onSuccess: (data) =>
+      setAssigneeIds((data.assignees ?? []).map((a) => a.userId)),
+    onError: (err, vars) => {
+      toast.error(err.message);
+      // Roll back optimistic state
+      setAssigneeIds((task?.assignees ?? []).map((a) => a.userId));
+    },
+  });
+  const unassignMutation = useUnassignTaskMutation(workspaceId, {
+    onSuccess: (data) =>
+      setAssigneeIds((data.assignees ?? []).map((a) => a.userId)),
+    onError: (err) => {
+      toast.error(err.message);
+      setAssigneeIds((task?.assignees ?? []).map((a) => a.userId));
+    },
+  });
+
+  function handleAssigneeChange(nextIds: string[]) {
+    if (!task) return;
+    const current = new Set(assigneeIds);
+    const next = new Set(nextIds);
+    const toAdd = nextIds.filter((id) => !current.has(id));
+    const toRemove = assigneeIds.filter((id) => !next.has(id));
+    setAssigneeIds(nextIds); // optimistic
+    if (toAdd.length > 0) {
+      assignMutation.mutate({ taskId: task.id, userIds: toAdd });
+    }
+    for (const uid of toRemove) {
+      unassignMutation.mutate({ taskId: task.id, userId: uid });
+    }
   }
 
   // ── Focus log ──────────────────────────────────────────────────────────────
@@ -339,6 +395,20 @@ export function TaskDrawer({
                   projects={projects}
                   value={projectId}
                   onChange={mark(setProjectId)}
+                  triggerClassName="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 focus-visible:ring-1"
+                />
+              </PropRow>
+            )}
+
+            {(members.some((m) => m.userId !== currentUserId) ||
+              assigneeIds.length > 0) && (
+              <PropRow label="Assignees">
+                <AssigneePicker
+                  members={members}
+                  selected={assigneeIds}
+                  onChange={handleAssigneeChange}
+                  disabled={!canAssign}
+                  currentUserId={currentUserId}
                   triggerClassName="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 focus-visible:ring-1"
                 />
               </PropRow>
@@ -573,6 +643,20 @@ export function TaskDrawer({
                 ))}
               </div>
             )}
+          </div>
+
+          {/* ── Thread ────────────────────────────────────────────── */}
+          <div className="px-6 py-4 border-t border-border/40">
+            <SectionHeader title="Comments & Activity" />
+            <TaskThread
+              workspaceId={workspaceId}
+              taskId={task.id}
+              currentUserId={currentUserId}
+              canComment={
+                canAssign ||
+                assigneeIds.includes(currentUserId ?? "")
+              }
+            />
           </div>
 
           {/* ── Metadata ──────────────────────────────────────────── */}

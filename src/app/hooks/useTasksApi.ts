@@ -7,7 +7,7 @@ import {
   type UseQueryOptions,
   type UseMutationOptions,
 } from "@tanstack/react-query";
-import type { Task } from "@/lib/types";
+import type { Task, ThreadItem } from "@/lib/types";
 import {
   tasksApi,
   type CreateTaskBody,
@@ -381,6 +381,56 @@ export function useLogTaskFocusMutation(
   });
 }
 
+function patchTaskCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  workspaceId: string,
+  task: Task,
+) {
+  queryClient.setQueryData(TASK_QUERY_KEY(workspaceId, task.id), task);
+  queryClient.setQueriesData<TasksPage>(
+    { queryKey: TASKS_QUERY_KEY(workspaceId) },
+    (old) => {
+      if (!old?.tasks) return old;
+      return {
+        ...old,
+        tasks: old.tasks.map((t) => (t.id === task.id ? task : t)),
+      };
+    },
+  );
+}
+
+export function useAssignTaskMutation(
+  workspaceId: string | null | undefined,
+  options?: UseMutationOptions<Task, Error, { taskId: string; userIds: string[] }>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, userIds }) =>
+      tasksApi.assign(workspaceId!, taskId, userIds),
+    ...options,
+    onSuccess: (data, variables, context, mutation) => {
+      patchTaskCaches(queryClient, workspaceId ?? "", data);
+      options?.onSuccess?.(data, variables, context, mutation);
+    },
+  });
+}
+
+export function useUnassignTaskMutation(
+  workspaceId: string | null | undefined,
+  options?: UseMutationOptions<Task, Error, { taskId: string; userId: string }>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, userId }) =>
+      tasksApi.unassign(workspaceId!, taskId, userId),
+    ...options,
+    onSuccess: (data, variables, context, mutation) => {
+      patchTaskCaches(queryClient, workspaceId ?? "", data);
+      options?.onSuccess?.(data, variables, context, mutation);
+    },
+  });
+}
+
 export function useBulkTasksMutation(
   workspaceId: string | null | undefined,
   options?: UseMutationOptions<{ affected: number }, Error, BulkTaskBody>
@@ -411,6 +461,62 @@ export function useBulkTasksMutation(
     onSuccess: (data, variables, context, mutation) => {
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? "") });
       options?.onSuccess?.(data, variables, context, mutation);
+    },
+  });
+}
+
+export const THREAD_QUERY_KEY = (workspaceId: string, taskId: string) =>
+  ["thread", workspaceId, taskId] as const;
+
+export function useThreadQuery(
+  workspaceId: string | null | undefined,
+  taskId: string | null | undefined,
+  options?: Omit<UseQueryOptions<ThreadItem[]>, "queryKey" | "queryFn">
+) {
+  return useQuery({
+    queryKey: THREAD_QUERY_KEY(workspaceId ?? "", taskId ?? ""),
+    queryFn: () => tasksApi.getThread(workspaceId!, taskId!),
+    enabled: !!workspaceId && !!taskId,
+    ...options,
+  });
+}
+
+export function usePostCommentMutation(
+  workspaceId: string | null | undefined,
+  taskId: string | null | undefined,
+  options?: UseMutationOptions<ThreadItem, Error, string>
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (content: string) =>
+      tasksApi.postComment(workspaceId!, taskId!, content),
+    ...options,
+    onSuccess: (item, variables, context, mutation) => {
+      queryClient.setQueryData<ThreadItem[]>(
+        THREAD_QUERY_KEY(workspaceId ?? "", taskId ?? ""),
+        (prev) => (prev ? [...prev, item] : [item])
+      );
+      options?.onSuccess?.(item, variables, context, mutation);
+    },
+  });
+}
+
+export function useDeleteCommentMutation(
+  workspaceId: string | null | undefined,
+  taskId: string | null | undefined,
+  options?: UseMutationOptions<void, Error, string>
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (commentId: string) =>
+      tasksApi.deleteComment(workspaceId!, taskId!, commentId),
+    ...options,
+    onSuccess: (_, commentId, context, mutation) => {
+      queryClient.setQueryData<ThreadItem[]>(
+        THREAD_QUERY_KEY(workspaceId ?? "", taskId ?? ""),
+        (prev) => prev?.filter((i) => i.id !== commentId)
+      );
+      options?.onSuccess?.(_, commentId, context, mutation);
     },
   });
 }

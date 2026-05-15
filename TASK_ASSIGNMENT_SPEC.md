@@ -219,13 +219,17 @@ Same filter applied to `tasks.findOne()` and dashboard queries.
 
 ## Migration Plan
 
+> **DB environment note**: There is a single Supabase instance shared across all branches. Any migration run locally lands on that database immediately. Steps 1–2 and 4–7 are purely additive and safe to run at any time. Step 3 is the exception — see warning below.
+
 1. Add `creatorId` to `Task` as nullable first, run migration
 2. Backfill: set `creatorId` to workspace owner for all existing tasks per workspace
-3. Make `creatorId` non-nullable
+3. Make `creatorId` non-nullable — ⚠️ **run this only when the server is already running the new code that sets `creatorId` on task creation**. If the old server code is still active, task creation will throw a DB constraint error.
 4. Add `canSeeAllTasks` to `WorkspaceMember`, default `false`
 5. Backfill: set `canSeeAllTasks = true` for all existing members
 6. Add `TaskAssignee`, `TaskComment`, `TaskActivity` tables
 7. Validate existing `role` values — ensure all workspace creators have `role = "owner"`
+
+> **Branch**: Both `productivity-client` and `productivity-server` use the `tasks` branch for this feature.
 
 ---
 
