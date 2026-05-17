@@ -334,7 +334,7 @@ export function TaskDrawer({
             value={title}
             onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) e.preventDefault(); }}
-            className="w-full text-lg font-semibold bg-transparent resize-none outline-none leading-snug placeholder:text-muted-foreground/40"
+            className="w-full text-lg font-semibold bg-muted/40 resize-none outline-none leading-snug placeholder:text-muted-foreground/40 rounded-lg px-3 py-3 min-h-[72px] focus:bg-muted/60 transition-colors"
             rows={1}
             placeholder="Task title…"
           />
