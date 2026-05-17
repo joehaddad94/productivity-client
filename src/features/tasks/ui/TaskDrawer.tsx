@@ -249,9 +249,13 @@ export function TaskDrawer({
   // ── Focus log ──────────────────────────────────────────────────────────────
   const logFocusMutation = useLogTaskFocusMutation(workspaceId, {
     onSuccess: (updated) => {
+      // Sync with server value in case of drift
       setFocusMinutes(updated.focusMinutes ?? 0);
-      setLogMinutes("");
-      setShowLogInput(false);
+    },
+    onError: (_err, { minutes }) => {
+      // Roll back the optimistic increment
+      setFocusMinutes((prev) => Math.max(0, prev - minutes));
+      toast.error("Failed to log focus time. Please try again.");
     },
   });
 
@@ -259,6 +263,10 @@ export function TaskDrawer({
     if (!task) return;
     const mins = parseInt(logMinutes, 10);
     if (!mins || mins <= 0) return;
+    // Optimistic update — close the input and show new value immediately
+    setFocusMinutes((prev) => prev + mins);
+    setLogMinutes("");
+    setShowLogInput(false);
     logFocusMutation.mutate({ id: task.id, minutes: mins });
   }
 
@@ -326,7 +334,7 @@ export function TaskDrawer({
             value={title}
             onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) e.preventDefault(); }}
-            className="w-full text-lg font-semibold bg-transparent resize-none outline-none leading-snug placeholder:text-muted-foreground/40"
+            className="w-full text-lg font-semibold bg-muted/40 resize-none outline-none leading-snug placeholder:text-muted-foreground/40 rounded-lg px-3 py-3 min-h-[72px] focus:bg-muted/60 transition-colors"
             rows={1}
             placeholder="Task title…"
           />
@@ -474,10 +482,10 @@ export function TaskDrawer({
                     <button
                       type="button"
                       onClick={handleLogFocus}
-                      disabled={!logMinutes || parseInt(logMinutes, 10) <= 0 || logFocusMutation.isPending}
+                      disabled={!logMinutes || parseInt(logMinutes, 10) <= 0}
                       className="h-7 px-2.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors cursor-pointer shrink-0"
                     >
-                      {logFocusMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Log"}
+                      Log
                     </button>
                     <button
                       type="button"
