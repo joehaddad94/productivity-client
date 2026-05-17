@@ -1007,6 +1007,7 @@ export function TasksScreen() {
   const [sortBy, setSortBy] = useState<"default" | "due" | "priority">("default");
   const [bulkProjectOpen, setBulkProjectOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const savedCollapsedIds = useRef<Set<string>>(new Set());
 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -1424,7 +1425,7 @@ export function TasksScreen() {
                     </PopoverContent>
                   </Popover>
                   <Button size="sm" variant="outline" onClick={handleBulkComplete} disabled={bulkMutation.isPending}>Mark complete</Button>
-                  <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={handleBulkDelete} disabled={bulkMutation.isPending}>Delete</Button>
+                  <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => setConfirmBulkDelete(true)} disabled={bulkMutation.isPending}>Delete</Button>
                 </div>
               )}
             </div>
@@ -1537,6 +1538,27 @@ export function TasksScreen() {
               className="disabled:opacity-50"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmBulkDelete} onOpenChange={(open) => { if (!open) setConfirmBulkDelete(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected tasks and all their subtasks. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setConfirmBulkDelete(false); handleBulkDelete(); }}
+              disabled={bulkMutation.isPending}
+              className="disabled:opacity-50"
+            >
+              Delete {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
