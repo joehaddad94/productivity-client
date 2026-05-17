@@ -249,9 +249,13 @@ export function TaskDrawer({
   // ── Focus log ──────────────────────────────────────────────────────────────
   const logFocusMutation = useLogTaskFocusMutation(workspaceId, {
     onSuccess: (updated) => {
+      // Sync with server value in case of drift
       setFocusMinutes(updated.focusMinutes ?? 0);
-      setLogMinutes("");
-      setShowLogInput(false);
+    },
+    onError: (_err, { minutes }) => {
+      // Roll back the optimistic increment
+      setFocusMinutes((prev) => Math.max(0, prev - minutes));
+      toast.error("Failed to log focus time. Please try again.");
     },
   });
 
@@ -259,6 +263,10 @@ export function TaskDrawer({
     if (!task) return;
     const mins = parseInt(logMinutes, 10);
     if (!mins || mins <= 0) return;
+    // Optimistic update — close the input and show new value immediately
+    setFocusMinutes((prev) => prev + mins);
+    setLogMinutes("");
+    setShowLogInput(false);
     logFocusMutation.mutate({ id: task.id, minutes: mins });
   }
 
@@ -474,10 +482,10 @@ export function TaskDrawer({
                     <button
                       type="button"
                       onClick={handleLogFocus}
-                      disabled={!logMinutes || parseInt(logMinutes, 10) <= 0 || logFocusMutation.isPending}
+                      disabled={!logMinutes || parseInt(logMinutes, 10) <= 0}
                       className="h-7 px-2.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors cursor-pointer shrink-0"
                     >
-                      {logFocusMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Log"}
+                      Log
                     </button>
                     <button
                       type="button"
