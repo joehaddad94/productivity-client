@@ -1,63 +1,60 @@
 # Productivity App — To Do
 
 ## Reliability
-- [x] **Error monitoring (Sentry)** — know when things break in production before users report it (free tier: 5k errors/month)
-- [x] **Error boundaries** — route-level (`error.tsx`) and root-level (`global-error.tsx`) boundaries in place; both capture to Sentry
-- [ ] **API retry logic** — create shared `ApiError` class (with `status` field) + shared `apiFetch` helper; update all ~12 API files to use it; configure React Query `retry` to skip 4xx and retry 5xx/network errors up to 2x with exponential backoff; follow up with full E2E suite to confirm nothing broke
+- [x] **Error monitoring (Sentry)** — client + server; route and root error boundaries; captures to Sentry
+- [x] **Error boundaries** — route-level (`error.tsx`) and root-level (`global-error.tsx`)
+- [ ] **API retry logic** — shared `ApiError` class + `apiFetch` helper; React Query retry: skip 4xx, retry 5xx/network up to 2× with exponential backoff
 
 ## Performance
-- [x] **Bundle size audit** — lazy-loaded Tiptap (notes only) and Recharts (analytics only) with `next/dynamic`; removed unused `motion` package
-- [~] **HTTP caching headers** — skipped; React Query `staleTime: 2min` already covers client-side caching; HTTP cache adds stale data risk with marginal benefit for a single-user app
-- [x] **Database indexing** — Prisma schema has composite indexes on all major tables (Task, Note, Project, Notification, etc.)
+- [x] **Bundle size audit** — lazy-loaded Tiptap and Recharts with `next/dynamic`; removed unused `motion`
+- [x] **Database indexing** — composite indexes on Task, Note, Project, Notification tables
+- [x] **Focus time logging speed** — was 4–5s; cut to ~500ms by replacing heavy `findOne` with lightweight existence check and parallelising the two DB writes
+- [x] **Task reorder (drag-and-drop)** — was crashing with 500 on large lists (transaction timeout); replaced N sequential updates with a single `UPDATE CASE WHEN` query (~580ms for 32 tasks)
+- [x] **Tasks page load** — eliminated a separate `/projects` request by embedding `project {id, name}` in each task response; project names on rows no longer require a second round-trip
+- [~] **HTTP caching headers** — skipped; React Query `staleTime` already covers client-side caching adequately
+- [~] **Members request on tasks page** — deferred; members finish loading 1s before tasks anyway so no gain in deferring
 
 ## Security
-- [ ] **Content Security Policy headers** — add CSP headers on the server (helmet not installed)
-- [x] **Rate limiting** — global 100 req/min per IP via `@nestjs/throttler`; health check excluded; magic link custom limiter (3/email/10min) unchanged
-- [~] **Dependency audit** — client: upgraded Next.js 16.2.6 (fixed high DoS); server: `npm audit fix` corrupts Prisma node_modules on Windows, skip for now; remaining issues are low real-world risk (OTel/dev-only deps)
+- [ ] **Content Security Policy headers** — helmet not installed on server
+- [x] **Rate limiting** — global 100 req/min per IP via `@nestjs/throttler`; health excluded; magic link has its own limiter (3/email/10min)
+- [~] **Dependency audit** — Next.js upgraded to 16.2.6; server `npm audit fix` corrupts Prisma on Windows; remaining issues are low-risk dev-only deps
 
 ## Accessibility
-- [x] **Keyboard navigation audit** — NoteCard/notification rows → button; icon-only buttons → aria-label + type; Escape closes notification panel and pomodoro widget; mobile overlay gets Escape handler; heatmap cells → button; ColorPicker/PriorityToggle → focus-visible:ring + aria-pressed
-- [x] **Screen reader support** — aria-label on all icon-only buttons; role="alert" on all error messages; role="progressbar" on today's progress bar; streak/activity dots get aria-label; decorative icons get aria-hidden; date/time inputs get aria-label; pomodoro task picker search labeled; session dots labeled
-- [x] **Color contrast check** — fixed 3 failures: muted-foreground #71717a→#6d6d73 (was 4.39:1 on muted bg, now 4.68:1); medium priority badge amber-600→amber-700 (was 2.89:1, now 4.84:1); high priority badge red-600→red-700 (was 4.02:1, now 5.91:1); dark mode gets amber-400/red-400 for same badges
+- [x] **Keyboard navigation** — all interactive elements reachable; Escape closes panels/widgets
+- [x] **Screen reader support** — aria-labels, roles, and aria-hidden throughout
+- [x] **Color contrast** — 3 WCAG failures fixed (muted-foreground, medium/high priority badges)
+
+## UX Fixes
+- [x] **Optimistic focus time logging** — counter updates instantly in the drawer; rolls back on error
+- [x] **Pending task rows** — tasks created via quick-add are dimmed with a spinner while saving; all interactions disabled until the real ID arrives from the server
+- [x] **Bulk delete confirmation** — now asks "Delete N tasks?" before proceeding, same as single task delete
+- [x] **Task title input** — enlarged in the right panel for easier editing
 
 ## DevOps
-- [ ] **CI/CD pipeline** — run tests automatically on every push (GitHub Actions)
-- [ ] **Staging environment** — separate env from production for safe testing
-- [ ] **Automated deployments** — deploy on merge to main without manual steps
+- [ ] **CI/CD pipeline** — GitHub Actions: run tests on every push
+- [ ] **Staging environment** — separate environment from production
+- [ ] **Automated deployments** — deploy on merge to main
 
 ## Observability
-- [~] **Structured logging** — skipped; Sentry already covers errors, performance, and searchable traces
-- [~] **Uptime monitoring** — deferred to production deployment; health endpoint at GET /health is ready
+- [x] **Grafana / OpenTelemetry** — traces and metrics flowing to Grafana Cloud; `npm run otel:test-export` to verify pipeline; `npm run grafana:check-data` to query live metrics
+- [~] **Structured logging** — skipped; Sentry covers errors and traces
+- [~] **Uptime monitoring** — deferred to production; `GET /health` endpoint is ready
 
-## Marketing Site & Documentation
-> Goal: same Next.js app, separate layout for public-facing pages. Target: individuals. Currently in closed beta.
+## Marketing Site
+> Same Next.js app, separate layout for public-facing pages. Currently in closed beta.
 
-### Routing plan
-Use Next.js route groups to separate marketing from the app:
-- `src/app/(marketing)/` — new layout: navbar + footer, no sidebar
-- `src/app/(app)/` — existing layout: sidebar (dashboard, tasks, notes, etc.)
+### Routing
+- `src/app/(marketing)/` — navbar + footer, no sidebar
+- `src/app/(app)/` — existing sidebar layout (unchanged)
 
 ### Pages to build
-- [ ] **`/` Landing page** — hero, feature highlights, CTA buttons
-- [ ] **`/features` Features page** — breakdown of all major features
-- [ ] **`/pricing` Pricing page** — placeholder "Free during beta" for now; real tiers TBD
-- [ ] **`/docs` Docs** — feature guides; depth and structure TBD
-- [ ] **`/changelog` Changelog** — static for now; update strategy TBD
-- [ ] **FAQ** — optional, add if needed
-
-### Marketing navbar behaviour
-- User not logged in → show **Login** + **Get started** (→ `/register`)
-- User logged in → show **Go to dashboard** (→ `/dashboard`)
-
-### Design
-- Match the existing app aesthetic (Linear/Notion style, Inter font, same CSS variables)
-- No separate design needed — derive from existing design system
+- [ ] `/` Landing page — hero, feature highlights, CTA
+- [ ] `/features` — breakdown of all major features
+- [ ] `/pricing` — "Free during beta" placeholder
+- [ ] `/docs` — feature guides
+- [ ] `/changelog` — static for now
 
 ### In-app onboarding (phase 2)
-- First-login onboarding modal: create workspace → add task → try pomodoro
-- Richer empty states that guide new users
-- `/help` page with keyboard shortcuts and feature overview
-
-### Docs site (phase 3 — when going public)
-- Mintlify connected to GitHub repo (reads markdown files)
-- Or Notion public page for zero-maintenance option
+- [ ] First-login modal: create workspace → add task → try Pomodoro
+- [ ] Richer empty states guiding new users
+- [ ] `/help` page with keyboard shortcuts
