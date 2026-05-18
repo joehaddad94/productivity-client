@@ -125,6 +125,8 @@ export function TaskDrawer({
   onSaveRef.current = onSave;
   const taskRef = useRef(task);
   taskRef.current = task;
+  // Text fields debounce longer; instant selections (dropdowns, dates) debounce short
+  const saveDelayRef = useRef(300);
 
   // Auto-resize title textarea
   useLayoutEffect(() => {
@@ -153,9 +155,10 @@ export function TaskDrawer({
     setIsDirty(false);
   }, [task?.id, open]);
 
-  // Auto-save — debounced 700ms after last change
+  // Auto-save — text fields debounce 1500ms, instant selections debounce 300ms
   useEffect(() => {
     if (!isDirty) return;
+    const delay = saveDelayRef.current;
     const timer = setTimeout(() => {
       const t = taskRef.current;
       if (!t) return;
@@ -170,7 +173,7 @@ export function TaskDrawer({
         projectId: projectId ?? null,
       });
       setIsDirty(false);
-    }, 700);
+    }, delay);
     return () => clearTimeout(timer);
   }, [isDirty, title, description, status, priority, dueDate, dueTime, recurrenceRule, projectId]);
 
@@ -297,7 +300,7 @@ export function TaskDrawer({
   const projectName = projects.find((p) => p.id === (projectId ?? task.projectId))?.name;
 
   function mark(setter: (v: any) => void) {
-    return (v: any) => { setter(v); setIsDirty(true); };
+    return (v: any) => { setter(v); saveDelayRef.current = 300; setIsDirty(true); };
   }
 
   return (
@@ -332,7 +335,7 @@ export function TaskDrawer({
           <textarea
             ref={titleRef}
             value={title}
-            onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
+            onChange={(e) => { setTitle(e.target.value); saveDelayRef.current = 1500; setIsDirty(true); }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) e.preventDefault(); }}
             className="w-full text-lg font-semibold bg-muted/40 resize-none outline-none leading-snug placeholder:text-muted-foreground/40 rounded-lg px-3 py-3 min-h-[72px] focus:bg-muted/60 transition-colors"
             rows={1}
@@ -357,7 +360,7 @@ export function TaskDrawer({
           <div className="px-6 pt-4 pb-2">
             <textarea
               value={description}
-              onChange={(e) => { setDescription(e.target.value); setIsDirty(true); }}
+              onChange={(e) => { setDescription(e.target.value); saveDelayRef.current = 1500; setIsDirty(true); }}
               rows={description ? undefined : 2}
               placeholder="Add a description…"
               className="w-full text-sm text-muted-foreground bg-transparent resize-none outline-none leading-relaxed placeholder:text-muted-foreground/35 focus:placeholder:text-muted-foreground/50 min-h-[2.5rem]"
@@ -426,7 +429,7 @@ export function TaskDrawer({
               <input
                 type="date"
                 value={dueDate}
-                onChange={(e) => { setDueDate(e.target.value); if (!e.target.value) setDueTime(""); setIsDirty(true); }}
+                onChange={(e) => { setDueDate(e.target.value); if (!e.target.value) setDueTime(""); saveDelayRef.current = 300; setIsDirty(true); }}
                 className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
               />
             </PropRow>
@@ -436,7 +439,7 @@ export function TaskDrawer({
                 <input
                   type="time"
                   value={dueTime}
-                  onChange={(e) => { setDueTime(e.target.value); setIsDirty(true); }}
+                  onChange={(e) => { setDueTime(e.target.value); saveDelayRef.current = 300; setIsDirty(true); }}
                   className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
                 />
               </PropRow>
