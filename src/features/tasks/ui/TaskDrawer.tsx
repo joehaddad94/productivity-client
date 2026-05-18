@@ -169,7 +169,7 @@ export function TaskDrawer({
         priority: priority === "none" ? undefined : priority as "low" | "medium" | "high",
         dueDate: dueDate || undefined,
         dueTime: dueTime || undefined,
-        recurrenceRule: recurrenceRule === "none" ? undefined : recurrenceRule as "DAILY" | "WEEKLY" | "MONTHLY",
+        recurrenceRule: recurrenceRule === "none" ? null : recurrenceRule as "DAILY" | "WEEKLY" | "MONTHLY",
         projectId: projectId ?? null,
       });
       setIsDirty(false);
@@ -446,7 +446,16 @@ export function TaskDrawer({
             )}
 
             <PropRow label="Repeat">
-              <Select value={recurrenceRule} onValueChange={mark(setRecurrenceRule)}>
+              <Select
+                value={recurrenceRule}
+                onValueChange={(v) => {
+                  if (v !== "none" && !dueDate) {
+                    toast.warning("Add a due date first — recurring tasks need one to schedule the next occurrence.");
+                    return;
+                  }
+                  mark(setRecurrenceRule)(v);
+                }}
+              >
                 <SelectTrigger className="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 cursor-pointer focus-visible:ring-1">
                   <SelectValue placeholder="No repeat" />
                 </SelectTrigger>
