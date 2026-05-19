@@ -126,6 +126,7 @@ export function ProjectDetailScreen({
         onStatusChange={(value) =>
           updateMutation.mutate({ id: project.id, body: { status: value } })
         }
+        isSaving={updateMutation.isPending}
       />
 
       <ProjectDetailTabBar

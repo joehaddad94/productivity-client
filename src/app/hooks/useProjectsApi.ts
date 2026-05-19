@@ -66,6 +66,7 @@ export function useProjectQuery(
     queryKey: PROJECT_QUERY_KEY(workspaceId ?? "", id ?? ""),
     queryFn: () => projectsApi.get(workspaceId!, id!),
     enabled: !!workspaceId && !!id,
+    staleTime: 5 * 60_000,
     ...options,
   });
 }

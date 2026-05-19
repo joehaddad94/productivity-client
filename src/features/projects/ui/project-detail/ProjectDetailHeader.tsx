@@ -11,11 +11,13 @@ export function ProjectDetailHeader({
   onSaveName,
   onSaveDescription,
   onStatusChange,
+  isSaving,
 }: {
   project: Project;
   onSaveName: (name: string) => void;
   onSaveDescription: (description: string) => void;
   onStatusChange: (status: string) => void;
+  isSaving?: boolean;
 }) {
   const dot = PROJECT_DETAIL_COLOR_DOT[project.color ?? ""] ?? "bg-primary/30";
 
@@ -28,6 +30,7 @@ export function ProjectDetailHeader({
           onSave={onSaveName}
           placeholder="Project name"
           className="text-2xl font-semibold tracking-tight flex-1"
+          isPending={isSaving}
         />
         <Select value={project.status ?? "active"} onValueChange={onStatusChange}>
           <SelectTrigger
@@ -65,6 +68,7 @@ export function ProjectDetailHeader({
         placeholder="Add a description…"
         className="text-sm text-muted-foreground"
         multiline
+        isPending={isSaving}
       />
     </div>
   );
