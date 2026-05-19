@@ -284,7 +284,7 @@ export function useUpdateTaskMutation(
           track("task_completed", {
             had_due_date: !!data.dueDate,
             had_priority: !!data.priority,
-            focus_minutes: data.focusMinutes,
+            focus_minutes: data.focusMinutes ?? 0,
           });
           if (!localStorage.getItem("ph_first_task_completed")) {
             track("first_task_completed", {});
