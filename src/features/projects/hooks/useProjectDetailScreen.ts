@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import {
+  PROJECT_QUERY_KEY,
   useProjectQuery,
   useUpdateProjectMutation,
   useDeleteProjectMutation,
@@ -18,7 +20,7 @@ import {
 } from "@/app/hooks/useTasksApi";
 import { useNotesQuery, useCreateNoteMutation } from "@/app/hooks/useNotesApi";
 import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
-import type { TaskStatusDefinition } from "@/lib/types";
+import type { Project, TaskStatusDefinition } from "@/lib/types";
 import {
   defaultNonTerminalStatusId,
   ensureTaskStatuses,
@@ -35,8 +37,27 @@ export function useProjectDetailScreen(
   { initialTab = "tasks" }: { initialTab?: "tasks" | "notes" } = {},
 ) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
+
+  const adjustProjectCount = useCallback((field: "tasks" | "notes", delta: number) => {
+    if (!workspaceId) return;
+    queryClient.setQueryData<Project>(
+      PROJECT_QUERY_KEY(workspaceId, projectId),
+      (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          _count: {
+            tasks: old._count?.tasks ?? 0,
+            notes: old._count?.notes ?? 0,
+            [field]: (old._count?.[field] ?? 0) + delta,
+          },
+        };
+      },
+    );
+  }, [queryClient, workspaceId, projectId]);
 
   const { data: rawTaskStatuses = [] } = useTaskStatusesQuery(workspaceId);
   const taskStatuses: TaskStatusDefinition[] = useMemo(
@@ -170,7 +191,7 @@ export function useProjectDetailScreen(
   });
 
   const createTaskMutation = useCreateTaskMutation(workspaceId, {
-    onSuccess: () => toast.success("Task added"),
+    onSuccess: () => { toast.success("Task added"); adjustProjectCount("tasks", 1); },
     onError: (err) => toast.error(err.message),
   });
 
@@ -179,6 +200,7 @@ export function useProjectDetailScreen(
   });
 
   const deleteTaskMutation = useDeleteTaskMutation(workspaceId, {
+    onSuccess: () => adjustProjectCount("tasks", -1),
     onError: (err) => toast.error(err.message),
   });
 
@@ -187,7 +209,7 @@ export function useProjectDetailScreen(
   });
 
   const createNoteMutation = useCreateNoteMutation(workspaceId, {
-    onSuccess: () => toast.success("Note added"),
+    onSuccess: () => { toast.success("Note added"); adjustProjectCount("notes", 1); },
     onError: (err) => toast.error(err.message),
   });
 
@@ -238,6 +260,7 @@ export function useProjectDetailScreen(
       {
         onSuccess: ({ affected }) => {
           toast.success(`${affected} task${affected !== 1 ? "s" : ""} deleted`);
+          adjustProjectCount("tasks", -affected);
           setSelectedIds(new Set());
           setIsSelectMode(false);
           onDone?.();
@@ -248,7 +271,7 @@ export function useProjectDetailScreen(
 
   const handleDeleteTask = (id: string) => {
     deleteTaskMutation.mutate(id, {
-      onSuccess: () => toast.success("Task deleted"),
+      onSuccess: () => { toast.success("Task deleted"); },
     });
   };
 
