@@ -15,7 +15,7 @@ export function initAnalytics() {
 
 export function identifyUser(id: string, props: { name?: string | null; email?: string }) {
   if (typeof window === "undefined") return;
-  posthog.identify(id, { name: props.name ?? undefined, email: props.email });
+  posthog.identify(id, { $name: props.name ?? undefined, $email: props.email });
 }
 
 export function resetAnalyticsUser() {
@@ -24,20 +24,27 @@ export function resetAnalyticsUser() {
 }
 
 type EventMap = {
+  // Session
+  app_opened:                {};
+  feature_visited:           { feature: string };
+
   // Core engagement
-  task_created:              { has_due_date: boolean; has_priority: boolean; is_recurring: boolean; has_project: boolean };
-  task_completed:            { had_due_date: boolean; had_priority: boolean };
-  note_created:              {};
+  task_created:              { has_due_date: boolean; has_priority: boolean; is_recurring: boolean; has_project: boolean; has_assignee: boolean; is_subtask: boolean };
+  task_completed:            { had_due_date: boolean; had_priority: boolean; focus_minutes: number };
+  note_created:              { has_tags: boolean; has_linked_task: boolean };
   pomodoro_session_completed: { session_type: "work" | "short_break" | "long_break"; duration_minutes: number; had_linked_task: boolean };
+  pomodoro_session_started:  { session_type: "work" | "short_break" | "long_break"; had_linked_task: boolean };
+  pomodoro_session_abandoned: { session_type: "work" | "short_break" | "long_break"; seconds_remaining: number; had_linked_task: boolean };
 
   // Feature adoption
   calendar_connected:        { provider: "google" | "microsoft" };
   recurring_task_created:    { rule: "DAILY" | "WEEKLY" | "MONTHLY" };
   note_converted_to_task:    {};
 
-  // Onboarding
+  // Activation
   workspace_created:         {};
   first_task_created:        {};
+  first_task_completed:      {};
   first_note_created:        {};
 };
 
