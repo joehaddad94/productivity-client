@@ -35,7 +35,7 @@ export function ProjectDetailHeader({
         <Select value={project.status ?? "active"} onValueChange={onStatusChange} disabled={isSaving}>
           <SelectTrigger
             size="sm"
-            className="w-auto text-xs shrink-0"
+            className="w-auto text-xs shrink-0 cursor-pointer"
             aria-label="Project status"
           >
             <SelectValue />

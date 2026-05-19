@@ -45,7 +45,7 @@ export function InlineText({
             setDraft(value);
             setEditing(true);
           }}
-          className={cn("text-left flex-1 min-w-0 hover:opacity-70 transition-opacity", isPending && "opacity-60", className)}
+          className={cn("text-left flex-1 min-w-0 cursor-pointer hover:opacity-70 transition-opacity", isPending && "opacity-60", className)}
         >
           {value || <span className="text-muted-foreground/50 italic">{placeholder}</span>}
         </button>

@@ -23,7 +23,12 @@ import {
   defaultNonTerminalStatusId,
   ensureTaskStatuses,
   firstTerminalStatusId,
+  isTaskStatusTerminal,
 } from "@/features/tasks/lib/taskStatusHelpers";
+
+const HIDE_COMPLETED_KEY = "project_detail_hide_completed";
+const TASKS_PAGE_SIZE = 50;
+const NOTES_PAGE_SIZE = 50;
 
 export function useProjectDetailScreen(
   projectId: string,
@@ -45,10 +50,32 @@ export function useProjectDetailScreen(
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // View preferences (persisted)
+  const [hideCompleted, setHideCompleted] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(HIDE_COMPLETED_KEY) === "1";
+  });
+
+  // Pagination
+  const [tasksLimit, setTasksLimit] = useState(TASKS_PAGE_SIZE);
+  const [notesLimit, setNotesLimit] = useState(NOTES_PAGE_SIZE);
+
+  // Task status filter
+  const [selectedStatusIds, setSelectedStatusIds] = useState<Set<string>>(new Set());
+
+  // Notes filters
+  const [noteSearch, setNoteSearch] = useState("");
+  const [selectedNoteTags, setSelectedNoteTags] = useState<Set<string>>(new Set());
+
   // Sync activeTab with URL changes (browser back/forward)
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  // Persist preferences
+  useEffect(() => {
+    localStorage.setItem(HIDE_COMPLETED_KEY, hideCompleted ? "1" : "0");
+  }, [hideCompleted]);
 
   const isValidProjectId = !projectId.startsWith("temp_");
 
@@ -58,17 +85,77 @@ export function useProjectDetailScreen(
 
   const { data: tasksPage, isLoading: tasksLoading } = useTasksQuery(
     workspaceId,
-    { projectId, limit: 100 },
+    { projectId, limit: tasksLimit },
     { enabled: !!workspaceId && isValidProjectId && activeTab === "tasks" },
   );
   const tasks = tasksPage?.tasks ?? [];
+  const tasksTotal = tasksPage?.total ?? 0;
 
   const { data: notesPage, isLoading: notesLoading } = useNotesQuery(
     workspaceId,
-    { projectId, limit: 100 },
+    { projectId, limit: notesLimit },
     { enabled: !!workspaceId && isValidProjectId && activeTab === "notes" },
   );
   const notes = notesPage?.notes ?? [];
+  const notesTotal = notesPage?.total ?? 0;
+
+  // Tasks: filter (hide completed + status)
+  const visibleTasks = useMemo(() => {
+    let result = tasks;
+    if (hideCompleted) {
+      result = result.filter((t) => !isTaskStatusTerminal(t.status, taskStatuses));
+    }
+    if (selectedStatusIds.size > 0) {
+      result = result.filter((t) => selectedStatusIds.has(t.status ?? ""));
+    }
+    return result;
+  }, [tasks, hideCompleted, selectedStatusIds, taskStatuses]);
+
+  const toggleStatusFilter = useCallback((statusId: string) => {
+    setSelectedStatusIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(statusId)) next.delete(statusId);
+      else next.add(statusId);
+      return next;
+    });
+  }, []);
+
+  // Notes: all tags + filter (search + tags)
+  const noteTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const n of notes) for (const t of n.tags ?? []) set.add(t);
+    return Array.from(set).sort();
+  }, [notes]);
+
+  const visibleNotes = useMemo(() => {
+    let result = notes;
+    const q = noteSearch.trim().toLowerCase();
+    if (q) {
+      result = result.filter((n) => {
+        const inTitle = n.title.toLowerCase().includes(q);
+        const inContent = (n.content ?? "").toLowerCase().includes(q);
+        return inTitle || inContent;
+      });
+    }
+    if (selectedNoteTags.size > 0) {
+      result = result.filter((n) =>
+        (n.tags ?? []).some((t) => selectedNoteTags.has(t)),
+      );
+    }
+    return result;
+  }, [notes, noteSearch, selectedNoteTags]);
+
+  const handleLoadMoreTasks = () => setTasksLimit((l) => l + TASKS_PAGE_SIZE);
+  const handleLoadMoreNotes = () => setNotesLimit((l) => l + NOTES_PAGE_SIZE);
+
+  const toggleNoteTag = useCallback((tag: string) => {
+    setSelectedNoteTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  }, []);
 
   const updateMutation = useUpdateProjectMutation(workspaceId, {
     onError: (err) => toast.error(err.message),
@@ -186,10 +273,25 @@ export function useProjectDetailScreen(
     project,
     projectLoading,
     projectError,
-    tasks,
+    tasks: visibleTasks,
     tasksLoading,
-    notes,
+    tasksTotal,
+    tasksLoadedCount: tasks.length,
+    handleLoadMoreTasks,
+    hideCompleted,
+    setHideCompleted,
+    selectedStatusIds,
+    toggleStatusFilter,
+    notes: visibleNotes,
     notesLoading,
+    notesTotal,
+    notesLoadedCount: notes.length,
+    handleLoadMoreNotes,
+    noteSearch,
+    setNoteSearch,
+    noteTags,
+    selectedNoteTags,
+    toggleNoteTag,
     activeTab,
     setActiveTab,
     newTaskTitle,

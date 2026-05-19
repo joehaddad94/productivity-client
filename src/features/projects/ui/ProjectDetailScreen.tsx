@@ -37,8 +37,23 @@ export function ProjectDetailScreen({
     projectError,
     tasks,
     tasksLoading,
+    tasksTotal,
+    tasksLoadedCount,
+    handleLoadMoreTasks,
+    hideCompleted,
+    setHideCompleted,
+    selectedStatusIds,
+    toggleStatusFilter,
     notes,
     notesLoading,
+    notesTotal,
+    notesLoadedCount,
+    handleLoadMoreNotes,
+    noteSearch,
+    setNoteSearch,
+    noteTags,
+    selectedNoteTags,
+    toggleNoteTag,
     activeTab,
     setActiveTab,
     newTaskTitle,
@@ -171,6 +186,13 @@ export function ProjectDetailScreen({
             tasks={tasks}
             taskStatuses={taskStatuses}
             tasksLoading={tasksLoading}
+            tasksTotal={tasksTotal}
+            tasksLoadedCount={tasksLoadedCount}
+            onLoadMore={handleLoadMoreTasks}
+            hideCompleted={hideCompleted}
+            setHideCompleted={setHideCompleted}
+            selectedStatusIds={selectedStatusIds}
+            toggleStatusFilter={toggleStatusFilter}
             newTaskTitle={newTaskTitle}
             setNewTaskTitle={setNewTaskTitle}
             handleAddTask={handleAddTask}
@@ -191,6 +213,14 @@ export function ProjectDetailScreen({
           <ProjectDetailNotesPanel
             notes={notes}
             notesLoading={notesLoading}
+            notesTotal={notesTotal}
+            notesLoadedCount={notesLoadedCount}
+            onLoadMore={handleLoadMoreNotes}
+            noteSearch={noteSearch}
+            setNoteSearch={setNoteSearch}
+            noteTags={noteTags}
+            selectedNoteTags={selectedNoteTags}
+            toggleNoteTag={toggleNoteTag}
             newNoteTitle={newNoteTitle}
             setNewNoteTitle={setNewNoteTitle}
             handleAddNote={handleAddNote}

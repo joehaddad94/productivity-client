@@ -98,7 +98,7 @@ export function ProjectDetailTabBar({
             setSelectedIds(new Set());
           }}
           className={cn(
-            "mb-1 px-3 py-1 text-xs rounded-md transition-colors",
+            "mb-1 px-3 py-1 text-xs rounded-md cursor-pointer transition-colors",
             isSelectMode
               ? "bg-muted text-foreground"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
