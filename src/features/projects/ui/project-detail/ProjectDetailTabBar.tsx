@@ -1,11 +1,13 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import { useRef, type Dispatch, type SetStateAction } from "react";
 import { cn } from "@/app/components/ui/utils";
 
 type ProjectDetailRouter = {
   replace: (href: string, options?: { scroll?: boolean }) => void;
 };
+
+const TABS = ["tasks", "notes"] as const;
 
 export function ProjectDetailTabBar({
   projectId,
@@ -28,22 +30,46 @@ export function ProjectDetailTabBar({
   setIsSelectMode: Dispatch<SetStateAction<boolean>>;
   setSelectedIds: Dispatch<SetStateAction<Set<string>>>;
 }) {
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  const selectTab = (tab: (typeof TABS)[number]) => {
+    setActiveTab(tab);
+    router.replace(`/projects/${projectId}?tab=${tab}`, { scroll: false });
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End") return;
+    e.preventDefault();
+    let next = index;
+    if (e.key === "ArrowLeft") next = (index - 1 + TABS.length) % TABS.length;
+    else if (e.key === "ArrowRight") next = (index + 1) % TABS.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = TABS.length - 1;
+    const tab = TABS[next];
+    selectTab(tab);
+    tabRefs.current[tab]?.focus();
+  };
+
   return (
     <div className="flex items-end justify-between border-b border-border/50">
-      <div className="flex">
-        {(["tasks", "notes"] as const).map((tab) => {
+      <div role="tablist" aria-label="Project content" className="flex">
+        {TABS.map((tab, index) => {
           const count = tab === "tasks" ? taskCount : noteCount;
           const active = activeTab === tab;
           return (
             <button
               key={tab}
+              ref={(el) => { tabRefs.current[tab] = el; }}
               type="button"
-              onClick={() => {
-                setActiveTab(tab);
-                router.replace(`/projects/${projectId}?tab=${tab}`, { scroll: false });
-              }}
+              role="tab"
+              id={`tab-${tab}`}
+              aria-selected={active}
+              aria-controls={`tabpanel-${tab}`}
+              tabIndex={active ? 0 : -1}
+              onClick={() => selectTab(tab)}
+              onKeyDown={(e) => onKeyDown(e, index)}
               className={cn(
-                "cursor-pointer flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize",
+                "cursor-pointer flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:rounded-sm",
                 active
                   ? "border-primary text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground",

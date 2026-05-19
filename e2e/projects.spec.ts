@@ -216,8 +216,8 @@ test.describe("Projects — detail page", () => {
     await expect(page.getByText(projectName)).toBeVisible();
     // Sidebar also links to Projects; scope to main content for the detail back link.
     await expect(page.getByRole("main").getByRole("link", { name: /projects/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^tasks/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^notes/i })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^tasks/i })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^notes/i })).toBeVisible();
   });
 
   test("back link returns to /projects", async ({ page }) => {
@@ -370,6 +370,10 @@ test.describe("Projects — detail page", () => {
     await page.getByTestId("task-card").filter({ hasText: t2 }).click();
 
     await page.getByRole("button", { name: /^delete$/i }).click();
+    // Confirm in the bulk-delete dialog
+    const bulkDialog = page.getByRole("alertdialog");
+    await expect(bulkDialog).toBeVisible({ timeout: 5_000 });
+    await bulkDialog.getByRole("button", { name: /^delete tasks$/i }).click();
     await expectToast(page, /tasks? deleted/i);
 
     await expect(page.getByTestId("task-card").filter({ hasText: t1 })).not.toBeVisible({ timeout: 5_000 });
@@ -379,12 +383,12 @@ test.describe("Projects — detail page", () => {
   // ── Notes tab ─────────────────────────────────────────────────────────────
 
   test("switches to Notes tab and shows note input", async ({ page }) => {
-    await page.getByRole("button", { name: /^notes/i }).click();
+    await page.getByRole("tab", { name: /^notes/i }).click();
     await expect(page.locator('input[placeholder*="note title" i]')).toBeVisible();
   });
 
   test("add note: input clears immediately, card appears optimistically", async ({ page }) => {
-    await page.getByRole("button", { name: /^notes/i }).click();
+    await page.getByRole("tab", { name: /^notes/i }).click();
 
     const title = `E2E-Note-${Date.now()}`;
     const input = page.locator('input[placeholder*="note title" i]');
@@ -397,7 +401,7 @@ test.describe("Projects — detail page", () => {
   });
 
   test("note card non-interactive while saving, becomes clickable after", async ({ page }) => {
-    await page.getByRole("button", { name: /^notes/i }).click();
+    await page.getByRole("tab", { name: /^notes/i }).click();
 
     const title = `E2E-NoteTemp-${Date.now()}`;
     await page.locator('input[placeholder*="note title" i]').fill(title);
@@ -410,7 +414,7 @@ test.describe("Projects — detail page", () => {
   });
 
   test("clicking a note opens project-scoped editor with correct back link", async ({ page }) => {
-    await page.getByRole("button", { name: /^notes/i }).click();
+    await page.getByRole("tab", { name: /^notes/i }).click();
 
     const title = `E2E-NoteNav-${Date.now()}`;
     await page.locator('input[placeholder*="note title" i]').fill(title);
@@ -426,7 +430,7 @@ test.describe("Projects — detail page", () => {
   });
 
   test("back from note editor returns to notes tab", async ({ page }) => {
-    await page.getByRole("button", { name: /^notes/i }).click();
+    await page.getByRole("tab", { name: /^notes/i }).click();
 
     const title = `E2E-NoteBack-${Date.now()}`;
     await page.locator('input[placeholder*="note title" i]').fill(title);

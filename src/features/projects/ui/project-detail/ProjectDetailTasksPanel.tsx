@@ -24,9 +24,8 @@ export function ProjectDetailTasksPanel({
   isSelectMode,
   selectedIds,
   handleToggleSelect,
-  handleBulkDelete,
+  onBulkDeleteRequest,
   bulkTaskPending,
-  onBulkDeleteDone,
   updateTaskMutate,
   openTask,
   taskStatuses,
@@ -41,9 +40,8 @@ export function ProjectDetailTasksPanel({
   isSelectMode: boolean;
   selectedIds: Set<string>;
   handleToggleSelect: (id: string) => void;
-  handleBulkDelete: (onDone?: () => void) => void;
+  onBulkDeleteRequest: () => void;
   bulkTaskPending: boolean;
-  onBulkDeleteDone: () => void;
   updateTaskMutate: UpdateTaskMutate;
   openTask: (task: Task) => void;
 }) {
@@ -81,7 +79,7 @@ export function ProjectDetailTasksPanel({
             size="sm"
             variant="outline"
             className="ml-auto text-destructive border-destructive/30 hover:bg-destructive/5"
-            onClick={() => handleBulkDelete(onBulkDeleteDone)}
+            onClick={onBulkDeleteRequest}
             disabled={bulkTaskPending}
           >
             {bulkTaskPending ? <Loader2 className="size-3.5 animate-spin" /> : null}

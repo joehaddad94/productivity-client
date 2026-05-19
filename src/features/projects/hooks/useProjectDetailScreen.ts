@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -25,12 +25,6 @@ import {
   firstTerminalStatusId,
 } from "@/features/tasks/lib/taskStatusHelpers";
 
-const STATUS_CYCLE: Record<string, string> = {
-  active: "on_hold",
-  on_hold: "completed",
-  completed: "active",
-};
-
 export function useProjectDetailScreen(
   projectId: string,
   { initialTab = "tasks" }: { initialTab?: "tasks" | "notes" } = {},
@@ -46,25 +40,33 @@ export function useProjectDetailScreen(
   );
 
   const [activeTab, setActiveTab] = useState<"tasks" | "notes">(initialTab);
-  const [editingField, setEditingField] = useState<"name" | "description" | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // Sync activeTab with URL changes (browser back/forward)
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  const isValidProjectId = !projectId.startsWith("temp_");
+
   const { data: project, isLoading: projectLoading, isError: projectError } = useProjectQuery(workspaceId, projectId, {
-    enabled: !projectId.startsWith("temp_"),
+    enabled: isValidProjectId,
   });
 
   const { data: tasksPage, isLoading: tasksLoading } = useTasksQuery(
     workspaceId,
     { projectId, limit: 100 },
+    { enabled: !!workspaceId && isValidProjectId && activeTab === "tasks" },
   );
   const tasks = tasksPage?.tasks ?? [];
 
   const { data: notesPage, isLoading: notesLoading } = useNotesQuery(
     workspaceId,
     { projectId, limit: 100 },
+    { enabled: !!workspaceId && isValidProjectId && activeTab === "notes" },
   );
   const notes = notesPage?.notes ?? [];
 
@@ -105,26 +107,21 @@ export function useProjectDetailScreen(
   const handleSaveName = (name: string) => {
     if (!name.trim() || !project) return;
     updateMutation.mutate({ id: projectId, body: { name: name.trim() } });
-    setEditingField(null);
   };
 
   const handleSaveDescription = (description: string) => {
     if (!project) return;
     updateMutation.mutate({ id: projectId, body: { description: description || undefined } });
-    setEditingField(null);
-  };
-
-  const handleCycleStatus = () => {
-    if (!project) return;
-    const next = STATUS_CYCLE[project.status ?? "active"] ?? "active";
-    updateMutation.mutate({ id: projectId, body: { status: next } });
   };
 
   const handleAddTask = () => {
     if (!newTaskTitle.trim() || !workspaceId) return;
     const title = newTaskTitle.trim();
     setNewTaskTitle("");
-    createTaskMutation.mutate({ title, projectId });
+    createTaskMutation.mutate(
+      { title, projectId },
+      { onError: () => setNewTaskTitle(title) },
+    );
   };
 
   const handleToggleSubtask = (id: string, completed: boolean) => {
@@ -172,7 +169,10 @@ export function useProjectDetailScreen(
     if (!newNoteTitle.trim() || !workspaceId) return;
     const title = newNoteTitle.trim();
     setNewNoteTitle("");
-    createNoteMutation.mutate({ title, projectId });
+    createNoteMutation.mutate(
+      { title, projectId },
+      { onError: () => setNewNoteTitle(title) },
+    );
   };
 
   const handleDelete = () => {
@@ -192,20 +192,18 @@ export function useProjectDetailScreen(
     notesLoading,
     activeTab,
     setActiveTab,
-    editingField,
-    setEditingField,
     newTaskTitle,
     setNewTaskTitle,
     newNoteTitle,
     setNewNoteTitle,
     updateMutation,
+    deleteMutation,
     createTaskMutation,
     updateTaskMutation,
     deleteTaskMutation,
     bulkTaskMutation,
     handleSaveName,
     handleSaveDescription,
-    handleCycleStatus,
     handleAddTask,
     handleToggleSubtask,
     handleToggleSelect,

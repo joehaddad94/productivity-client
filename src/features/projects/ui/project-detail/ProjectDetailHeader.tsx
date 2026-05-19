@@ -32,7 +32,7 @@ export function ProjectDetailHeader({
           className="text-2xl font-semibold tracking-tight flex-1"
           isPending={isSaving}
         />
-        <Select value={project.status ?? "active"} onValueChange={onStatusChange}>
+        <Select value={project.status ?? "active"} onValueChange={onStatusChange} disabled={isSaving}>
           <SelectTrigger
             size="sm"
             className="w-auto text-xs shrink-0"
