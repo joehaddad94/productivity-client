@@ -186,7 +186,13 @@ export function useCreateTaskMutation(
         has_priority: !!variables.priority,
         is_recurring: !!variables.recurrenceRule,
         has_project: !!variables.projectId,
+        has_assignee: !!(variables.assigneeIds?.length),
+        is_subtask: !!variables.parentTaskId,
       });
+      if (!localStorage.getItem("ph_first_task")) {
+        track("first_task_created", {});
+        localStorage.setItem("ph_first_task", "1");
+      }
       if (variables.recurrenceRule) {
         track("recurring_task_created", { rule: variables.recurrenceRule });
       }
@@ -278,7 +284,12 @@ export function useUpdateTaskMutation(
           track("task_completed", {
             had_due_date: !!data.dueDate,
             had_priority: !!data.priority,
+            focus_minutes: data.focusMinutes,
           });
+          if (!localStorage.getItem("ph_first_task_completed")) {
+            track("first_task_completed", {});
+            localStorage.setItem("ph_first_task_completed", "1");
+          }
         }
       }
       options?.onSuccess?.(data, variables, context, mutation);

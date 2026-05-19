@@ -163,7 +163,14 @@ export function useCreateNoteMutation(
           queryKey: NOTE_QUERY_KEY(workspaceKey, tempId),
         });
       }
-      track("note_created", {});
+      track("note_created", {
+        has_tags: !!(variables.tags?.length),
+        has_linked_task: !!variables.taskId,
+      });
+      if (!localStorage.getItem("ph_first_note")) {
+        track("first_note_created", {});
+        localStorage.setItem("ph_first_note", "1");
+      }
       options?.onSuccess?.(data, variables, context, mutation);
     },
     onError: (error, variables, context, mutation) => {

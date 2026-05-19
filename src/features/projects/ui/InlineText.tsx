@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/app/components/ui/utils";
 
 export function InlineText({
@@ -9,12 +10,14 @@ export function InlineText({
   placeholder,
   className,
   multiline,
+  isPending,
 }: {
   value: string;
   onSave: (v: string) => void;
   placeholder: string;
   className?: string;
   multiline?: boolean;
+  isPending?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -35,16 +38,19 @@ export function InlineText({
 
   if (!editing) {
     return (
-      <button
-        type="button"
-        onClick={() => {
-          setDraft(value);
-          setEditing(true);
-        }}
-        className={cn("text-left w-full hover:opacity-70 transition-opacity", className)}
-      >
-        {value || <span className="text-muted-foreground/50 italic">{placeholder}</span>}
-      </button>
+      <div className="flex items-center gap-1.5 w-full min-w-0">
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(value);
+            setEditing(true);
+          }}
+          className={cn("text-left flex-1 min-w-0 cursor-pointer hover:opacity-70 transition-opacity", isPending && "opacity-60", className)}
+        >
+          {value || <span className="text-muted-foreground/50 italic">{placeholder}</span>}
+        </button>
+        {isPending && <Loader2 className="size-3 shrink-0 text-muted-foreground animate-spin" />}
+      </div>
     );
   }
 

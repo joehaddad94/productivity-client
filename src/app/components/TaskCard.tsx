@@ -184,7 +184,7 @@ export function TaskCard({
           >
             <SelectTrigger
               className={cn(
-                "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1.5 focus-visible:ring-0 w-auto max-w-[9rem] [&_svg]:size-3 [&_svg]:opacity-40",
+                "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1.5 focus-visible:ring-0 w-auto max-w-[9rem] cursor-pointer [&_svg]:size-3 [&_svg]:opacity-40",
                 !statusCfg.color && statusCfg.badge,
               )}
               style={statusCfg.color ? {
