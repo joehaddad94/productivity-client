@@ -171,19 +171,20 @@ export function Settings() {
   // ── Focus / Pomodoro ──────────────────────────────────────────────────────
   const { settings: pomodoroSettings, update: updatePomodoro } = usePomodoroSettings();
 
-  // Local state for number inputs — only save on blur
-  const [localDurations, setLocalDurations] = useState({
-    workMinutes: 25,
-    shortBreakMinutes: 5,
-    longBreakMinutes: 15,
-    sessionsBeforeLongBreak: 4,
+  // Local state for number inputs — stored as strings so user can freely type/clear;
+  // only parsed and clamped on blur.
+  const [localDurations, setLocalDurations] = useState<Record<string, string>>({
+    workMinutes: "25",
+    shortBreakMinutes: "5",
+    longBreakMinutes: "15",
+    sessionsBeforeLongBreak: "4",
   });
   useEffect(() => {
     setLocalDurations({
-      workMinutes: pomodoroSettings.workMinutes,
-      shortBreakMinutes: pomodoroSettings.shortBreakMinutes,
-      longBreakMinutes: pomodoroSettings.longBreakMinutes,
-      sessionsBeforeLongBreak: pomodoroSettings.sessionsBeforeLongBreak,
+      workMinutes: String(pomodoroSettings.workMinutes),
+      shortBreakMinutes: String(pomodoroSettings.shortBreakMinutes),
+      longBreakMinutes: String(pomodoroSettings.longBreakMinutes),
+      sessionsBeforeLongBreak: String(pomodoroSettings.sessionsBeforeLongBreak),
     });
   }, [pomodoroSettings.workMinutes, pomodoroSettings.shortBreakMinutes, pomodoroSettings.longBreakMinutes, pomodoroSettings.sessionsBeforeLongBreak]);
 
@@ -562,10 +563,11 @@ export function Settings() {
                           min={min}
                           max={max}
                           value={localDurations[key]}
-                          onChange={(e) => setLocalDurations((prev) => ({ ...prev, [key]: parseInt(e.target.value) || min }))}
+                          onChange={(e) => setLocalDurations((prev) => ({ ...prev, [key]: e.target.value }))}
                           onBlur={(e) => {
-                            const v = Math.max(min, Math.min(max, parseInt(e.target.value) || min));
-                            setLocalDurations((prev) => ({ ...prev, [key]: v }));
+                            const parsed = parseInt(e.target.value, 10);
+                            const v = Math.max(min, Math.min(max, isNaN(parsed) ? min : parsed));
+                            setLocalDurations((prev) => ({ ...prev, [key]: String(v) }));
                             updatePomodoro({ [key]: v });
                           }}
                           className="h-8 text-xs w-20"

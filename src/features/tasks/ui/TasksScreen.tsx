@@ -25,7 +25,7 @@ import {
   Loader2,
 } from "lucide-react";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
-import { isTaskStatusTerminal, taskStatusVisual } from "../lib/taskStatusHelpers";
+import { activeTaskStatuses, isTaskStatusTerminal, taskStatusVisual } from "../lib/taskStatusHelpers";
 import { getSubtaskProgress } from "../lib/subtaskProgress";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
@@ -204,7 +204,7 @@ const StatusSelect = memo(function StatusSelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent align="end">
-        {taskStatuses.map((s) => {
+        {activeTaskStatuses(taskStatuses).map((s) => {
           const v = taskStatusVisual(s.id, taskStatuses);
           return (
             <SelectItem key={s.id} value={s.id} className="text-xs">
@@ -425,12 +425,16 @@ const TaskRow = memo(function TaskRow({
                 <span className="text-[11px] text-muted-foreground">{subtaskProgress.done}/{subtaskProgress.total}</span>
               </div>
             )}
-            {task.recurrenceRule && (
+            {task.recurrenceRule ? (
               <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
                 <RefreshCw className="size-3" />
                 {task.recurrenceRule[0] + task.recurrenceRule.slice(1).toLowerCase()}
               </span>
-            )}
+            ) : task.recurrenceParentId ? (
+              <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground/50" title="Recurring instance">
+                <RefreshCw className="size-3" />
+              </span>
+            ) : null}
             {task.projectId && (
               <span className="text-[11px] text-muted-foreground/70 truncate max-w-[120px]">
                 {projects.find((p) => p.id === task.projectId)?.name}

@@ -65,7 +65,10 @@ export type CreateTaskBody = {
   assigneeIds?: string[];
 };
 
-export type UpdateTaskBody = Partial<Omit<CreateTaskBody, "projectId">> & { projectId?: string | null };
+export type UpdateTaskBody = Partial<Omit<CreateTaskBody, "projectId" | "recurrenceRule">> & {
+  projectId?: string | null;
+  recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY" | null;
+};
 
 export type TasksPage = { tasks: Task[]; total: number };
 
