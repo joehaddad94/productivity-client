@@ -210,10 +210,28 @@ export function Settings() {
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
 
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+        {/* Mobile: horizontal scrollable tab bar */}
+        <div className="lg:hidden flex overflow-x-auto scrollbar-none gap-1 -mx-5 px-5 border-b border-border/40 pb-px">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer border-b-2 -mb-px",
+                activeTab === id
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="size-3.5 shrink-0" />
+              {label}
+            </button>
+          ))}
+        </div>
 
-      <div className="flex gap-8">
-        {/* Left nav */}
-        <nav className="flex flex-col gap-0.5 w-40 shrink-0">
+        {/* Desktop: side nav */}
+        <nav className="hidden lg:flex flex-col gap-0.5 w-40 shrink-0">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
