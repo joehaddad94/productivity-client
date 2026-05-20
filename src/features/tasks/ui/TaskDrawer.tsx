@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Trash2, Plus, FileText, Timer, Loader2,
-  ExternalLink, Clock, AlertTriangle, ArrowUpRight, Check,
+  ExternalLink, Clock, AlertTriangle, ArrowUpRight, Check, ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/app/components/ui/sheet";
@@ -426,22 +426,28 @@ export function TaskDrawer({
             )}
 
             <PropRow label="Due date">
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => { setDueDate(e.target.value); if (!e.target.value) setDueTime(""); saveDelayRef.current = 300; setIsDirty(true); }}
-                className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => { setDueDate(e.target.value); if (!e.target.value) setDueTime(""); saveDelayRef.current = 300; setIsDirty(true); }}
+                  className="h-8 w-full pl-2.5 pr-8 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 opacity-50 pointer-events-none" />
+              </div>
             </PropRow>
 
             {dueDate && (
               <PropRow label="Due time">
-                <input
-                  type="time"
-                  value={dueTime}
-                  onChange={(e) => { setDueTime(e.target.value); saveDelayRef.current = 300; setIsDirty(true); }}
-                  className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
-                />
+                <div className="relative">
+                  <input
+                    type="time"
+                    value={dueTime}
+                    onChange={(e) => { setDueTime(e.target.value); saveDelayRef.current = 300; setIsDirty(true); }}
+                    className="h-8 w-full pl-2.5 pr-8 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  />
+                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 opacity-50 pointer-events-none" />
+                </div>
               </PropRow>
             )}
 

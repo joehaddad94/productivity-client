@@ -313,6 +313,8 @@ const TaskRow = memo(function TaskRow({
         isDragOver && !isPending && "bg-primary/5",
         isSelected && "bg-primary/5",
         isCompleted && depth === 0 && !isPending && "opacity-60",
+        // Left breathing room on mobile when the icon column is hidden
+        (depth === 0 && !isSelectMode && !hasSubtasks) && "pl-3 sm:pl-0",
       )}
       onClick={(e) => {
         if (isPending) return;
