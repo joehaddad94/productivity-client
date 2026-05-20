@@ -102,11 +102,11 @@ export function Login() {
         </div>
 
         {/* Features below card */}
-        <div className="mt-6 flex items-center justify-center gap-6 text-xs text-muted-foreground">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
           <span>No password needed</span>
-          <span className="size-1 rounded-full bg-border" />
+          <span className="size-1 rounded-full bg-border hidden sm:block" />
           <span>Focus timer built-in</span>
-          <span className="size-1 rounded-full bg-border" />
+          <span className="size-1 rounded-full bg-border hidden sm:block" />
           <span>Productivity analytics</span>
         </div>
       </div>

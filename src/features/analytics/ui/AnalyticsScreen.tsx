@@ -101,7 +101,7 @@ function ActivityHeatmap({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex gap-1 overflow-x-auto pb-2">
+        <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-none">
           {/* Day labels */}
           <div className="flex flex-col gap-1 mr-1">
             {DAYS_OF_WEEK.map((day, i) => (
@@ -411,10 +411,10 @@ export function AnalyticsScreen() {
               { label: "Avg. daily tasks", value: avgDaily,                             sub: rangeLabel },
               { label: "Focus time",       value: formatFocusTime(totals.focusMinutes), sub: rangeLabel },
             ].map(({ label, value, sub }) => (
-              <div key={label} className="px-4 py-3 rounded-xl border border-border/60 bg-card">
-                <p className="text-[11px] text-muted-foreground mb-1">{label}</p>
-                <p className="text-xl font-semibold tabular-nums">{value}</p>
-                <p className="text-[10px] text-muted-foreground/60 mt-0.5">{sub}</p>
+              <div key={label} className="px-3 sm:px-4 py-3 rounded-xl border border-border/60 bg-card min-w-0">
+                <p className="text-[11px] text-muted-foreground mb-1 truncate">{label}</p>
+                <p className="text-lg sm:text-xl font-semibold tabular-nums truncate">{value}</p>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5 truncate">{sub}</p>
               </div>
             ))}
           </div>
