@@ -150,6 +150,7 @@ export interface Task {
   recurrenceRule?: "DAILY" | "WEEKLY" | "MONTHLY" | null;
   recurrenceParentId?: string | null;
   projectId?: string | null;
+  remindAt?: string | null;
   creatorId?: string;
   completedAt?: string | null;
   deletedAt?: string | null;
@@ -186,7 +187,7 @@ export interface AppNotification {
   userId: string;
   workspaceId: string;
   taskId?: string | null;
-  type: 'due_today' | 'overdue' | 'daily_agenda' | 'task_completed';
+  type: 'due_today' | 'overdue' | 'daily_agenda' | 'task_completed' | 'reminder';
   title: string;
   body: string;
   read: boolean;

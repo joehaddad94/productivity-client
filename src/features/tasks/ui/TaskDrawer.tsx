@@ -85,6 +85,13 @@ interface TaskDrawerProps {
 
 // ─── TaskDrawer ───────────────────────────────────────────────────────────────
 
+/** Converts a UTC ISO string to a local "YYYY-MM-DDTHH:mm" string for datetime inputs. */
+function utcToLocalDatetimeStr(utcIso: string): string {
+  const d = new Date(utcIso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function TaskDrawer({
   task,
   open,
@@ -109,6 +116,7 @@ export function TaskDrawer({
   const [dueTime, setDueTime] = useState("");
   const [recurrenceRule, setRecurrenceRule] = useState<"DAILY" | "WEEKLY" | "MONTHLY" | "none">("none");
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
+  const [remindAt, setRemindAt] = useState<string>("");
   const [isDirty, setIsDirty] = useState(false);
   const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
@@ -147,6 +155,7 @@ export function TaskDrawer({
     setDueTime(task.dueTime ?? "");
     setRecurrenceRule(task.recurrenceRule ?? "none");
     setProjectId(task.projectId ?? undefined);
+    setRemindAt(task.remindAt ? utcToLocalDatetimeStr(task.remindAt) : "");
     setSubtasks(task.subtasks ?? []);
     setFocusMinutes(task.focusMinutes ?? 0);
     setNewSubtaskTitle("");
@@ -171,11 +180,12 @@ export function TaskDrawer({
         dueTime: dueTime || undefined,
         recurrenceRule: recurrenceRule === "none" ? null : recurrenceRule as "DAILY" | "WEEKLY" | "MONTHLY",
         projectId: projectId ?? null,
+        remindAt: remindAt ? new Date(remindAt).toISOString() : null,
       });
       setIsDirty(false);
     }, delay);
     return () => clearTimeout(timer);
-  }, [isDirty, title, description, status, priority, dueDate, dueTime, recurrenceRule, projectId]);
+  }, [isDirty, title, description, status, priority, dueDate, dueTime, recurrenceRule, projectId, remindAt]);
 
   // ── Subtask mutations ──────────────────────────────────────────────────────
   const createSubtaskMutation = useCreateTaskMutation(workspaceId, { onError: () => {} });
@@ -305,7 +315,7 @@ export function TaskDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:w-[480px] flex flex-col p-0 gap-0" aria-describedby={undefined}>
+      <SheetContent side="right" className="w-full sm:w-[540px] flex flex-col p-0 gap-0" aria-describedby={undefined}>
 
         {/* ── Header: title only ────────────────────────────────────── */}
         <SheetHeader className="px-6 pt-5 pb-4 border-b border-border/40 gap-0">
@@ -426,28 +436,22 @@ export function TaskDrawer({
             )}
 
             <PropRow label="Due date">
-              <div className="relative">
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => { setDueDate(e.target.value); if (!e.target.value) setDueTime(""); saveDelayRef.current = 300; setIsDirty(true); }}
-                  className="h-8 w-full pl-2.5 pr-8 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark] appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-inner-spin-button]:hidden [&::-webkit-clear-button]:hidden"
-                />
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 opacity-50 pointer-events-none" />
-              </div>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => { setDueDate(e.target.value); if (!e.target.value) { setDueTime(""); setRemindAt(""); } saveDelayRef.current = 300; setIsDirty(true); }}
+                className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+              />
             </PropRow>
 
             {dueDate && (
               <PropRow label="Due time">
-                <div className="relative">
-                  <input
-                    type="time"
-                    value={dueTime}
-                    onChange={(e) => { setDueTime(e.target.value); saveDelayRef.current = 300; setIsDirty(true); }}
-                    className="h-8 w-full pl-2.5 pr-8 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark] appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-inner-spin-button]:hidden [&::-webkit-clear-button]:hidden"
-                  />
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 opacity-50 pointer-events-none" />
-                </div>
+                <input
+                  type="time"
+                  value={dueTime}
+                  onChange={(e) => { setDueTime(e.target.value); saveDelayRef.current = 300; setIsDirty(true); }}
+                  className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
               </PropRow>
             )}
 
@@ -473,6 +477,29 @@ export function TaskDrawer({
                 </SelectContent>
               </Select>
             </PropRow>
+
+            {dueDate && (
+              <PropRow label="Remind on">
+                <input
+                  type="date"
+                  max={dueDate}
+                  value={remindAt.slice(0, 10)}
+                  onChange={(e) => { setRemindAt(e.target.value ? `${e.target.value}T${remindAt.slice(11) || "09:00"}` : ""); saveDelayRef.current = 300; setIsDirty(true); }}
+                  className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
+              </PropRow>
+            )}
+
+            {dueDate && remindAt && (
+              <PropRow label="Remind at">
+                <input
+                  type="time"
+                  value={remindAt.slice(11, 16)}
+                  onChange={(e) => { setRemindAt(`${remindAt.slice(0, 10)}T${e.target.value}`); saveDelayRef.current = 300; setIsDirty(true); }}
+                  className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
+              </PropRow>
+            )}
 
             <PropRow label="Focus time">
               <div className="flex items-center gap-2 min-w-0">
@@ -729,3 +756,4 @@ export function TaskDrawer({
     </Sheet>
   );
 }
+
