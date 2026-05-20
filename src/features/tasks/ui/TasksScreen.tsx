@@ -314,10 +314,18 @@ const TaskRow = memo(function TaskRow({
         isSelected && "bg-primary/5",
         isCompleted && depth === 0 && !isPending && "opacity-60",
       )}
-      onClick={() => !isPending && isSelectMode ? onToggleSelect?.(task.id) : undefined}
+      onClick={(e) => {
+        if (isPending) return;
+        if (isSelectMode) { onToggleSelect?.(task.id); return; }
+        // Mobile: tap anywhere on the row to open the drawer
+        if (depth === 0 && !window.matchMedia("(min-width: 640px)").matches) onSelect(task);
+      }}
     >
-      {/* Icon column */}
-      <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
+      {/* Icon column — hidden on mobile when it would only hold an empty placeholder */}
+      <div className={cn(
+        "flex items-center justify-center shrink-0 py-2.5",
+        (depth === 0 && !isSelectMode && !hasSubtasks) ? "hidden sm:flex " + COL_ICON : COL_ICON,
+      )}>
         {isSelectMode ? (
           <button onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }} className="text-primary cursor-pointer">
             {isSelected ? <CheckSquare className="size-4" /> : <Square className="size-4 text-muted-foreground" />}
@@ -343,7 +351,7 @@ const TaskRow = memo(function TaskRow({
           {!isSelectMode && depth === 0 && (
             isPending
               ? <Loader2 className="size-3 text-muted-foreground/40 shrink-0 animate-spin" />
-              : <GripVertical className="size-3 text-muted-foreground/25 shrink-0 opacity-0 group-hover:opacity-100 cursor-grab" />
+              : <GripVertical className="size-3 text-muted-foreground/25 shrink-0 opacity-0 group-hover:opacity-100 cursor-grab hidden sm:block" />
           )}
           <div className="flex-1 min-w-0">
             {isEditing ? (
@@ -365,11 +373,16 @@ const TaskRow = memo(function TaskRow({
               <>
                 <span
                   className={cn(
-                    "block truncate leading-snug cursor-text",
+                    "block truncate leading-snug sm:cursor-text",
                     depth === 0 ? "text-sm font-medium" : "text-xs text-muted-foreground",
                     isCompleted && "line-through opacity-50",
                   )}
-                  onClick={(e) => { if (isPending) return; e.stopPropagation(); onEditStart?.(); }}
+                  onClick={(e) => {
+                    if (isPending) return;
+                    e.stopPropagation();
+                    if (window.matchMedia("(min-width: 640px)").matches) onEditStart?.();
+                    else onSelect(task);
+                  }}
                 >
                   {task.title}
                 </span>
@@ -404,7 +417,7 @@ const TaskRow = memo(function TaskRow({
 
         {/* Mobile metadata chips */}
         {depth === 0 && (
-          <div className="sm:hidden flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 pl-4">
+          <div className="sm:hidden flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
             {task.dueDate && (
               <span className={cn("flex items-center gap-1 text-[11px] font-medium", isOverdue ? "text-red-500" : "text-muted-foreground")}>
                 <Calendar className="size-3 shrink-0" />
@@ -521,17 +534,18 @@ const TaskRow = memo(function TaskRow({
                   "p-1 rounded-md transition-all cursor-pointer",
                   isLinked
                     ? "text-emerald-600 dark:text-emerald-500 opacity-100"
-                    : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-500 hover:bg-emerald-500/8",
+                    : "hidden sm:block opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-500 hover:bg-emerald-500/8",
                 )}
               >
                 <Timer className="size-3.5" />
               </button>
             )}
+            {/* Desktop only — on mobile the row tap opens the drawer */}
             {!isPending && (
               <button
                 title="Open details"
                 onClick={(e) => { e.stopPropagation(); onSelect(task); }}
-                className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer"
+                className="hidden sm:block p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer"
               >
                 <PanelRight className="size-3.5" />
               </button>
@@ -540,7 +554,7 @@ const TaskRow = memo(function TaskRow({
               <button
                 title="Delete task"
                 onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id, task.title); }}
-                className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all cursor-pointer"
+                className="p-1 rounded-md opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-60 text-muted-foreground hover:text-destructive [@media(hover:none)]:hover:text-muted-foreground hover:bg-destructive/5 transition-all cursor-pointer"
               >
                 <Trash2 className="size-3.5" />
               </button>
