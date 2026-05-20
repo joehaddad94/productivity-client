@@ -431,7 +431,7 @@ export function TaskDrawer({
                   type="date"
                   value={dueDate}
                   onChange={(e) => { setDueDate(e.target.value); if (!e.target.value) setDueTime(""); saveDelayRef.current = 300; setIsDirty(true); }}
-                  className="h-8 w-full pl-2.5 pr-8 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  className="h-8 w-full pl-2.5 pr-8 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark] appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-inner-spin-button]:hidden [&::-webkit-clear-button]:hidden"
                 />
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 opacity-50 pointer-events-none" />
               </div>
@@ -444,7 +444,7 @@ export function TaskDrawer({
                     type="time"
                     value={dueTime}
                     onChange={(e) => { setDueTime(e.target.value); saveDelayRef.current = 300; setIsDirty(true); }}
-                    className="h-8 w-full pl-2.5 pr-8 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    className="h-8 w-full pl-2.5 pr-8 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark] appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-inner-spin-button]:hidden [&::-webkit-clear-button]:hidden"
                   />
                   <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 opacity-50 pointer-events-none" />
                 </div>
