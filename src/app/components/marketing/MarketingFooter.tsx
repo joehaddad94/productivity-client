@@ -39,7 +39,7 @@ export function MarketingFooter() {
               <span className="font-semibold text-sm tracking-tight">Tasky</span>
             </Link>
             <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">
-              A focused productivity workspace. Tasks, notes, and a built-in focus timer — all in one place.
+              A focused productivity workspace. Tasks, notes, and a built-in focus timer, all in one place.
             </p>
           </div>
 
