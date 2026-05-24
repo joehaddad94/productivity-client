@@ -67,9 +67,17 @@ export const membersApi = {
     userId: string,
     role: string
   ): Promise<WorkspaceMember> => {
+    return membersApi.updateMember(workspaceId, userId, { role });
+  },
+
+  updateMember: async (
+    workspaceId: string,
+    userId: string,
+    body: { role?: string; canSeeAllTasks?: boolean }
+  ): Promise<WorkspaceMember> => {
     const res = await api(`/workspaces/${workspaceId}/members/${userId}`, {
       method: "PATCH",
-      body: JSON.stringify({ role }),
+      body: JSON.stringify(body),
     });
     const data = await parseJson(res);
     if (!res.ok) throw new Error(getMessage(data));

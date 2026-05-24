@@ -106,11 +106,11 @@ export function Signup() {
         </div>
 
         {/* Features below card */}
-        <div className="mt-6 flex items-center justify-center gap-6 text-xs text-muted-foreground">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
           <span>Track tasks</span>
-          <span className="size-1 rounded-full bg-border" />
+          <span className="size-1 rounded-full bg-border hidden sm:block" />
           <span>Focus timer</span>
-          <span className="size-1 rounded-full bg-border" />
+          <span className="size-1 rounded-full bg-border hidden sm:block" />
           <span>Analytics</span>
         </div>
       </div>

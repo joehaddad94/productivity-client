@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
+import { cn } from "@/app/components/ui/utils";
 import { ColorPicker } from "./ColorPicker";
 
 export function ProjectForm({
@@ -20,28 +21,36 @@ export function ProjectForm({
   submitLabel: string;
 }) {
   const [name, setName] = useState(initial.name);
+  const [nameTouched, setNameTouched] = useState(false);
   const [description, setDescription] = useState(initial.description ?? "");
   const [status, setStatus] = useState(initial.status ?? "active");
   const [color, setColor] = useState<string | undefined>(initial.color ?? undefined);
+  const nameError = nameTouched && !name.trim();
 
   return (
     <div className="p-4 rounded-xl border border-primary/30 bg-card space-y-3">
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
+        onBlur={() => setNameTouched(true)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
+            setNameTouched(true);
             if (name.trim()) onSubmit({ name: name.trim(), description, status, color });
           }
           if (e.key === "Escape") onCancel();
         }}
         placeholder="Project name…"
         aria-label="Project name"
-        className="w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground/50"
+        aria-invalid={nameError}
+        className={cn("w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground/50", nameError && "placeholder:text-destructive/50")}
         autoFocus
         disabled={isPending}
       />
+      {nameError && (
+        <p className="text-xs text-destructive -mt-1">Project name is required</p>
+      )}
       <textarea
         value={description}
         onChange={(e) => setDescription(e.target.value)}

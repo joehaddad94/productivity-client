@@ -138,14 +138,14 @@ export function PomodoroWidget() {
       }
     }
 
-    if (isWork && focusMinutes > 0 && wsId) {
-      logStat.mutate({ focusMinutes });
-      if (linkedId) logTaskFocus.mutate({ id: linkedId, minutes: focusMinutes });
     track("pomodoro_session_completed", {
       session_type: type,
       duration_minutes: focusMinutes,
       had_linked_task: !!linkedId,
     });
+    if (isWork && focusMinutes > 0 && wsId) {
+      logStat.mutate({ focusMinutes });
+      if (linkedId) logTaskFocus.mutate({ id: linkedId, minutes: focusMinutes });
     }
   }, [settings, wsId, logStat, logTaskFocus, linkedTask, linkedId]);
 
@@ -176,6 +176,22 @@ export function PomodoroWidget() {
 
   const { state, start, pause, reset, skip } = usePomodoroTimer(settings, onComplete);
   const { sessionType, secondsLeft, isRunning, sessionCount } = state;
+
+  const handleStart = useCallback(() => {
+    track("pomodoro_session_started", { session_type: sessionType, had_linked_task: !!linkedId });
+    start();
+  }, [sessionType, linkedId, start]);
+
+  const handleReset = useCallback(() => {
+    if (isRunning && sessionType === "work") {
+      track("pomodoro_session_abandoned", {
+        session_type: sessionType,
+        seconds_remaining: secondsLeft,
+        had_linked_task: !!linkedId,
+      });
+    }
+    reset();
+  }, [isRunning, sessionType, secondsLeft, linkedId, reset]);
   const cfg = SESSION[sessionType];
 
   const total = sessionType === "work"        ? settings.workMinutes * 60
@@ -338,13 +354,13 @@ export function PomodoroWidget() {
 
           {/* Controls */}
           <div className={cn("flex items-center justify-between px-5 py-4 border-t", CARD_BORDER)}>
-            <button onClick={reset} aria-label="Reset" title="Reset"
+            <button onClick={handleReset} aria-label="Reset" title="Reset"
               className={cn("size-10 flex items-center justify-center rounded-xl transition-all cursor-pointer", FG_SUBTLE, HOVER_BG, "hover:text-white dark:hover:text-black")}>
               <RotateCcw className="size-[17px]" />
             </button>
 
             <button
-              onClick={isRunning ? pause : start}
+              onClick={isRunning ? pause : handleStart}
               aria-label={isRunning ? "Pause" : "Start"}
               className="size-[60px] flex items-center justify-center rounded-2xl transition-all active:scale-[0.93] hover:brightness-110 cursor-pointer"
               style={{ background: cfg.color, boxShadow: `0 6px 24px ${cfg.glow}, 0 0 0 1px rgba(255,255,255,0.1) inset` }}
@@ -397,7 +413,7 @@ export function PomodoroWidget() {
 
         {/* Inline play/pause */}
         <button
-          onClick={isRunning ? pause : start}
+          onClick={isRunning ? pause : handleStart}
           aria-label={isRunning ? "Pause" : "Start"}
           className={cn("flex items-center justify-center w-12 h-full transition-colors cursor-pointer rounded-r-2xl", HOVER_BG)}
         >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowUp, ArrowDown, Check, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -209,9 +209,8 @@ function AddStatusRow({
   onAdd,
   isPending,
 }: {
-  onAdd: (body: { name: string; isTerminal: boolean; color: string; sortOrder: number }) => void;
+  onAdd: (body: { name: string; isTerminal: boolean; color: string }) => void;
   isPending: boolean;
-  nextSortOrder: number;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -220,7 +219,7 @@ function AddStatusRow({
 
   function submit() {
     if (!name.trim()) return;
-    onAdd({ name: name.trim(), isTerminal, color, sortOrder: 9999 });
+    onAdd({ name: name.trim(), isTerminal, color });
     setName("");
     setIsTerminal(false);
     setColor("#9ca3af");
@@ -315,24 +314,27 @@ export function TaskStatusesSettings({ hideTitle = false }: { hideTitle?: boolea
 
   const [deleteTarget, setDeleteTarget] = useState<TaskStatusDefinition | null>(null);
   const [replacementId, setReplacementId] = useState("");
-  const isReordering = useRef(false);
-  const [reorderingBlocked, setReorderingBlocked] = useState(false);
+  const [optimisticSorted, setOptimisticSorted] = useState<TaskStatusDefinition[] | null>(null);
+  const displaySorted = optimisticSorted ?? sorted;
 
-  const nonTerminalCount = sorted.filter((s) => !s.isTerminal).length;
-  const terminalCount = sorted.filter((s) => s.isTerminal).length;
+  // Clear optimistic order once the server data catches up
+  useEffect(() => { setOptimisticSorted(null); }, [sorted]);
+
+  const nonTerminalCount = displaySorted.filter((s) => !s.isTerminal).length;
+  const terminalCount = displaySorted.filter((s) => s.isTerminal).length;
 
   async function move(index: number, dir: -1 | 1) {
     const j = index + dir;
-    if (j < 0 || j >= sorted.length || isReordering.current) return;
-    const a = sorted[index]!;
-    const b = sorted[j]!;
-    isReordering.current = true;
-    setReorderingBlocked(true);
+    if (j < 0 || j >= displaySorted.length || swapMutation.isPending) return;
+    const a = displaySorted[index]!;
+    const b = displaySorted[j]!;
+    const next = [...displaySorted];
+    [next[index], next[j]] = [next[j]!, next[index]!];
+    setOptimisticSorted(next);
     try {
       await swapMutation.mutateAsync({ idA: a.id, idB: b.id });
-    } catch { /* toast from mutation onError */ } finally {
-      isReordering.current = false;
-      setReorderingBlocked(false);
+    } catch {
+      setOptimisticSorted(null);
     }
   }
 
@@ -359,13 +361,13 @@ export function TaskStatusesSettings({ hideTitle = false }: { hideTitle?: boolea
         </div>
       ) : (
         <div className="rounded-xl border border-border/60 overflow-hidden divide-y divide-border/40">
-          {sorted.map((s, index) => (
+          {displaySorted.map((s, index) => (
             <div key={s.id} className="flex items-center gap-1 px-3 py-2 bg-card hover:bg-muted/20 transition-colors">
               {/* Reorder */}
               <div className="flex flex-col shrink-0">
                 <button
                   type="button"
-                  disabled={index === 0 || reorderingBlocked}
+                  disabled={index === 0 || swapMutation.isPending}
                   onClick={() => void move(index, -1)}
                   className="p-0.5 text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20 disabled:pointer-events-none transition-colors cursor-pointer rounded"
                   aria-label="Move up"
@@ -374,7 +376,7 @@ export function TaskStatusesSettings({ hideTitle = false }: { hideTitle?: boolea
                 </button>
                 <button
                   type="button"
-                  disabled={index === sorted.length - 1 || reorderingBlocked}
+                  disabled={index === displaySorted.length - 1 || swapMutation.isPending}
                   onClick={() => void move(index, 1)}
                   className="p-0.5 text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20 disabled:pointer-events-none transition-colors cursor-pointer rounded"
                   aria-label="Move down"
@@ -385,11 +387,11 @@ export function TaskStatusesSettings({ hideTitle = false }: { hideTitle?: boolea
 
               <StatusRow
                 status={s}
-                disabled={updateMutation.isPending}
+                disabled={updateMutation.isPending && updateMutation.variables?.id === s.id}
                 onSave={(body) => updateMutation.mutate({ id: s.id, body })}
                 onDelete={() => {
                   setDeleteTarget(s);
-                  setReplacementId(sorted.find((x) => x.id !== s.id)?.id ?? "");
+                  setReplacementId(displaySorted.find((x) => x.id !== s.id)?.id ?? "");
                 }}
                 canDelete={
                   s.isTerminal ? terminalCount > 1 : nonTerminalCount > 1
@@ -400,12 +402,11 @@ export function TaskStatusesSettings({ hideTitle = false }: { hideTitle?: boolea
 
           <div className="px-3 py-1 bg-card">
             <AddStatusRow
-              onAdd={({ name, isTerminal, color, sortOrder }) => {
-                const maxOrder = sorted.reduce((m, s) => Math.max(m, s.sortOrder), -1);
+              onAdd={({ name, isTerminal, color }) => {
+                const maxOrder = displaySorted.reduce((m, s) => Math.max(m, s.sortOrder), -1);
                 createMutation.mutate({ name, isTerminal, color, sortOrder: maxOrder + 1 });
               }}
               isPending={createMutation.isPending}
-              nextSortOrder={sorted.reduce((m, s) => Math.max(m, s.sortOrder), -1) + 1}
             />
           </div>
         </div>
@@ -427,7 +428,7 @@ export function TaskStatusesSettings({ hideTitle = false }: { hideTitle?: boolea
                 <SelectValue placeholder="Pick a status" />
               </SelectTrigger>
               <SelectContent>
-                {sorted.filter((x) => x.id !== deleteTarget?.id).map((x) => (
+                {displaySorted.filter((x) => x.id !== deleteTarget?.id).map((x) => (
                   <SelectItem key={x.id} value={x.id} className="cursor-pointer">
                     <span className="flex items-center gap-2">
                       <span

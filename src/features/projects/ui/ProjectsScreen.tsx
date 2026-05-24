@@ -18,6 +18,7 @@ export function ProjectsScreen() {
     setEditing,
     projects,
     total,
+    isLoading,
     error,
     createMutation,
     updateMutation,
@@ -79,7 +80,15 @@ export function ProjectsScreen() {
         </div>
       )}
 
-      {!error && projects.length === 0 && !showCreate && (
+      {isLoading && projects.length === 0 && (
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-[112px] rounded-xl border border-border/60 border-l-4 bg-muted/30 animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && !error && projects.length === 0 && !showCreate && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-4">
             <FolderOpen className="size-5 text-muted-foreground" />

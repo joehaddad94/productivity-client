@@ -22,9 +22,10 @@ import {
   X,
   PanelRight,
   Timer,
+  Loader2,
 } from "lucide-react";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
-import { isTaskStatusTerminal, taskStatusVisual } from "../lib/taskStatusHelpers";
+import { activeTaskStatuses, isTaskStatusTerminal, taskStatusVisual } from "../lib/taskStatusHelpers";
 import { getSubtaskProgress } from "../lib/subtaskProgress";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
@@ -56,6 +57,9 @@ import { usePomodoroLink } from "@/app/components/pomodoro";
 import { useLogTaskFocusMutation } from "@/app/hooks/useTasksApi";
 import { useTasksScreen } from "../hooks/useTasksScreen";
 import { useDebounce } from "@/app/hooks/useDebounce";
+import { useMembersQuery } from "@/app/hooks/useMembersApi";
+import { useAuth } from "@/app/context/AuthContext";
+import type { AssigneeOption } from "./AssigneePicker";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TaskDrawer } from "./TaskDrawer";
 import { TaskStatusesSettings } from "./TaskStatusesSettings";
@@ -200,7 +204,7 @@ const StatusSelect = memo(function StatusSelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent align="end">
-        {taskStatuses.map((s) => {
+        {activeTaskStatuses(taskStatuses).map((s) => {
           const v = taskStatusVisual(s.id, taskStatuses);
           return (
             <SelectItem key={s.id} value={s.id} className="text-xs">
@@ -282,6 +286,7 @@ const TaskRow = memo(function TaskRow({
   onDueDateChange?: (id: string, dueDate: string | undefined, dueTime: string | undefined) => void;
   onFocusLog?: (id: string, minutes: number) => void;
 }) {
+  const isPending = task.id.startsWith("temp_");
   const hasSubtasks = !!task.subtasks?.length;
   const isCompleted = terminalIds.has(task.status);
   const isOverdue = !isCompleted && !!task.dueDate && task.dueDate.slice(0, 10) < todayStr;
@@ -295,23 +300,34 @@ const TaskRow = memo(function TaskRow({
   return (
     <div
       data-testid="task-row"
-      draggable={!isSelectMode && depth === 0}
-      onDragStart={(e) => { e.stopPropagation(); onDragStart?.(task.id); }}
-      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOver?.(task.id); }}
-      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop?.(task.id); }}
+      draggable={!isSelectMode && depth === 0 && !isPending}
+      onDragStart={(e) => { if (isPending) { e.preventDefault(); return; } e.stopPropagation(); onDragStart?.(task.id); }}
+      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!isPending) onDragOver?.(task.id); }}
+      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (!isPending) onDrop?.(task.id); }}
       style={depth > 0 ? { paddingLeft: `${depth * 36}px` } : undefined}
       className={cn(
         "group flex items-center transition-colors",
-        isSelectMode ? "cursor-pointer" : "cursor-default",
-        depth === 0 ? "hover:bg-muted/30" : "hover:bg-muted/20 border-l-2 border-border/20",
-        isDragOver && "bg-primary/5",
+        isPending ? "opacity-60 cursor-default" : isSelectMode ? "cursor-pointer" : "cursor-default",
+        !isPending && (depth === 0 ? "hover:bg-muted/30" : "hover:bg-muted/20 border-l-2 border-border/20"),
+        depth > 0 && "border-l-2 border-border/20",
+        isDragOver && !isPending && "bg-primary/5",
         isSelected && "bg-primary/5",
-        isCompleted && depth === 0 && "opacity-60",
+        isCompleted && depth === 0 && !isPending && "opacity-60",
+        // Left breathing room on mobile when the icon column is hidden
+        (depth === 0 && !isSelectMode && !hasSubtasks) && "pl-3 sm:pl-0",
       )}
-      onClick={() => isSelectMode ? onToggleSelect?.(task.id) : undefined}
+      onClick={(e) => {
+        if (isPending) return;
+        if (isSelectMode) { onToggleSelect?.(task.id); return; }
+        // Mobile: tap anywhere on the row to open the drawer
+        if (depth === 0 && !window.matchMedia("(min-width: 640px)").matches) onSelect(task);
+      }}
     >
-      {/* Icon column */}
-      <div className={cn(COL_ICON, "flex items-center justify-center shrink-0 py-2.5")}>
+      {/* Icon column — hidden on mobile when it would only hold an empty placeholder */}
+      <div className={cn(
+        "flex items-center justify-center shrink-0 py-2.5",
+        (depth === 0 && !isSelectMode && !hasSubtasks) ? "hidden sm:flex " + COL_ICON : COL_ICON,
+      )}>
         {isSelectMode ? (
           <button onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }} className="text-primary cursor-pointer">
             {isSelected ? <CheckSquare className="size-4" /> : <Square className="size-4 text-muted-foreground" />}
@@ -335,7 +351,9 @@ const TaskRow = memo(function TaskRow({
       <div className="flex-1 min-w-0 py-2.5 pr-3">
         <div className="flex items-center gap-1.5 min-w-0">
           {!isSelectMode && depth === 0 && (
-            <GripVertical className="size-3 text-muted-foreground/25 shrink-0 opacity-0 group-hover:opacity-100 cursor-grab" />
+            isPending
+              ? <Loader2 className="size-3 text-muted-foreground/40 shrink-0 animate-spin" />
+              : <GripVertical className="size-3 text-muted-foreground/25 shrink-0 opacity-0 group-hover:opacity-100 cursor-grab hidden sm:block" />
           )}
           <div className="flex-1 min-w-0">
             {isEditing ? (
@@ -357,11 +375,16 @@ const TaskRow = memo(function TaskRow({
               <>
                 <span
                   className={cn(
-                    "block truncate leading-snug cursor-text",
+                    "block truncate leading-snug sm:cursor-text",
                     depth === 0 ? "text-sm font-medium" : "text-xs text-muted-foreground",
                     isCompleted && "line-through opacity-50",
                   )}
-                  onClick={(e) => { e.stopPropagation(); onEditStart?.(); }}
+                  onClick={(e) => {
+                    if (isPending) return;
+                    e.stopPropagation();
+                    if (window.matchMedia("(min-width: 640px)").matches) onEditStart?.();
+                    else onSelect(task);
+                  }}
                 >
                   {task.title}
                 </span>
@@ -396,7 +419,7 @@ const TaskRow = memo(function TaskRow({
 
         {/* Mobile metadata chips */}
         {depth === 0 && (
-          <div className="sm:hidden flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 pl-4">
+          <div className="sm:hidden flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
             {task.dueDate && (
               <span className={cn("flex items-center gap-1 text-[11px] font-medium", isOverdue ? "text-red-500" : "text-muted-foreground")}>
                 <Calendar className="size-3 shrink-0" />
@@ -417,12 +440,16 @@ const TaskRow = memo(function TaskRow({
                 <span className="text-[11px] text-muted-foreground">{subtaskProgress.done}/{subtaskProgress.total}</span>
               </div>
             )}
-            {task.recurrenceRule && (
+            {task.recurrenceRule ? (
               <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
                 <RefreshCw className="size-3" />
                 {task.recurrenceRule[0] + task.recurrenceRule.slice(1).toLowerCase()}
               </span>
-            )}
+            ) : task.recurrenceParentId ? (
+              <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground/50" title="Recurring instance">
+                <RefreshCw className="size-3" />
+              </span>
+            ) : null}
             {task.projectId && (
               <span className="text-[11px] text-muted-foreground/70 truncate max-w-[120px]">
                 {projects.find((p) => p.id === task.projectId)?.name}
@@ -458,13 +485,15 @@ const TaskRow = memo(function TaskRow({
       {/* Desktop: Status — single instance (not duplicated for mobile) */}
       {depth === 0 ? (
         <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_STATUS)}>
-          <StatusSelect
-            task={task}
-            taskStatuses={taskStatuses}
-            terminalIds={terminalIds}
-            onStatusChange={onStatusChange}
-            isCompleted={isCompleted}
-          />
+          {!isPending && (
+            <StatusSelect
+              task={task}
+              taskStatuses={taskStatuses}
+              terminalIds={terminalIds}
+              onStatusChange={onStatusChange}
+              isCompleted={isCompleted}
+            />
+          )}
         </div>
       ) : (
         <div className={cn("hidden sm:block shrink-0", COL_STATUS)} />
@@ -472,21 +501,21 @@ const TaskRow = memo(function TaskRow({
 
       {/* Desktop: Priority */}
       <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_PRIORITY)}>
-        {depth === 0 && onPriorityChange && (
+        {depth === 0 && onPriorityChange && !isPending && (
           <PrioritySelect task={task} onPriorityChange={onPriorityChange} />
         )}
       </div>
 
       {/* Desktop: Due */}
       <div onClick={(e) => e.stopPropagation()} className={cn("hidden sm:flex items-center justify-center shrink-0 py-2.5", COL_DUE)}>
-        {depth === 0 && onDueDateChange && (
+        {depth === 0 && onDueDateChange && !isPending && (
           <DueDatePicker task={task} todayYear={todayYear} isOverdue={isOverdue} onDueDateChange={onDueDateChange} />
         )}
       </div>
 
       {/* Desktop: Project — lazy picker */}
       <div onClick={(e) => e.stopPropagation()} className={cn("hidden md:flex items-center justify-center shrink-0 py-2.5", COL_PROJECT)}>
-        {depth === 0 && (
+        {depth === 0 && !isPending && (
           <RowProjectPicker
             projects={projects}
             value={task.projectId ?? undefined}
@@ -499,7 +528,7 @@ const TaskRow = memo(function TaskRow({
       <div className={cn(COL_ACTIONS, "flex items-center justify-center gap-0.5 shrink-0 py-2.5")}>
         {depth === 0 && (
           <>
-            {onLinkTimer && (
+            {!isPending && onLinkTimer && (
               <button
                 title={isLinked ? "Unlink from focus timer" : "Link to focus timer"}
                 onClick={(e) => { e.stopPropagation(); onLinkTimer(task.id); }}
@@ -507,26 +536,31 @@ const TaskRow = memo(function TaskRow({
                   "p-1 rounded-md transition-all cursor-pointer",
                   isLinked
                     ? "text-emerald-600 dark:text-emerald-500 opacity-100"
-                    : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-500 hover:bg-emerald-500/8",
+                    : "hidden sm:block opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-500 hover:bg-emerald-500/8",
                 )}
               >
                 <Timer className="size-3.5" />
               </button>
             )}
-            <button
-              title="Open details"
-              onClick={(e) => { e.stopPropagation(); onSelect(task); }}
-              className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer"
-            >
-              <PanelRight className="size-3.5" />
-            </button>
-            <button
-              title="Delete task"
-              onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id, task.title); }}
-              className="p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all cursor-pointer"
-            >
-              <Trash2 className="size-3.5" />
-            </button>
+            {/* Desktop only — on mobile the row tap opens the drawer */}
+            {!isPending && (
+              <button
+                title="Open details"
+                onClick={(e) => { e.stopPropagation(); onSelect(task); }}
+                className="hidden sm:block p-1 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer"
+              >
+                <PanelRight className="size-3.5" />
+              </button>
+            )}
+            {!isPending && (
+              <button
+                title="Delete task"
+                onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id, task.title); }}
+                className="p-1 rounded-md opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-60 text-muted-foreground hover:text-destructive [@media(hover:none)]:hover:text-muted-foreground hover:bg-destructive/5 transition-all cursor-pointer"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            )}
           </>
         )}
       </div>
@@ -902,7 +936,7 @@ const VirtualTaskList = memo(function VirtualTaskList({
       {/* Scroll container — header lives inside so both share the same width context (scrollbar included) */}
       <div
         ref={parentRef}
-        className="overflow-auto max-h-[calc(100vh-320px)] lg:max-h-[calc(100vh-260px)]"
+        className="overflow-auto max-h-[calc(100vh-230px)] sm:max-h-[calc(100vh-300px)] lg:max-h-[calc(100vh-260px)]"
       >
         {/* Column header — sticky so it stays visible while scrolling */}
         <div className="hidden sm:flex items-center border-b border-border/40 bg-muted/30 sticky top-0 z-10">
@@ -993,6 +1027,7 @@ export function TasksScreen() {
   const [sortBy, setSortBy] = useState<"default" | "due" | "priority">("default");
   const [bulkProjectOpen, setBulkProjectOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const savedCollapsedIds = useRef<Set<string>>(new Set());
 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -1038,6 +1073,25 @@ export function TasksScreen() {
     handleTitleSave,
     handleLoadMore,
   } = useTasksScreen({ search: debouncedSearch });
+
+  const { user } = useAuth();
+  const { data: workspaceMembers = [] } = useMembersQuery(workspaceId ?? "", {
+    enabled: !!workspaceId,
+    staleTime: 60_000,
+  });
+  const currentMember = workspaceMembers.find((m) => m.userId === user?.id);
+  const canAssign =
+    currentMember?.role === "owner" || currentMember?.role === "admin";
+  const assigneeOptions: AssigneeOption[] = useMemo(
+    () =>
+      workspaceMembers.map((m) => ({
+        userId: m.userId,
+        name: m.user.name,
+        email: m.user.email,
+        avatarUrl: m.user.avatarUrl,
+      })),
+    [workspaceMembers],
+  );
 
   // Pre-compute terminal status IDs as a Set — O(1) lookups in rows
   const terminalIds = useMemo(
@@ -1391,7 +1445,7 @@ export function TasksScreen() {
                     </PopoverContent>
                   </Popover>
                   <Button size="sm" variant="outline" onClick={handleBulkComplete} disabled={bulkMutation.isPending}>Mark complete</Button>
-                  <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={handleBulkDelete} disabled={bulkMutation.isPending}>Delete</Button>
+                  <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => setConfirmBulkDelete(true)} disabled={bulkMutation.isPending}>Delete</Button>
                 </div>
               )}
             </div>
@@ -1509,6 +1563,27 @@ export function TasksScreen() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={confirmBulkDelete} onOpenChange={(open) => { if (!open) setConfirmBulkDelete(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected tasks and all their subtasks. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setConfirmBulkDelete(false); handleBulkDelete(); }}
+              disabled={bulkMutation.isPending}
+              className="disabled:opacity-50"
+            >
+              Delete {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <CreateTaskModal
         open={createOpen}
         onOpenChange={setCreateOpen}
@@ -1516,6 +1591,9 @@ export function TasksScreen() {
         isPending={createMutation.isPending}
         projects={projectsForPicker}
         defaultProjectId={filterProjectId === "all" ? undefined : filterProjectId}
+        canAssign={canAssign}
+        members={assigneeOptions}
+        currentUserId={user?.id}
       />
 
       <TaskDrawer
@@ -1530,6 +1608,9 @@ export function TasksScreen() {
         projects={projectsForPicker}
         isSaving={updateMutation.isPending}
         isDeleting={deleteMutation.isPending}
+        canAssign={canAssign}
+        members={assigneeOptions}
+        currentUserId={user?.id}
       />
 
       <Sheet open={statusesSheetOpen} onOpenChange={setStatusesSheetOpen}>

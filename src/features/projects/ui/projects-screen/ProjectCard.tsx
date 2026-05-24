@@ -51,11 +51,11 @@ export function ProjectCard({
       className={cn(
         "group relative flex flex-col gap-3 p-4 rounded-xl border border-border/60 border-l-4 bg-card transition-colors",
         projectCardColorBorder(project.color),
-        isSaving ? "opacity-70 cursor-default" : "hover:border-primary/30",
+        isSaving ? "opacity-70 cursor-wait" : "hover:border-primary/30",
       )}
     >
       {!isSaving && (
-        <div className="absolute top-3 right-3 flex items-center gap-0.5 opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity z-10">
+        <div className="absolute top-3 right-3 flex items-center gap-0.5 opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 group-focus-within:!opacity-100 transition-opacity z-10">
           <button
             type="button"
             aria-label="Edit project"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import { Input } from "./input";
 import {
   AlertDialog,
@@ -21,6 +22,10 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   /** When provided, the confirm button is disabled until the user types this exact string. */
   confirmText?: string;
+  /** When true, the confirm button shows a spinner and is disabled. Cancel is also disabled. */
+  isPending?: boolean;
+  /** When true, prevents the dialog from auto-closing on confirm. Parent must close via `open` prop. */
+  preventAutoClose?: boolean;
   onConfirm: () => void;
 }
 
@@ -31,6 +36,8 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Delete",
   confirmText,
+  isPending,
+  preventAutoClose,
   onConfirm,
 }: ConfirmDialogProps) {
   const [typed, setTyped] = useState("");
@@ -43,7 +50,7 @@ export function ConfirmDialog({
   const confirmed = !confirmText || typed === confirmText;
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={isPending ? undefined : onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
@@ -63,17 +70,26 @@ export function ConfirmDialog({
               onPaste={(e) => e.preventDefault()}
               placeholder={confirmText}
               autoFocus
+              disabled={isPending}
             />
           </div>
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
-            disabled={!confirmed}
+            onClick={(event) => {
+              if (isPending) {
+                event.preventDefault();
+                return;
+              }
+              if (preventAutoClose) event.preventDefault();
+              onConfirm();
+            }}
+            disabled={!confirmed || isPending}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
+            {isPending && <Loader2 className="size-3.5 animate-spin" />}
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>

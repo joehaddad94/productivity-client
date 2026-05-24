@@ -7,7 +7,7 @@ import {
   type UseQueryOptions,
   type UseMutationOptions,
 } from "@tanstack/react-query";
-import type { AnalyticsResult, DailyStat } from "@/lib/types";
+import type { AnalyticsResult, DailyStat, MemberStat } from "@/lib/types";
 import {
   analyticsApi,
   type AnalyticsQueryParams,
@@ -27,6 +27,24 @@ export function useAnalyticsQuery(
   return useQuery({
     queryKey: ANALYTICS_QUERY_KEY(workspaceId ?? "", params),
     queryFn: () => analyticsApi.get(workspaceId!, params),
+    enabled: !!workspaceId,
+    ...options,
+  });
+}
+
+export const TEAM_ANALYTICS_QUERY_KEY = (workspaceId: string, params?: AnalyticsQueryParams) =>
+  ["analytics-team", workspaceId, params] as const;
+
+export function useTeamAnalyticsQuery(
+  workspaceId: string | null | undefined,
+  params?: AnalyticsQueryParams,
+  options?: Omit<UseQueryOptions<MemberStat[]>, "queryKey" | "queryFn"> & {
+    enabled?: boolean;
+  }
+) {
+  return useQuery({
+    queryKey: TEAM_ANALYTICS_QUERY_KEY(workspaceId ?? "", params),
+    queryFn: () => analyticsApi.getTeam(workspaceId!, params),
     enabled: !!workspaceId,
     ...options,
   });

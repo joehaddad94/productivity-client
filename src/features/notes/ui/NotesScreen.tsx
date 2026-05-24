@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ChevronLeft,
   Clock,
   FileText,
   FolderOpen,
@@ -13,6 +14,7 @@ import {
 import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
 import { SearchInput } from "@/app/components/ui/search-input";
+import { cn } from "@/app/components/ui/utils";
 import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ManageTagsDialog } from "@/app/components/tags/ManageTagsDialog";
 import { useNotesScreen } from "../hooks/useNotesScreen";
@@ -78,6 +80,7 @@ export function NotesScreen() {
   const [activeSection, setActiveSection] = useState<ActiveSection>({ type: "all" });
   const [projectsExpanded, setProjectsExpanded] = useState(true);
   const [tagsExpanded, setTagsExpanded] = useState(true);
+  const [mobileShowEditor, setMobileShowEditor] = useState(false);
 
   const existingTagLabels = useMemo(() => allTags.map((t) => t.tag), [allTags]);
 
@@ -105,6 +108,15 @@ export function NotesScreen() {
     }
   }
 
+  // On mobile: auto-switch to editor when a note is selected (handles create + manual select)
+  const prevNoteId = useRef<string | null>(null);
+  useEffect(() => {
+    if (selectedNoteId && selectedNoteId !== prevNoteId.current) {
+      setMobileShowEditor(true);
+    }
+    prevNoteId.current = selectedNoteId;
+  }, [selectedNoteId]);
+
   const navProjects = allProjects.slice(0, MAX_NAV_PROJECTS);
   const hiddenProjectCount = Math.max(0, allProjects.length - MAX_NAV_PROJECTS);
   const navTags = allTags.slice(0, MAX_NAV_TAGS);
@@ -114,7 +126,10 @@ export function NotesScreen() {
     <div className="flex flex-col lg:flex-row gap-0 h-[calc(100vh-3rem)] lg:h-screen -m-5 lg:-m-6">
 
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-      <div className="lg:w-64 xl:w-72 flex-shrink-0 flex flex-col border-r border-border/60 bg-[var(--sidebar-bg)]">
+      <div className={cn(
+        "lg:w-64 xl:w-72 flex-shrink-0 flex-col border-r border-border/60 bg-[var(--sidebar-bg)]",
+        mobileShowEditor ? "hidden lg:flex" : "flex",
+      )}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
@@ -296,7 +311,7 @@ export function NotesScreen() {
                         e.stopPropagation();
                         handleDelete(note.id);
                       }}
-                      className="absolute bottom-2 right-4 opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all cursor-pointer focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="absolute bottom-2 right-4 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all cursor-pointer focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       aria-label={`Delete note: ${note.title || "Untitled"}`}
                       title="Delete note"
                     >
@@ -319,7 +334,21 @@ export function NotesScreen() {
       </div>
 
       {/* ── Editor ───────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 bg-background">
+      <div className={cn(
+        "flex-1 flex-col min-w-0 bg-background",
+        mobileShowEditor ? "flex" : "hidden lg:flex",
+      )}>
+        {/* Mobile back button */}
+        {mobileShowEditor && (
+          <button
+            type="button"
+            onClick={() => setMobileShowEditor(false)}
+            className="lg:hidden flex items-center gap-1.5 px-4 py-2.5 border-b border-border/40 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0 cursor-pointer"
+          >
+            <ChevronLeft className="size-4" />
+            Notes
+          </button>
+        )}
         {selectedNote ? (
           <NoteEditor
             note={selectedNote}

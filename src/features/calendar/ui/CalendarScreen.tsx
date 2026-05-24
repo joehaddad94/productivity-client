@@ -73,8 +73,8 @@ export function CalendarScreen() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Calendar</h1>
 
         {/* View toggle */}
         <div className="flex items-center rounded-lg border border-border/50 overflow-hidden">
@@ -187,7 +187,7 @@ export function CalendarScreen() {
                         key={ymd}
                         onClick={() => setSelectedDate(ymd)}
                         className={cn(
-                          "min-h-[80px] flex flex-col gap-0.5 pt-1.5 pb-1.5 px-1 transition-colors text-sm relative cursor-pointer",
+                          "min-h-[56px] sm:min-h-[80px] flex flex-col gap-0.5 pt-1 sm:pt-1.5 pb-1 sm:pb-1.5 px-0.5 sm:px-1 transition-colors text-sm relative cursor-pointer",
                           isWeekend && !isSelected ? "bg-muted/20" : "bg-background",
                           isSelected && "bg-primary/10 ring-inset ring-1 ring-primary",
                           isToday && !isSelected && "ring-inset ring-1 ring-primary",
@@ -265,7 +265,7 @@ export function CalendarScreen() {
                     key={ymd}
                     onClick={() => setSelectedDate(ymd)}
                     className={cn(
-                      "min-h-[140px] flex flex-col gap-0.5 pt-1.5 pb-1.5 px-1 transition-colors text-sm cursor-pointer",
+                      "min-h-[90px] sm:min-h-[140px] flex flex-col gap-0.5 pt-1.5 pb-1.5 px-1 transition-colors text-sm cursor-pointer",
                       isWeekend && !isSelected ? "bg-muted/20" : "bg-background",
                       isSelected && "bg-primary/10 ring-inset ring-1 ring-primary",
                       isToday && !isSelected && "ring-inset ring-1 ring-primary",

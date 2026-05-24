@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Trash2, Plus, FileText, Timer, Loader2,
-  ExternalLink, Clock, AlertTriangle, ArrowUpRight, Check,
+  ExternalLink, Clock, AlertTriangle, ArrowUpRight, Check, ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/app/components/ui/sheet";
@@ -12,11 +12,21 @@ import { Checkbox } from "@/app/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { cn } from "@/app/components/ui/utils";
 import { useNotesQuery, useCreateNoteMutation } from "@/app/hooks/useNotesApi";
-import { useCreateTaskMutation, useDeleteTaskMutation, useLogTaskFocusMutation, useUpdateTaskMutation } from "@/app/hooks/useTasksApi";
+import {
+  useAssignTaskMutation,
+  useCreateTaskMutation,
+  useDeleteTaskMutation,
+  useLogTaskFocusMutation,
+  useUnassignTaskMutation,
+  useUpdateTaskMutation,
+} from "@/app/hooks/useTasksApi";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 import { activeTaskStatuses, firstTerminalStatusId, defaultNonTerminalStatusId, isTaskStatusTerminal } from "../lib/taskStatusHelpers";
 import { ProjectPicker } from "./ProjectPicker";
+import { AssigneePicker, type AssigneeOption } from "./AssigneePicker";
+import { TaskThread } from "./TaskThread";
+import { toast } from "sonner";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -67,9 +77,20 @@ interface TaskDrawerProps {
   projects?: TaskDrawerProjectOption[];
   isSaving?: boolean;
   isDeleting?: boolean;
+  /** When true, the viewer can add/remove assignees (owner/admin). */
+  canAssign?: boolean;
+  members?: AssigneeOption[];
+  currentUserId?: string;
 }
 
 // ─── TaskDrawer ───────────────────────────────────────────────────────────────
+
+/** Converts a UTC ISO string to a local "YYYY-MM-DDTHH:mm" string for datetime inputs. */
+function utcToLocalDatetimeStr(utcIso: string): string {
+  const d = new Date(utcIso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 export function TaskDrawer({
   task,
@@ -83,6 +104,9 @@ export function TaskDrawer({
   projects = [],
   isSaving,
   isDeleting,
+  canAssign,
+  members = [],
+  currentUserId,
 }: TaskDrawerProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -92,6 +116,7 @@ export function TaskDrawer({
   const [dueTime, setDueTime] = useState("");
   const [recurrenceRule, setRecurrenceRule] = useState<"DAILY" | "WEEKLY" | "MONTHLY" | "none">("none");
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
+  const [remindAt, setRemindAt] = useState<string>("");
   const [isDirty, setIsDirty] = useState(false);
   const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
@@ -108,6 +133,8 @@ export function TaskDrawer({
   onSaveRef.current = onSave;
   const taskRef = useRef(task);
   taskRef.current = task;
+  // Text fields debounce longer; instant selections (dropdowns, dates) debounce short
+  const saveDelayRef = useRef(300);
 
   // Auto-resize title textarea
   useLayoutEffect(() => {
@@ -128,6 +155,7 @@ export function TaskDrawer({
     setDueTime(task.dueTime ?? "");
     setRecurrenceRule(task.recurrenceRule ?? "none");
     setProjectId(task.projectId ?? undefined);
+    setRemindAt(task.remindAt ? utcToLocalDatetimeStr(task.remindAt) : "");
     setSubtasks(task.subtasks ?? []);
     setFocusMinutes(task.focusMinutes ?? 0);
     setNewSubtaskTitle("");
@@ -136,9 +164,10 @@ export function TaskDrawer({
     setIsDirty(false);
   }, [task?.id, open]);
 
-  // Auto-save — debounced 700ms after last change
+  // Auto-save — text fields debounce 1500ms, instant selections debounce 300ms
   useEffect(() => {
     if (!isDirty) return;
+    const delay = saveDelayRef.current;
     const timer = setTimeout(() => {
       const t = taskRef.current;
       if (!t) return;
@@ -149,13 +178,14 @@ export function TaskDrawer({
         priority: priority === "none" ? undefined : priority as "low" | "medium" | "high",
         dueDate: dueDate || undefined,
         dueTime: dueTime || undefined,
-        recurrenceRule: recurrenceRule === "none" ? undefined : recurrenceRule as "DAILY" | "WEEKLY" | "MONTHLY",
+        recurrenceRule: recurrenceRule === "none" ? null : recurrenceRule as "DAILY" | "WEEKLY" | "MONTHLY",
         projectId: projectId ?? null,
+        remindAt: remindAt ? new Date(remindAt).toISOString() : null,
       });
       setIsDirty(false);
-    }, 700);
+    }, delay);
     return () => clearTimeout(timer);
-  }, [isDirty, title, description, status, priority, dueDate, dueTime, recurrenceRule, projectId]);
+  }, [isDirty, title, description, status, priority, dueDate, dueTime, recurrenceRule, projectId, remindAt]);
 
   // ── Subtask mutations ──────────────────────────────────────────────────────
   const createSubtaskMutation = useCreateTaskMutation(workspaceId, { onError: () => {} });
@@ -190,12 +220,55 @@ export function TaskDrawer({
     });
   }
 
+  // ── Assignees ──────────────────────────────────────────────────────────────
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  useEffect(() => {
+    setAssigneeIds((task?.assignees ?? []).map((a) => a.userId));
+  }, [task?.id, task?.assignees]);
+
+  const assignMutation = useAssignTaskMutation(workspaceId, {
+    onSuccess: (data) =>
+      setAssigneeIds((data.assignees ?? []).map((a) => a.userId)),
+    onError: (err, vars) => {
+      toast.error(err.message);
+      // Roll back optimistic state
+      setAssigneeIds((task?.assignees ?? []).map((a) => a.userId));
+    },
+  });
+  const unassignMutation = useUnassignTaskMutation(workspaceId, {
+    onSuccess: (data) =>
+      setAssigneeIds((data.assignees ?? []).map((a) => a.userId)),
+    onError: (err) => {
+      toast.error(err.message);
+      setAssigneeIds((task?.assignees ?? []).map((a) => a.userId));
+    },
+  });
+
+  function handleAssigneeChange(nextIds: string[]) {
+    if (!task) return;
+    const current = new Set(assigneeIds);
+    const next = new Set(nextIds);
+    const toAdd = nextIds.filter((id) => !current.has(id));
+    const toRemove = assigneeIds.filter((id) => !next.has(id));
+    setAssigneeIds(nextIds); // optimistic
+    if (toAdd.length > 0) {
+      assignMutation.mutate({ taskId: task.id, userIds: toAdd });
+    }
+    for (const uid of toRemove) {
+      unassignMutation.mutate({ taskId: task.id, userId: uid });
+    }
+  }
+
   // ── Focus log ──────────────────────────────────────────────────────────────
   const logFocusMutation = useLogTaskFocusMutation(workspaceId, {
     onSuccess: (updated) => {
+      // Sync with server value in case of drift
       setFocusMinutes(updated.focusMinutes ?? 0);
-      setLogMinutes("");
-      setShowLogInput(false);
+    },
+    onError: (_err, { minutes }) => {
+      // Roll back the optimistic increment
+      setFocusMinutes((prev) => Math.max(0, prev - minutes));
+      toast.error("Failed to log focus time. Please try again.");
     },
   });
 
@@ -203,6 +276,10 @@ export function TaskDrawer({
     if (!task) return;
     const mins = parseInt(logMinutes, 10);
     if (!mins || mins <= 0) return;
+    // Optimistic update — close the input and show new value immediately
+    setFocusMinutes((prev) => prev + mins);
+    setLogMinutes("");
+    setShowLogInput(false);
     logFocusMutation.mutate({ id: task.id, minutes: mins });
   }
 
@@ -233,12 +310,12 @@ export function TaskDrawer({
   const projectName = projects.find((p) => p.id === (projectId ?? task.projectId))?.name;
 
   function mark(setter: (v: any) => void) {
-    return (v: any) => { setter(v); setIsDirty(true); };
+    return (v: any) => { setter(v); saveDelayRef.current = 300; setIsDirty(true); };
   }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:w-[480px] flex flex-col p-0 gap-0" aria-describedby={undefined}>
+      <SheetContent side="right" className="w-full sm:w-[540px] flex flex-col p-0 gap-0" aria-describedby={undefined}>
 
         {/* ── Header: title only ────────────────────────────────────── */}
         <SheetHeader className="px-6 pt-5 pb-4 border-b border-border/40 gap-0">
@@ -268,9 +345,9 @@ export function TaskDrawer({
           <textarea
             ref={titleRef}
             value={title}
-            onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
+            onChange={(e) => { setTitle(e.target.value); saveDelayRef.current = 1500; setIsDirty(true); }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) e.preventDefault(); }}
-            className="w-full text-lg font-semibold bg-transparent resize-none outline-none leading-snug placeholder:text-muted-foreground/40"
+            className="w-full text-lg font-semibold bg-muted/40 resize-none outline-none leading-snug placeholder:text-muted-foreground/40 rounded-lg px-3 py-3 min-h-[72px] focus:bg-muted/60 transition-colors"
             rows={1}
             placeholder="Task title…"
           />
@@ -293,7 +370,7 @@ export function TaskDrawer({
           <div className="px-6 pt-4 pb-2">
             <textarea
               value={description}
-              onChange={(e) => { setDescription(e.target.value); setIsDirty(true); }}
+              onChange={(e) => { setDescription(e.target.value); saveDelayRef.current = 1500; setIsDirty(true); }}
               rows={description ? undefined : 2}
               placeholder="Add a description…"
               className="w-full text-sm text-muted-foreground bg-transparent resize-none outline-none leading-relaxed placeholder:text-muted-foreground/35 focus:placeholder:text-muted-foreground/50 min-h-[2.5rem]"
@@ -344,12 +421,26 @@ export function TaskDrawer({
               </PropRow>
             )}
 
+            {(members.some((m) => m.userId !== currentUserId) ||
+              assigneeIds.length > 0) && (
+              <PropRow label="Assignees">
+                <AssigneePicker
+                  members={members}
+                  selected={assigneeIds}
+                  onChange={handleAssigneeChange}
+                  disabled={!canAssign}
+                  currentUserId={currentUserId}
+                  triggerClassName="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 focus-visible:ring-1"
+                />
+              </PropRow>
+            )}
+
             <PropRow label="Due date">
               <input
                 type="date"
                 value={dueDate}
-                onChange={(e) => { setDueDate(e.target.value); if (!e.target.value) setDueTime(""); setIsDirty(true); }}
-                className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
+                onChange={(e) => { setDueDate(e.target.value); if (!e.target.value) { setDueTime(""); setRemindAt(""); } saveDelayRef.current = 300; setIsDirty(true); }}
+                className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
               />
             </PropRow>
 
@@ -358,14 +449,23 @@ export function TaskDrawer({
                 <input
                   type="time"
                   value={dueTime}
-                  onChange={(e) => { setDueTime(e.target.value); setIsDirty(true); }}
-                  className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
+                  onChange={(e) => { setDueTime(e.target.value); saveDelayRef.current = 300; setIsDirty(true); }}
+                  className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
               </PropRow>
             )}
 
             <PropRow label="Repeat">
-              <Select value={recurrenceRule} onValueChange={mark(setRecurrenceRule)}>
+              <Select
+                value={recurrenceRule}
+                onValueChange={(v) => {
+                  if (v !== "none" && !dueDate) {
+                    toast.warning("Add a due date first — recurring tasks need one to schedule the next occurrence.");
+                    return;
+                  }
+                  mark(setRecurrenceRule)(v);
+                }}
+              >
                 <SelectTrigger className="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 cursor-pointer focus-visible:ring-1">
                   <SelectValue placeholder="No repeat" />
                 </SelectTrigger>
@@ -377,6 +477,29 @@ export function TaskDrawer({
                 </SelectContent>
               </Select>
             </PropRow>
+
+            {dueDate && (
+              <PropRow label="Remind on">
+                <input
+                  type="date"
+                  max={dueDate}
+                  value={remindAt.slice(0, 10)}
+                  onChange={(e) => { setRemindAt(e.target.value ? `${e.target.value}T${remindAt.slice(11) || "09:00"}` : ""); saveDelayRef.current = 300; setIsDirty(true); }}
+                  className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
+              </PropRow>
+            )}
+
+            {dueDate && remindAt && (
+              <PropRow label="Remind at">
+                <input
+                  type="time"
+                  value={remindAt.slice(11, 16)}
+                  onChange={(e) => { setRemindAt(`${remindAt.slice(0, 10)}T${e.target.value}`); saveDelayRef.current = 300; setIsDirty(true); }}
+                  className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
+              </PropRow>
+            )}
 
             <PropRow label="Focus time">
               <div className="flex items-center gap-2 min-w-0">
@@ -404,10 +527,10 @@ export function TaskDrawer({
                     <button
                       type="button"
                       onClick={handleLogFocus}
-                      disabled={!logMinutes || parseInt(logMinutes, 10) <= 0 || logFocusMutation.isPending}
+                      disabled={!logMinutes || parseInt(logMinutes, 10) <= 0}
                       className="h-7 px-2.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors cursor-pointer shrink-0"
                     >
-                      {logFocusMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Log"}
+                      Log
                     </button>
                     <button
                       type="button"
@@ -575,6 +698,20 @@ export function TaskDrawer({
             )}
           </div>
 
+          {/* ── Thread ────────────────────────────────────────────── */}
+          <div className="px-6 py-4 border-t border-border/40">
+            <SectionHeader title="Comments & Activity" />
+            <TaskThread
+              workspaceId={workspaceId}
+              taskId={task.id}
+              currentUserId={currentUserId}
+              canComment={
+                canAssign ||
+                assigneeIds.includes(currentUserId ?? "")
+              }
+            />
+          </div>
+
           {/* ── Metadata ──────────────────────────────────────────── */}
           <div className="px-6 py-4 border-t border-border/40 flex flex-wrap gap-x-4 gap-y-1">
             <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
@@ -619,3 +756,4 @@ export function TaskDrawer({
     </Sheet>
   );
 }
+

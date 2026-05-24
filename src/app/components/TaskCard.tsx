@@ -4,9 +4,20 @@ import { useMemo } from "react";
 import { Calendar, CheckSquare, Loader2, RefreshCw, Square } from "lucide-react";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { cn } from "./ui/utils";
 import { activeTaskStatuses, isTaskStatusTerminal, taskStatusVisual } from "@/features/tasks/lib/taskStatusHelpers";
 import { getSubtaskProgress } from "@/features/tasks/lib/subtaskProgress";
+
+function initialsFor(user: { name: string | null; email: string }): string {
+  const src = user.name ?? user.email;
+  return src
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 const PRIORITY_TEXT: Record<string, string> = {
   low: "text-gray-500 dark:text-gray-400",
@@ -135,6 +146,32 @@ export function TaskCard({
             )}
           </div>
         )}
+        {task.assignees && task.assignees.length > 0 && (
+          <div className="flex items-center mt-1.5">
+            <div className="flex -space-x-1.5">
+              {task.assignees.slice(0, 3).map((a) => (
+                <Avatar
+                  key={a.userId}
+                  className="size-5 ring-2 ring-card"
+                  title={a.user.name ?? a.user.email}
+                >
+                  <AvatarImage
+                    src={a.user.avatarUrl ?? undefined}
+                    alt={a.user.name ?? a.user.email}
+                  />
+                  <AvatarFallback className="text-[9px] font-medium">
+                    {initialsFor(a.user)}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+            </div>
+            {task.assignees.length > 3 && (
+              <span className="ml-1.5 text-[10px] text-muted-foreground tabular-nums">
+                +{task.assignees.length - 3}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {isSaving && <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />}
@@ -147,7 +184,7 @@ export function TaskCard({
           >
             <SelectTrigger
               className={cn(
-                "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1.5 focus-visible:ring-0 w-auto max-w-[9rem] [&_svg]:size-3 [&_svg]:opacity-40",
+                "h-auto rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-none gap-1.5 focus-visible:ring-0 w-auto max-w-[9rem] cursor-pointer [&_svg]:size-3 [&_svg]:opacity-40",
                 !statusCfg.color && statusCfg.badge,
               )}
               style={statusCfg.color ? {

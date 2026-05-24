@@ -1,9 +1,11 @@
 "use client";
 
-import { Loader2, Plus } from "lucide-react";
+import { Check, Loader2, Plus } from "lucide-react";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import { Button } from "@/app/components/ui/button";
 import { TaskCard } from "@/app/components/TaskCard";
+import { cn } from "@/app/components/ui/utils";
+import { activeTaskStatuses, taskStatusVisual } from "@/features/tasks/lib/taskStatusHelpers";
 import type { UseMutationResult } from "@tanstack/react-query";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 
@@ -17,6 +19,13 @@ type UpdateTaskMutate = UseMutationResult<
 export function ProjectDetailTasksPanel({
   tasks,
   tasksLoading,
+  tasksTotal,
+  tasksLoadedCount,
+  onLoadMore,
+  hideCompleted,
+  setHideCompleted,
+  selectedStatusIds,
+  toggleStatusFilter,
   newTaskTitle,
   setNewTaskTitle,
   handleAddTask,
@@ -24,9 +33,8 @@ export function ProjectDetailTasksPanel({
   isSelectMode,
   selectedIds,
   handleToggleSelect,
-  handleBulkDelete,
+  onBulkDeleteRequest,
   bulkTaskPending,
-  onBulkDeleteDone,
   updateTaskMutate,
   openTask,
   taskStatuses,
@@ -34,6 +42,13 @@ export function ProjectDetailTasksPanel({
   tasks: Task[];
   taskStatuses: TaskStatusDefinition[];
   tasksLoading: boolean;
+  tasksTotal: number;
+  tasksLoadedCount: number;
+  onLoadMore: () => void;
+  hideCompleted: boolean;
+  setHideCompleted: (v: boolean) => void;
+  selectedStatusIds: Set<string>;
+  toggleStatusFilter: (id: string) => void;
   newTaskTitle: string;
   setNewTaskTitle: (v: string) => void;
   handleAddTask: () => void;
@@ -41,9 +56,8 @@ export function ProjectDetailTasksPanel({
   isSelectMode: boolean;
   selectedIds: Set<string>;
   handleToggleSelect: (id: string) => void;
-  handleBulkDelete: (onDone?: () => void) => void;
+  onBulkDeleteRequest: () => void;
   bulkTaskPending: boolean;
-  onBulkDeleteDone: () => void;
   updateTaskMutate: UpdateTaskMutate;
   openTask: (task: Task) => void;
 }) {
@@ -74,6 +88,60 @@ export function ProjectDetailTasksPanel({
         </Button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter tasks">
+        <button
+          type="button"
+          onClick={() => setHideCompleted(!hideCompleted)}
+          aria-pressed={hideCompleted}
+          className={cn(
+            "inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border cursor-pointer transition-colors",
+            hideCompleted
+              ? "bg-primary/10 text-primary border-primary/30"
+              : "bg-transparent text-muted-foreground border-border/60 hover:text-foreground hover:bg-muted/40",
+          )}
+        >
+          <span
+            className={cn(
+              "inline-flex items-center justify-center size-3.5 rounded-sm border",
+              hideCompleted ? "bg-primary border-primary text-primary-foreground" : "border-border",
+            )}
+          >
+            {hideCompleted && <Check className="size-3" />}
+          </span>
+          Hide completed
+        </button>
+
+        {activeTaskStatuses(taskStatuses).map((status) => {
+          const visual = taskStatusVisual(status.id, taskStatuses);
+          const active = selectedStatusIds.has(status.id);
+          return (
+            <button
+              key={status.id}
+              type="button"
+              onClick={() => toggleStatusFilter(status.id)}
+              aria-pressed={active}
+              className={cn(
+                "inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border cursor-pointer transition-all",
+                active
+                  ? "opacity-100"
+                  : "opacity-50 hover:opacity-80",
+              )}
+              style={active && visual.color ? {
+                color: visual.color,
+                borderColor: visual.color + "66",
+                backgroundColor: visual.color + "12",
+              } : undefined}
+            >
+              <span
+                className={cn("size-1.5 rounded-full shrink-0", !visual.color && visual.dot)}
+                style={visual.color ? { backgroundColor: visual.color } : undefined}
+              />
+              {status.name}
+            </button>
+          );
+        })}
+      </div>
+
       {isSelectMode && selectedIds.size > 0 && (
         <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
           <span className="text-sm font-medium text-primary">{selectedIds.size} selected</span>
@@ -81,7 +149,7 @@ export function ProjectDetailTasksPanel({
             size="sm"
             variant="outline"
             className="ml-auto text-destructive border-destructive/30 hover:bg-destructive/5"
-            onClick={() => handleBulkDelete(onBulkDeleteDone)}
+            onClick={onBulkDeleteRequest}
             disabled={bulkTaskPending}
           >
             {bulkTaskPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
@@ -98,29 +166,46 @@ export function ProjectDetailTasksPanel({
         </div>
       ) : tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
-          <p className="text-sm text-muted-foreground">No tasks yet</p>
-          <p className="text-xs text-muted-foreground/60">Add a task above to get started</p>
+          <p className="text-sm text-muted-foreground">
+            {(hideCompleted || selectedStatusIds.size > 0) && tasksLoadedCount > 0
+              ? "No tasks match your filters"
+              : "No tasks yet"}
+          </p>
+          <p className="text-xs text-muted-foreground/60">
+            {(hideCompleted || selectedStatusIds.size > 0) && tasksLoadedCount > 0
+              ? "Try adjusting the filters above"
+              : "Add a task above to get started"}
+          </p>
         </div>
       ) : (
-        <div className="space-y-1.5">
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              taskStatuses={taskStatuses}
-              onStatusChange={(id, status) =>
-                updateTaskMutate({
-                  id,
-                  body: { status },
-                })
-              }
-              selectionMode={isSelectMode}
-              selected={selectedIds.has(task.id)}
-              onToggleSelect={handleToggleSelect}
-              onSelect={openTask}
-            />
-          ))}
-        </div>
+        <>
+          <div className="space-y-1.5">
+            {tasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                taskStatuses={taskStatuses}
+                onStatusChange={(id, status) =>
+                  updateTaskMutate({
+                    id,
+                    body: { status },
+                  })
+                }
+                selectionMode={isSelectMode}
+                selected={selectedIds.has(task.id)}
+                onToggleSelect={handleToggleSelect}
+                onSelect={openTask}
+              />
+            ))}
+          </div>
+          {tasksLoadedCount < tasksTotal && (
+            <div className="flex justify-center pt-2">
+              <Button variant="ghost" size="sm" onClick={onLoadMore} className="text-muted-foreground">
+                Load more ({tasksLoadedCount} / {tasksTotal})
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

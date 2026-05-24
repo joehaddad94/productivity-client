@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { WifiOff } from "lucide-react";
+import { ArrowLeft, WifiOff } from "lucide-react";
 import type { Task } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
-import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { TaskDrawer } from "@/features/tasks/ui/TaskDrawer";
 import { useProjectDetailScreen } from "../hooks/useProjectDetailScreen";
@@ -28,6 +28,7 @@ export function ProjectDetailScreen({
   const [drawerTask, setDrawerTask] = useState<Task | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
 
   const {
     workspaceId,
@@ -36,8 +37,23 @@ export function ProjectDetailScreen({
     projectError,
     tasks,
     tasksLoading,
+    tasksTotal,
+    tasksLoadedCount,
+    handleLoadMoreTasks,
+    hideCompleted,
+    setHideCompleted,
+    selectedStatusIds,
+    toggleStatusFilter,
     notes,
     notesLoading,
+    notesTotal,
+    notesLoadedCount,
+    handleLoadMoreNotes,
+    noteSearch,
+    setNoteSearch,
+    noteTags,
+    selectedNoteTags,
+    toggleNoteTag,
     activeTab,
     setActiveTab,
     newTaskTitle,
@@ -45,6 +61,7 @@ export function ProjectDetailScreen({
     newNoteTitle,
     setNewNoteTitle,
     updateMutation,
+    deleteMutation,
     createTaskMutation,
     updateTaskMutation,
     deleteTaskMutation,
@@ -89,7 +106,29 @@ export function ProjectDetailScreen({
   }
 
   if (projectLoading) {
-    return <ScreenLoader variant="app" />;
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Link
+            href="/projects"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            Projects
+          </Link>
+        </div>
+        <div className="space-y-2">
+          <div className="h-8 w-1/3 rounded bg-muted/40 animate-pulse" />
+          <div className="h-4 w-2/3 rounded bg-muted/30 animate-pulse" />
+        </div>
+        <div className="h-10 border-b border-border/50" />
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-10 rounded-lg bg-muted/30 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (projectError && !project) {
@@ -112,8 +151,8 @@ export function ProjectDetailScreen({
     return <ProjectDetailNotFound onBack={() => router.replace("/projects")} />;
   }
 
-  const taskCount = tasks.length;
-  const noteCount = notes.length;
+  const taskCount = project._count?.tasks ?? tasks.length;
+  const noteCount = project._count?.notes ?? notes.length;
 
   return (
     <div className="space-y-6">
@@ -126,6 +165,7 @@ export function ProjectDetailScreen({
         onStatusChange={(value) =>
           updateMutation.mutate({ id: project.id, body: { status: value } })
         }
+        isSaving={updateMutation.isPending}
       />
 
       <ProjectDetailTabBar
@@ -141,39 +181,54 @@ export function ProjectDetailScreen({
       />
 
       {activeTab === "tasks" && (
-        <ProjectDetailTasksPanel
-          tasks={tasks}
-          taskStatuses={taskStatuses}
-          tasksLoading={tasksLoading}
-          newTaskTitle={newTaskTitle}
-          setNewTaskTitle={setNewTaskTitle}
-          handleAddTask={handleAddTask}
-          createTaskPending={createTaskMutation.isPending}
-          isSelectMode={isSelectMode}
-          selectedIds={selectedIds}
-          handleToggleSelect={handleToggleSelect}
-          handleBulkDelete={handleBulkDelete}
-          bulkTaskPending={bulkTaskMutation.isPending}
-          onBulkDeleteDone={() => {
-            setDrawerOpen(false);
-            setDrawerTask(null);
-          }}
-          updateTaskMutate={updateTaskMutation.mutate}
-          openTask={openTask}
-        />
+        <div role="tabpanel" id="tabpanel-tasks" aria-labelledby="tab-tasks">
+          <ProjectDetailTasksPanel
+            tasks={tasks}
+            taskStatuses={taskStatuses}
+            tasksLoading={tasksLoading}
+            tasksTotal={tasksTotal}
+            tasksLoadedCount={tasksLoadedCount}
+            onLoadMore={handleLoadMoreTasks}
+            hideCompleted={hideCompleted}
+            setHideCompleted={setHideCompleted}
+            selectedStatusIds={selectedStatusIds}
+            toggleStatusFilter={toggleStatusFilter}
+            newTaskTitle={newTaskTitle}
+            setNewTaskTitle={setNewTaskTitle}
+            handleAddTask={handleAddTask}
+            createTaskPending={createTaskMutation.isPending}
+            isSelectMode={isSelectMode}
+            selectedIds={selectedIds}
+            handleToggleSelect={handleToggleSelect}
+            onBulkDeleteRequest={() => setConfirmBulkDeleteOpen(true)}
+            bulkTaskPending={bulkTaskMutation.isPending}
+            updateTaskMutate={updateTaskMutation.mutate}
+            openTask={openTask}
+          />
+        </div>
       )}
 
       {activeTab === "notes" && (
-        <ProjectDetailNotesPanel
-          notes={notes}
-          notesLoading={notesLoading}
-          newNoteTitle={newNoteTitle}
-          setNewNoteTitle={setNewNoteTitle}
-          handleAddNote={handleAddNote}
-          onOpenNote={(noteId) =>
-            router.push(`/projects/${projectId}/notes/${noteId}?fromTab=notes`)
-          }
-        />
+        <div role="tabpanel" id="tabpanel-notes" aria-labelledby="tab-notes">
+          <ProjectDetailNotesPanel
+            notes={notes}
+            notesLoading={notesLoading}
+            notesTotal={notesTotal}
+            notesLoadedCount={notesLoadedCount}
+            onLoadMore={handleLoadMoreNotes}
+            noteSearch={noteSearch}
+            setNoteSearch={setNoteSearch}
+            noteTags={noteTags}
+            selectedNoteTags={selectedNoteTags}
+            toggleNoteTag={toggleNoteTag}
+            newNoteTitle={newNoteTitle}
+            setNewNoteTitle={setNewNoteTitle}
+            handleAddNote={handleAddNote}
+            onOpenNote={(noteId) =>
+              router.push(`/projects/${projectId}/notes/${noteId}?fromTab=notes`)
+            }
+          />
+        </div>
       )}
 
       <TaskDrawer
@@ -199,7 +254,26 @@ export function ProjectDetailScreen({
         description="This will permanently delete the project and all of its tasks and notes. This action cannot be undone."
         confirmLabel="Delete project"
         confirmText={project?.name}
+        isPending={deleteMutation.isPending}
+        preventAutoClose
         onConfirm={handleDelete}
+      />
+
+      <ConfirmDialog
+        open={confirmBulkDeleteOpen}
+        onOpenChange={setConfirmBulkDeleteOpen}
+        title={`Delete ${selectedIds.size} task${selectedIds.size !== 1 ? "s" : ""}?`}
+        description="This will permanently delete the selected tasks. This action cannot be undone."
+        confirmLabel="Delete tasks"
+        isPending={bulkTaskMutation.isPending}
+        preventAutoClose
+        onConfirm={() => {
+          handleBulkDelete(() => {
+            setConfirmBulkDeleteOpen(false);
+            setDrawerOpen(false);
+            setDrawerTask(null);
+          });
+        }}
       />
     </div>
   );
