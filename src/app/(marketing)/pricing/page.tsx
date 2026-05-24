@@ -4,7 +4,7 @@ import { Button } from "@/app/components/ui/button";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Pricing — Tasky",
+  title: "Pricing | Tasky",
   description: "Tasky is free during beta.",
 };
 
@@ -14,7 +14,7 @@ const INCLUDED = [
   "Built-in Pomodoro focus timer",
   "Calendar view with Google & Outlook sync",
   "Productivity analytics and activity heatmap",
-  "Notifications — in-app, email, and push",
+  "Notifications: in-app, email, and push",
   "Light and dark mode",
   "Recurring tasks",
   "Tags and task linking",
@@ -28,7 +28,7 @@ const FAQS = [
   },
   {
     q: "Do I need a credit card to sign up?",
-    a: "Nope. Sign up with just your email — you'll receive a magic link to log in. No password, no card.",
+    a: "Nope. Sign up with just your email. You'll receive a magic link to log in. No password, no card.",
   },
   {
     q: "What happens to my data after beta?",
@@ -93,7 +93,7 @@ export default function PricingPage() {
                 <span className="text-muted-foreground mb-2 text-sm">/ month</span>
               </div>
               <p className="text-sm text-muted-foreground mb-8">
-                Free for everyone during beta — pricing announced before launch.
+                Free for everyone during beta. Pricing announced before launch.
               </p>
 
               {/* CTA */}

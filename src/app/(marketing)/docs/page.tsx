@@ -16,7 +16,7 @@ import {
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Docs — Tasky",
+  title: "Docs | Tasky",
   description: "Learn how to use Tasky.",
 };
 
@@ -24,7 +24,7 @@ const GETTING_STARTED = [
   {
     step: "1",
     title: "Create an account",
-    description: "Sign up with your email — we'll send you a magic link. No password to remember.",
+    description: "Sign up with your email. We'll send you a magic link. No password to remember.",
   },
   {
     step: "2",
@@ -64,7 +64,7 @@ const FEATURE_GUIDES = [
 
 const TIPS = [
   "Use the dashboard quick-add bar to create tasks without leaving your overview.",
-  "Link your Pomodoro timer to a task — focus time is logged automatically to that task.",
+  "Link your Pomodoro timer to a task. Focus time is logged automatically to that task.",
   "Convert any note to a task with the 'To task' button in the note editor toolbar.",
   "Set recurring tasks for habits or weekly reviews so they appear automatically.",
   "Use tags on notes to group related thinking across different projects.",
@@ -203,7 +203,7 @@ export default function DocsPage() {
             Ready to give it a try?
           </h2>
           <p className="text-muted-foreground mb-7">
-            Sign up — the docs above will be even more useful with an account open.
+            Sign up. The docs above will be even more useful with an account open.
           </p>
           <Link
             href="/signup"

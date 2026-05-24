@@ -2,7 +2,7 @@ import { Sparkles, Rocket } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Changelog — Tasky",
+  title: "Changelog | Tasky",
   description: "What's new in Tasky.",
 };
 
@@ -35,7 +35,7 @@ const ENTRIES: Entry[] = [
           "Task management with priorities, due dates, subtasks, and recurring tasks",
           "Rich text notes with tags, autosave, and task linking",
           "Convert a note to a task in one click",
-          "Projects — group tasks and notes by context",
+          "Projects: group tasks and notes by context",
           "Multiple workspaces",
         ],
       },
@@ -53,7 +53,7 @@ const ENTRIES: Entry[] = [
         items: [
           "Calendar view with month, week, and day modes",
           "Google Calendar and Microsoft Outlook sync",
-          "Due-date reminders — in-app, email, and push",
+          "Due-date reminders: in-app, email, and push",
           "Daily agenda notification at a time you choose",
           "Quiet hours support",
         ],

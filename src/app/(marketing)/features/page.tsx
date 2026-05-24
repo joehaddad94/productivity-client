@@ -16,7 +16,7 @@ import { Button } from "@/app/components/ui/button";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Features — Tasky",
+  title: "Features | Tasky",
   description: "Everything Tasky can do for your productivity.",
 };
 
@@ -28,9 +28,9 @@ const SECTIONS = [
     description:
       "Create tasks with titles, descriptions, priorities, and due dates. Build a system that fits your workflow.",
     bullets: [
-      "Subtasks — break big tasks into smaller steps",
-      "Recurring tasks — daily, weekly, or monthly",
-      "Custom statuses — your own workflow columns",
+      "Subtasks: break big tasks into smaller steps",
+      "Recurring tasks: daily, weekly, or monthly",
+      "Custom statuses: your own workflow columns",
       "Priorities, due dates, and times",
       "Filter by status, priority, project, or date",
       "Bulk actions on multiple tasks",
@@ -43,7 +43,7 @@ const SECTIONS = [
     description:
       "A clean rich-text editor with everything you need and nothing you don't. Notes connect directly to tasks and projects.",
     bullets: [
-      "Rich formatting — headings, lists, code blocks",
+      "Rich formatting: headings, lists, code blocks",
       "Autosave on every keystroke",
       "Tags for categorisation",
       "Link a note to any task",
@@ -63,7 +63,7 @@ const SECTIONS = [
       "Automatic focus time logging",
       "Session counter and long-break cycles",
       "Sound and browser notification alerts",
-      "Floating widget — always one click away",
+      "Floating widget: always one click away",
     ],
   },
   {
@@ -87,7 +87,7 @@ const SECTIONS = [
     description:
       "Track output, focus time, and consistency over time. Build awareness without obsessing.",
     bullets: [
-      "Activity heatmap — last 90 days at a glance",
+      "Activity heatmap: last 90 days at a glance",
       "Productivity score combining tasks, focus, and streak",
       "Weekly completion rate",
       "Daily focus time tracking",
@@ -110,7 +110,7 @@ const SECTIONS = [
   {
     icon: Bell,
     title: "Notifications & Reminders",
-    tagline: "Stay on top — without being interrupted.",
+    tagline: "Stay on top without being interrupted.",
     description:
       "Smart reminders for what matters, delivered the way you want them.",
     bullets: [
@@ -131,8 +131,8 @@ const SECTIONS = [
     bullets: [
       "Light, dark, or follow system",
       "Clean Linear/Notion-inspired design",
-      "Responsive — desktop, tablet, mobile",
-      "Accessible — WCAG AA contrast",
+      "Responsive: desktop, tablet, mobile",
+      "Accessible: WCAG AA contrast",
     ],
   },
 ];
@@ -158,7 +158,7 @@ export default function FeaturesPage() {
             can do
           </h1>
           <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto">
-            A focused productivity workspace — no feature bloat, just the tools you actually use.
+            A focused productivity workspace. No feature bloat, just the tools you actually use.
           </p>
         </div>
       </section>
@@ -217,7 +217,7 @@ export default function FeaturesPage() {
         </div>
         <div className="max-w-xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">
-            Try it all — free during beta
+            Try it all, free during beta
           </h2>
           <p className="text-muted-foreground mb-7">
             No credit card. No catch. Just a focused workspace built for getting things done.

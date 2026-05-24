@@ -17,11 +17,11 @@ import { Button } from "@/app/components/ui/button";
 import { ProductPreview } from "@/app/components/marketing/ProductPreview";
 
 export const metadata: Metadata = {
-  title: "Tasky — Tasks, notes, and focus in one place",
+  title: "Tasky | Tasks, notes, and focus in one place",
   description:
-    "A focused productivity workspace combining tasks, rich notes, and a built-in Pomodoro timer. Free during beta — no credit card required.",
+    "A focused productivity workspace combining tasks, rich notes, and a built-in Pomodoro timer. Free during beta. No credit card required.",
   openGraph: {
-    title: "Tasky — Tasks, notes, and focus in one place",
+    title: "Tasky | Tasks, notes, and focus in one place",
     description:
       "A focused productivity workspace combining tasks, rich notes, and a built-in Pomodoro timer.",
     type: "website",
@@ -54,7 +54,7 @@ export default function LandingPage() {
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-semibold tracking-tight leading-[1.05] mb-6 max-w-4xl">
-            Tasks, notes, and focus —{" "}
+            Tasks, notes, and focus,{" "}
             <span className="relative inline-block">
               <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                 finally in one place.
@@ -72,7 +72,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center gap-3 mb-16 w-full sm:w-auto">
             <Button asChild size="lg" className="w-full sm:w-auto h-11 px-6 shadow-lg shadow-primary/20">
               <Link href="/signup">
-                Get started — it&apos;s free
+                Get started for free
                 <ArrowRight className="size-4 ml-1" />
               </Link>
             </Button>
@@ -116,7 +116,7 @@ export default function LandingPage() {
               <span className="text-muted-foreground">Nothing you don&apos;t.</span>
             </h2>
             <p className="text-muted-foreground">
-              A focused set of tools that work together — designed for clarity, built for momentum.
+              A focused set of tools that work together, designed for clarity and built for momentum.
             </p>
           </div>
 
@@ -186,7 +186,7 @@ export default function LandingPage() {
             &ldquo;The best productivity tool is the one that <span className="text-primary">stays out of your way</span>.&rdquo;
           </blockquote>
           <p className="text-muted-foreground text-sm">
-            Tasky is designed around that idea — no clutter, no notifications you didn&apos;t ask for,
+            Tasky is designed around that idea: no clutter, no notifications you didn&apos;t ask for,
             no features you&apos;ll never use. Just the tools you need, exactly when you need them.
           </p>
         </div>
