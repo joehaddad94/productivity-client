@@ -73,7 +73,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center gap-3 mb-16 w-full sm:w-auto">
             <MarketingCtaButton className="w-full sm:w-auto h-11 px-6 shadow-lg shadow-primary/20" />
             <Button asChild variant="outline" size="lg" className="w-full sm:w-auto h-11 px-6">
-              <Link href="/features">See it in action</Link>
+              <Link href="/features">Explore features</Link>
             </Button>
           </div>
 
