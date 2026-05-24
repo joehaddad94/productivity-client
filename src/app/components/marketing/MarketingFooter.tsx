@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FooterAccountLinks } from "./FooterAccountLinks";
 
 const COLUMNS = [
   {
@@ -13,13 +14,6 @@ const COLUMNS = [
     title: "Resources",
     links: [
       { href: "/docs", label: "Documentation" },
-    ],
-  },
-  {
-    title: "Account",
-    links: [
-      { href: "/login",  label: "Log in"      },
-      { href: "/signup", label: "Get started" },
     ],
   },
 ];
@@ -63,6 +57,7 @@ export function MarketingFooter() {
               </ul>
             </div>
           ))}
+          <FooterAccountLinks />
         </div>
 
         {/* Bottom: copyright */}

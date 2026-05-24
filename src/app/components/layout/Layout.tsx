@@ -112,7 +112,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="h-full flex flex-col">
       {/* Logo */}
       <div className="h-12 flex items-center px-4">
-        <span className="text-sm font-semibold tracking-tight">Tasky</span>
+        <Link href="/" className="text-sm font-semibold tracking-tight hover:text-primary transition-colors">Tasky</Link>
       </div>
 
       {/* Workspace switcher */}
@@ -246,7 +246,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         >
           {sidebarOpen ? <X className="size-4" /> : <Menu className="size-4" />}
         </button>
-        <span className="font-semibold text-sm">Tasky</span>
+        <Link href="/" className="font-semibold text-sm hover:text-primary transition-colors">Tasky</Link>
         <div className="flex items-center gap-1">
           <button
             type="button"

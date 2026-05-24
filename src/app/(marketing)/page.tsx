@@ -122,7 +122,7 @@ export default function LandingPage() {
             <FeatureCard
               icon={SquareCheck}
               title="Tasks that get out of your way"
-              description="Create, prioritise, and track tasks with subtasks, recurring schedules, and due dates. Custom workflow statuses let you build the system that fits your work."
+              description="Create, prioritise, and track tasks with subtasks, recurring schedules, and due dates. Assign to teammates, comment on tasks, and build custom workflow statuses."
               className="md:col-span-2 md:row-span-2"
               featured
             />
@@ -153,7 +153,7 @@ export default function LandingPage() {
             <FeatureCard
               icon={BarChart2}
               title="Productivity analytics"
-              description="Heatmap, score, and streaks. See your progress at a glance."
+              description="Heatmap, score, and streaks. Personal stats plus a team leaderboard for workspace admins."
             />
 
             {/* Projects — wide */}
