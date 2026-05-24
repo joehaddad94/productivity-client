@@ -13,6 +13,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { MarketingCtaButton } from "@/app/components/marketing/MarketingCtaButton";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -222,12 +223,7 @@ export default function FeaturesPage() {
           <p className="text-muted-foreground mb-7">
             No credit card. No catch. Just a focused workspace built for getting things done.
           </p>
-          <Button asChild size="lg" className="h-11 px-6 shadow-lg shadow-primary/20">
-            <Link href="/signup">
-              Get started for free
-              <ArrowRight className="size-4 ml-1" />
-            </Link>
-          </Button>
+          <MarketingCtaButton className="h-11 px-6 shadow-lg shadow-primary/20" />
         </div>
       </section>
     </div>

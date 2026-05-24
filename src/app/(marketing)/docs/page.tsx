@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { ArrowRight, BookOpen } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
+import { BookOpen } from "lucide-react";
+import { MarketingCtaButton } from "@/app/components/marketing/MarketingCtaButton";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -26,12 +25,7 @@ export default function DocsPage() {
           <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto mb-8">
             We&apos;re writing the documentation now. In the meantime, the app is pretty intuitive — give it a try.
           </p>
-          <Button asChild size="lg" className="h-11 px-6 shadow-lg shadow-primary/20">
-            <Link href="/signup">
-              Get started for free
-              <ArrowRight className="size-4 ml-1" />
-            </Link>
-          </Button>
+          <MarketingCtaButton className="h-11 px-6 shadow-lg shadow-primary/20" />
         </div>
       </section>
     </div>

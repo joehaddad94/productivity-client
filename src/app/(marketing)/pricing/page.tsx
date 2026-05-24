@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { Check, ArrowRight, Sparkles, Heart } from "lucide-react";
+import { Check, Sparkles, Heart } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { MarketingCtaButton } from "@/app/components/marketing/MarketingCtaButton";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -97,12 +97,7 @@ export default function PricingPage() {
               </p>
 
               {/* CTA */}
-              <Button asChild size="lg" className="w-full h-11 shadow-md shadow-primary/20 mb-8">
-                <Link href="/signup">
-                  Get started for free
-                  <ArrowRight className="size-4 ml-1" />
-                </Link>
-              </Button>
+              <MarketingCtaButton className="w-full h-11 shadow-md shadow-primary/20 mb-8" />
 
               {/* Included */}
               <div className="space-y-3">

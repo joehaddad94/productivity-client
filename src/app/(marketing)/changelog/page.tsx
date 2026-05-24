@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
+import { Sparkles } from "lucide-react";
+import { MarketingCtaButton } from "@/app/components/marketing/MarketingCtaButton";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -26,12 +25,7 @@ export default function ChangelogPage() {
           <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto mb-8">
             We&apos;re still early. Updates are shipping fast and a proper changelog is on the way.
           </p>
-          <Button asChild size="lg" className="h-11 px-6 shadow-lg shadow-primary/20">
-            <Link href="/signup">
-              Get started for free
-              <ArrowRight className="size-4 ml-1" />
-            </Link>
-          </Button>
+          <MarketingCtaButton className="h-11 px-6 shadow-lg shadow-primary/20" />
         </div>
       </section>
     </div>

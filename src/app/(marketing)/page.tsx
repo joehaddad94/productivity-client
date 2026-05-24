@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { ProductPreview } from "@/app/components/marketing/ProductPreview";
+import { MarketingCtaButton } from "@/app/components/marketing/MarketingCtaButton";
 
 export const metadata: Metadata = {
   title: "Tasky | Tasks, notes, and focus in one place",
@@ -70,12 +71,7 @@ export default function LandingPage() {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center gap-3 mb-16 w-full sm:w-auto">
-            <Button asChild size="lg" className="w-full sm:w-auto h-11 px-6 shadow-lg shadow-primary/20">
-              <Link href="/signup">
-                Get started for free
-                <ArrowRight className="size-4 ml-1" />
-              </Link>
-            </Button>
+            <MarketingCtaButton className="w-full sm:w-auto h-11 px-6 shadow-lg shadow-primary/20" />
             <Button asChild variant="outline" size="lg" className="w-full sm:w-auto h-11 px-6">
               <Link href="/features">See it in action</Link>
             </Button>
@@ -209,12 +205,7 @@ export default function LandingPage() {
           <p className="text-muted-foreground text-lg mb-8">
             Join Tasky today. Free during beta, no credit card.
           </p>
-          <Button asChild size="lg" className="h-11 px-6 shadow-lg shadow-primary/20">
-            <Link href="/signup">
-              Get started for free
-              <ArrowRight className="size-4 ml-1" />
-            </Link>
-          </Button>
+          <MarketingCtaButton className="h-11 px-6 shadow-lg shadow-primary/20" />
         </div>
       </section>
     </div>
