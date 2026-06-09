@@ -62,10 +62,7 @@ export function AssigneePicker({
 }: AssigneePickerProps) {
   const [open, setOpen] = useState(false);
 
-  const selectable = useMemo(
-    () => members.filter((m) => m.userId !== currentUserId),
-    [members, currentUserId],
-  );
+  const selectable = useMemo(() => members, [members]);
 
   const selectedMembers = useMemo(
     () => members.filter((m) => selected.includes(m.userId)),

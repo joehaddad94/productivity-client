@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, UserPlus } from "lucide-react";
+import { Check, UserPlus, X } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -66,7 +66,7 @@ export function InlineAssigneePicker({
             type="button"
             aria-label="Assign members"
             className={cn(
-              "flex items-center rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "flex items-center rounded cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               disabled && "pointer-events-none opacity-50",
             )}
           >
@@ -111,6 +111,17 @@ export function InlineAssigneePicker({
               <CommandEmpty className="py-3 text-center text-xs">
                 No members found.
               </CommandEmpty>
+              {selectedIds.length > 0 && (
+                <CommandGroup>
+                  <CommandItem
+                    className="cursor-pointer gap-2 text-xs text-muted-foreground"
+                    onSelect={() => { onAssigneesChange([]); setOpen(false); }}
+                  >
+                    <X className="size-3.5 shrink-0" />
+                    Clear assignees
+                  </CommandItem>
+                </CommandGroup>
+              )}
               <CommandGroup>
                 {members.map((m) => {
                   const isSelected = selectedIds.includes(m.userId);

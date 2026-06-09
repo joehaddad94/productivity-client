@@ -18,6 +18,7 @@ export function useWorkspaceSSE(workspaceId: string | null | undefined) {
     });
 
     es.onmessage = () => {
+      if (queryClient.isMutating({ mutationKey: ["assignees"] }) > 0) return;
       void queryClient.invalidateQueries({
         queryKey: TASKS_QUERY_KEY(workspaceId),
       });

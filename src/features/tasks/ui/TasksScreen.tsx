@@ -60,6 +60,7 @@ import { useDebounce } from "@/app/hooks/useDebounce";
 import { useMembersQuery } from "@/app/hooks/useMembersApi";
 import { useAuth } from "@/app/context/AuthContext";
 import type { AssigneeOption } from "./AssigneePicker";
+import { InlineAssigneePicker } from "./InlineAssigneePicker";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TaskDrawer } from "./TaskDrawer";
 import { TaskStatusesSettings } from "./TaskStatusesSettings";
@@ -94,6 +95,7 @@ const COL_STATUS = "w-[108px]";
 const COL_PRIORITY = "w-[80px]";
 const COL_DUE = "w-[96px]";
 const COL_PROJECT = "w-[116px]";
+const COL_ASSIGNEE = "w-[80px]";
 const COL_ICON = "w-10";
 const COL_ACTIONS = "w-[76px]";
 
@@ -255,6 +257,8 @@ const TaskRow = memo(function TaskRow({
   onPriorityChange,
   onDueDateChange,
   onFocusLog,
+  workspaceMembers,
+  onAssigneesChange,
 }: {
   task: Task;
   depth?: number;
@@ -285,6 +289,8 @@ const TaskRow = memo(function TaskRow({
   onPriorityChange?: (id: string, priority: string | undefined) => void;
   onDueDateChange?: (id: string, dueDate: string | undefined, dueTime: string | undefined) => void;
   onFocusLog?: (id: string, minutes: number) => void;
+  workspaceMembers?: AssigneeOption[];
+  onAssigneesChange?: (taskId: string, nextIds: string[]) => void;
 }) {
   const isPending = task.id.startsWith("temp_");
   const hasSubtasks = !!task.subtasks?.length;
@@ -523,6 +529,19 @@ const TaskRow = memo(function TaskRow({
           />
         )}
       </div>
+
+      {/* Desktop: Assignees — only rendered when workspace has multiple members */}
+      {workspaceMembers && workspaceMembers.length > 1 && (
+        <div onClick={(e) => e.stopPropagation()} className={cn("hidden md:flex items-center justify-center shrink-0 py-2.5", COL_ASSIGNEE)}>
+          {depth === 0 && !isPending && onAssigneesChange && (
+            <InlineAssigneePicker
+              assignees={task.assignees ?? []}
+              members={workspaceMembers}
+              onAssigneesChange={(nextIds) => onAssigneesChange(task.id, nextIds)}
+            />
+          )}
+        </div>
+      )}
 
       {/* Timer · Details · Delete */}
       <div className={cn(COL_ACTIONS, "flex items-center justify-center gap-0.5 shrink-0 py-2.5")}>
@@ -876,6 +895,8 @@ interface VirtualTaskListProps {
   onPriorityChange: (id: string, priority: string | undefined) => void;
   onDueDateChange: (id: string, dueDate: string | undefined, dueTime: string | undefined) => void;
   onFocusLog: (id: string, minutes: number) => void;
+  workspaceMembers?: AssigneeOption[];
+  onAssigneesChange?: (taskId: string, nextIds: string[]) => void;
 }
 
 const VirtualTaskList = memo(function VirtualTaskList({
@@ -912,6 +933,8 @@ const VirtualTaskList = memo(function VirtualTaskList({
   onPriorityChange,
   onDueDateChange,
   onFocusLog,
+  workspaceMembers,
+  onAssigneesChange,
 }: VirtualTaskListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -946,6 +969,9 @@ const VirtualTaskList = memo(function VirtualTaskList({
           <div className={cn(COL_PRIORITY, "shrink-0 flex items-center justify-center py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Priority</div>
           <div className={cn(COL_DUE, "shrink-0 flex items-center justify-center py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Due</div>
           <div className={cn(COL_PROJECT, "hidden md:flex items-center justify-center shrink-0 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Project</div>
+          {(workspaceMembers?.length ?? 0) > 1 && (
+            <div className={cn(COL_ASSIGNEE, "hidden md:flex items-center justify-center shrink-0 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50")}>Assignees</div>
+          )}
           <div className={cn(COL_ACTIONS, "shrink-0")} />
         </div>
 
@@ -1003,6 +1029,8 @@ const VirtualTaskList = memo(function VirtualTaskList({
                   onPriorityChange={onPriorityChange}
                   onDueDateChange={onDueDateChange}
                   onFocusLog={onFocusLog}
+                  workspaceMembers={workspaceMembers}
+                  onAssigneesChange={onAssigneesChange}
                 />
               </div>
             );
@@ -1071,6 +1099,7 @@ export function TasksScreen() {
     handleToggleExpand,
     handleDelete,
     handleTitleSave,
+    handleAssigneesChange,
     handleLoadMore,
   } = useTasksScreen({ search: debouncedSearch });
 
@@ -1526,6 +1555,8 @@ export function TasksScreen() {
                   onPriorityChange={handlePriorityChange}
                   onDueDateChange={handleDueDateChange}
                   onFocusLog={handleFocusLog}
+                  workspaceMembers={assigneeOptions}
+                  onAssigneesChange={canAssign ? handleAssigneesChange : undefined}
                 />
               </TabsContent>
             ))}

@@ -412,15 +412,16 @@ function patchTaskCaches(
 
 export function useAssignTaskMutation(
   workspaceId: string | null | undefined,
-  options?: UseMutationOptions<Task, Error, { taskId: string; userIds: string[] }>,
+  options?: UseMutationOptions<Task, Error, { taskId: string; userIds: string[] }> & { skipPatch?: boolean },
 ) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ["assignees"],
     mutationFn: ({ taskId, userIds }) =>
       tasksApi.assign(workspaceId!, taskId, userIds),
     ...options,
     onSuccess: (data, variables, context, mutation) => {
-      patchTaskCaches(queryClient, workspaceId ?? "", data);
+      if (!options?.skipPatch) patchTaskCaches(queryClient, workspaceId ?? "", data);
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });
@@ -428,15 +429,16 @@ export function useAssignTaskMutation(
 
 export function useUnassignTaskMutation(
   workspaceId: string | null | undefined,
-  options?: UseMutationOptions<Task, Error, { taskId: string; userId: string }>,
+  options?: UseMutationOptions<Task, Error, { taskId: string; userId: string }> & { skipPatch?: boolean },
 ) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ["assignees"],
     mutationFn: ({ taskId, userId }) =>
       tasksApi.unassign(workspaceId!, taskId, userId),
     ...options,
     onSuccess: (data, variables, context, mutation) => {
-      patchTaskCaches(queryClient, workspaceId ?? "", data);
+      if (!options?.skipPatch) patchTaskCaches(queryClient, workspaceId ?? "", data);
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });
