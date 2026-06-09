@@ -79,9 +79,7 @@ test.describe("Thread — Comments & Activity", () => {
     const comment = `Test comment ${Date.now()}`;
     await textarea.fill(comment);
 
-    // Click the send button (the button next to the textarea)
-    const sendBtn = page.locator(".border-t button[type='button']").last();
-    await sendBtn.click();
+    await page.getByRole("button", { name: "Post comment" }).click();
 
     // Comment appears in the thread
     await expect(page.getByText(comment)).toBeVisible({ timeout: 10_000 });

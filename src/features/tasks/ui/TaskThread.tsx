@@ -272,6 +272,7 @@ export function TaskThread({
           <Button
             type="button"
             size="sm"
+            aria-label="Post comment"
             disabled={!draft.trim() || postMutation.isPending}
             onClick={handlePost}
             className="mb-1 shrink-0"
