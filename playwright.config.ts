@@ -32,7 +32,7 @@ export default defineConfig({
     },
     {
       name: 'chromium',
-      testMatch: /(auth|notes|projects|tasks|dashboard|calendar|analytics|settings|workspaces|navigation|pomodoro)\.spec\.ts/,
+      testMatch: /(auth|notes|projects|tasks|dashboard|calendar|analytics|settings|workspaces|navigation|pomodoro|thread)\.spec\.ts/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },

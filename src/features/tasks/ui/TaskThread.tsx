@@ -44,8 +44,12 @@ const ACTIVITY_LABELS: Record<string, (meta: Record<string, unknown>) => string>
     m.to ? `set due date to ${m.to}` : "removed the due date",
   priority_changed: (m) =>
     m.to ? `changed priority to ${m.to}` : "removed priority",
-  assigned: (m) => `assigned ${m.assigneeId ? "a member" : "someone"}`,
-  unassigned: () => "removed an assignee",
+  assigned: (m) => `assigned ${m.assigneeName ?? "a member"}`,
+  unassigned: (m) => `unassigned ${m.assigneeName ?? "a member"}`,
+  title_changed: (m) => `renamed to "${m.to}"`,
+  project_changed: (m) => m.to ? "moved to a project" : "removed from project",
+  recurrence_changed: (m) => m.to ? `set recurrence to ${m.to}` : "removed recurrence",
+  remind_at_changed: (m) => m.to ? "set a reminder" : "removed reminder",
 };
 
 function describeActivity(type: string, metadata: Record<string, unknown> | null): string {

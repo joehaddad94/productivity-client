@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { TASKS_QUERY_KEY } from "@/app/hooks/useTasksApi";
+import { TASKS_QUERY_KEY, THREAD_QUERY_KEY } from "@/app/hooks/useTasksApi";
 
 const API_BASE =
   (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_URL) || "";
@@ -17,7 +17,16 @@ export function useWorkspaceSSE(workspaceId: string | null | undefined) {
       withCredentials: true,
     });
 
-    es.onmessage = () => {
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data ?? "{}");
+        if (data.type === "thread_changed" && data.taskId) {
+          void queryClient.invalidateQueries({
+            queryKey: THREAD_QUERY_KEY(workspaceId, data.taskId),
+          });
+          return;
+        }
+      } catch {}
       if (queryClient.isMutating({ mutationKey: ["assignees"] }) > 0) return;
       void queryClient.invalidateQueries({
         queryKey: TASKS_QUERY_KEY(workspaceId),

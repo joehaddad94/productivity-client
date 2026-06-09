@@ -524,11 +524,23 @@ export function useDeleteCommentMutation(
     mutationFn: (commentId: string) =>
       tasksApi.deleteComment(workspaceId!, taskId!, commentId),
     ...options,
+    onMutate: async (commentId: string) => {
+      const key = THREAD_QUERY_KEY(workspaceId ?? "", taskId ?? "");
+      await queryClient.cancelQueries({ queryKey: key });
+      const snapshot = queryClient.getQueryData<ThreadItem[]>(key);
+      queryClient.setQueryData<ThreadItem[]>(key, (prev) => prev?.filter((i) => i.id !== commentId));
+      return { snapshot };
+    },
+    onError: (err, commentId, context: any, mutation) => {
+      if (context?.snapshot) {
+        queryClient.setQueryData(
+          THREAD_QUERY_KEY(workspaceId ?? "", taskId ?? ""),
+          context.snapshot,
+        );
+      }
+      options?.onError?.(err, commentId, context, mutation);
+    },
     onSuccess: (_, commentId, context, mutation) => {
-      queryClient.setQueryData<ThreadItem[]>(
-        THREAD_QUERY_KEY(workspaceId ?? "", taskId ?? ""),
-        (prev) => prev?.filter((i) => i.id !== commentId)
-      );
       options?.onSuccess?.(_, commentId, context, mutation);
     },
   });
