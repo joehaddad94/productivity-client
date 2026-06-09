@@ -17,7 +17,11 @@ import {
   useUpdateTaskMutation,
   useDeleteTaskMutation,
   useBulkTasksMutation,
+  useAssignTaskMutation,
+  useUnassignTaskMutation,
 } from "@/app/hooks/useTasksApi";
+import { useMembersQuery } from "@/app/hooks/useMembersApi";
+import type { AssigneeOption } from "@/features/tasks/ui/AssigneePicker";
 import { useNotesQuery, useCreateNoteMutation } from "@/app/hooks/useNotesApi";
 import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
 import type { Project, TaskStatusDefinition } from "@/lib/types";
@@ -40,6 +44,14 @@ export function useProjectDetailScreen(
   const queryClient = useQueryClient();
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
+
+  const { data: rawMembers = [] } = useMembersQuery(workspaceId);
+  const workspaceMembers: AssigneeOption[] = rawMembers.map((m) => ({
+    userId: m.userId,
+    name: m.user.name,
+    email: m.user.email,
+    avatarUrl: m.user.avatarUrl,
+  }));
 
   const adjustProjectCount = useCallback((field: "tasks" | "notes", delta: number) => {
     if (!workspaceId) return;
@@ -208,6 +220,30 @@ export function useProjectDetailScreen(
     onError: (err) => toast.error(err.message),
   });
 
+  const assignTaskMutation = useAssignTaskMutation(workspaceId, {
+    onError: (err) => toast.error(err.message),
+  });
+
+  const unassignTaskMutation = useUnassignTaskMutation(workspaceId, {
+    onError: (err) => toast.error(err.message),
+  });
+
+  const handleAssigneesChange = useCallback(
+    (taskId: string, nextIds: string[]) => {
+      const task = tasks.find((t) => t.id === taskId);
+      const currentIds = (task?.assignees ?? []).map((a) => a.userId);
+      const toAdd = nextIds.filter((id) => !currentIds.includes(id));
+      const toRemove = currentIds.filter((id) => !nextIds.includes(id));
+      if (toAdd.length > 0) {
+        assignTaskMutation.mutate({ taskId, userIds: toAdd });
+      }
+      for (const userId of toRemove) {
+        unassignTaskMutation.mutate({ taskId, userId });
+      }
+    },
+    [tasks, assignTaskMutation, unassignTaskMutation],
+  );
+
   const createNoteMutation = useCreateNoteMutation(workspaceId, {
     onSuccess: () => { toast.success("Note added"); adjustProjectCount("notes", 1); },
     onError: (err) => toast.error(err.message),
@@ -292,6 +328,7 @@ export function useProjectDetailScreen(
 
   return {
     workspaceId,
+    workspaceMembers,
     taskStatuses,
     project,
     projectLoading,
@@ -335,6 +372,7 @@ export function useProjectDetailScreen(
     handleBulkDelete,
     handleDeleteTask,
     handleAddNote,
+    handleAssigneesChange,
     handleDelete,
     isSelectMode,
     setIsSelectMode,

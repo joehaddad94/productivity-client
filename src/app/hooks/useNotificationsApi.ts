@@ -27,7 +27,8 @@ export function useNotificationsQuery(
     enabled: isEnabled,
     staleTime: 30_000,
     refetchInterval: options?.refetchWhenOpen ? 60_000 : false,
-    placeholderData: (prev) => prev,
+    placeholderData: (prev, prevQuery) =>
+      prevQuery?.queryKey?.[1] === workspaceId ? prev : undefined,
   });
 }
 

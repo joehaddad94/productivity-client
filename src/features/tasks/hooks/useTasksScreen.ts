@@ -6,16 +6,19 @@ import { toast } from "sonner";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import {
   TASKS_QUERY_KEY,
+  useAssignTaskMutation,
   useBulkTasksMutation,
   useCreateTaskMutation,
   useDeleteTaskMutation,
   useReorderTasksMutation,
   useTasksQuery,
+  useUnassignTaskMutation,
   useUpdateTaskMutation,
 } from "@/app/hooks/useTasksApi";
 import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
 import { useProjectsQuery } from "@/app/hooks/useProjectsApi";
-import type { Task, TaskStatusDefinition } from "@/lib/types";
+import { useMembersQuery } from "@/app/hooks/useMembersApi";
+import type { Task, TaskAssignee, TaskStatusDefinition } from "@/lib/types";
 import type { PriorityFilter, TaskFormData } from "../model/types";
 import {
   activeTaskStatuses,
@@ -61,13 +64,19 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
     projectId: filterProjectId === "all" ? undefined : filterProjectId,
     limit,
   }, {
-    placeholderData: (prev) => prev,
+    placeholderData: (prev, prevQuery) =>
+      prevQuery?.queryKey?.[1] === workspaceId ? prev : undefined,
   });
   const { data: projectsPage, isLoading: projectsLoading } = useProjectsQuery(workspaceId, {
     limit: 200,
   });
   const projectsForPicker =
     projectsPage?.projects.map((p) => ({ id: p.id, name: p.name })) ?? [];
+
+  const { data: workspaceMembers = [] } = useMembersQuery(workspaceId ?? "", {
+    enabled: !!workspaceId,
+    staleTime: 60_000,
+  });
 
   const { data: rawTaskStatuses = [] } = useTaskStatusesQuery(workspaceId);
   const taskStatuses: TaskStatusDefinition[] = useMemo(
@@ -107,6 +116,14 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
     onError: (err) => toast.error(err.message),
   });
   const reorderMutation = useReorderTasksMutation(workspaceId, {
+    onError: (err) => toast.error(err.message),
+  });
+  const assignMutation = useAssignTaskMutation(workspaceId, {
+    skipPatch: true,
+    onError: (err) => toast.error(err.message),
+  });
+  const unassignMutation = useUnassignTaskMutation(workspaceId, {
+    skipPatch: true,
     onError: (err) => toast.error(err.message),
   });
 
@@ -275,6 +292,52 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
     updateMutation.mutate({ id, body: { title: trimmed } });
   }, [queryClient, workspaceId, updateMutation]);
 
+  const handleAssigneesChange = useCallback(
+    (taskId: string, nextIds: string[]) => {
+      const task = tasks.find((t) => t.id === taskId);
+      const currentIds = (task?.assignees ?? []).map((a) => a.userId);
+      const toAdd = nextIds.filter((id) => !currentIds.includes(id));
+      const toRemove = currentIds.filter((id) => !nextIds.includes(id));
+
+      const memberMap = new Map(workspaceMembers.map((m) => [m.userId, m]));
+      const optimisticAssignees: TaskAssignee[] = nextIds
+        .map((uid) => {
+          const existing = task?.assignees?.find((a) => a.userId === uid);
+          if (existing) return existing;
+          const member = memberMap.get(uid);
+          if (!member) return null;
+          return {
+            taskId,
+            userId: uid,
+            assignedById: '',
+            assignedAt: new Date().toISOString(),
+            user: member.user,
+          };
+        })
+        .filter((a): a is TaskAssignee => a !== null);
+
+      queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
+        { queryKey: TASKS_QUERY_KEY(workspaceId ?? '') },
+        (old) => {
+          if (!old?.tasks) return old;
+          return {
+            ...old,
+            tasks: old.tasks.map((t) =>
+              t.id === taskId ? { ...t, assignees: optimisticAssignees } : t,
+            ),
+          };
+        },
+      );
+
+      const revert = () =>
+        queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? '') });
+
+      if (toAdd.length > 0) assignMutation.mutate({ taskId, userIds: toAdd }, { onError: revert });
+      for (const userId of toRemove) unassignMutation.mutate({ taskId, userId }, { onError: revert });
+    },
+    [tasks, workspaceMembers, queryClient, workspaceId, assignMutation, unassignMutation],
+  );
+
   const handleCreate = (data: TaskFormData) => {
     createMutation.mutate(data);
   };
@@ -325,6 +388,7 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
     handleDelete,
     handleSelectTask,
     handleTitleSave,
+    handleAssigneesChange,
     handleLoadMore: () => setLimit((l) => l + 50),
   };
 }

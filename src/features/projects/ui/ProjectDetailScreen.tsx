@@ -32,6 +32,7 @@ export function ProjectDetailScreen({
 
   const {
     workspaceId,
+    workspaceMembers,
     project,
     projectLoading,
     projectError,
@@ -66,6 +67,7 @@ export function ProjectDetailScreen({
     updateTaskMutation,
     deleteTaskMutation,
     bulkTaskMutation,
+    handleAssigneesChange,
     handleSaveName,
     handleSaveDescription,
     handleAddTask,
@@ -203,6 +205,8 @@ export function ProjectDetailScreen({
             onBulkDeleteRequest={() => setConfirmBulkDeleteOpen(true)}
             bulkTaskPending={bulkTaskMutation.isPending}
             updateTaskMutate={updateTaskMutation.mutate}
+            workspaceMembers={workspaceMembers}
+            onAssigneesChange={handleAssigneesChange}
             openTask={openTask}
           />
         </div>

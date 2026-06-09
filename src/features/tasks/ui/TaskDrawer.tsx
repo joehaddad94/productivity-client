@@ -39,7 +39,15 @@ function formatFocus(minutes: number): string {
 
 // ─── PropRow — consistent label + control layout ───────────────────────────────
 
-function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
+function PropRow({ label, children, compact }: { label: string; children: React.ReactNode; compact?: boolean }) {
+  if (compact) {
+    return (
+      <div className="space-y-1">
+        <span className="text-[11px] text-muted-foreground">{label}</span>
+        <div className="min-w-0">{children}</div>
+      </div>
+    );
+  }
   return (
     <div className="grid grid-cols-[7rem_1fr] items-center min-h-[2rem] gap-2">
       <span className="text-[12px] text-muted-foreground shrink-0">{label}</span>
@@ -315,7 +323,7 @@ export function TaskDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:w-[540px] flex flex-col p-0 gap-0" aria-describedby={undefined}>
+      <SheetContent side="right" className="w-full sm:w-[800px] flex flex-col p-0 gap-0" aria-describedby={undefined}>
 
         {/* ── Header: title only ────────────────────────────────────── */}
         <SheetHeader className="px-6 pt-5 pb-4 border-b border-border/40 gap-0">
@@ -353,8 +361,11 @@ export function TaskDrawer({
           />
         </SheetHeader>
 
-        {/* ── Scrollable body ───────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto">
+        {/* ── Body — two-column on sm+ ─────────────────────────────── */}
+        <div className="flex-1 overflow-hidden flex flex-col sm:flex-row">
+
+          {/* Left column: description · subtasks · notes · thread */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
 
           {/* Overdue banner */}
           {isOverdue && (
@@ -375,182 +386,6 @@ export function TaskDrawer({
               placeholder="Add a description…"
               className="w-full text-sm text-muted-foreground bg-transparent resize-none outline-none leading-relaxed placeholder:text-muted-foreground/35 focus:placeholder:text-muted-foreground/50 min-h-[2.5rem]"
             />
-          </div>
-
-          {/* ── Properties ─────────────────────────────────────────── */}
-          <div className="px-6 py-4 border-t border-border/40 space-y-1">
-            <SectionHeader title="Properties" />
-
-            <PropRow label="Status">
-              <Select value={status || statusOptions[0]?.id} onValueChange={mark(setStatus)}>
-                <SelectTrigger className="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 cursor-pointer focus-visible:ring-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((s) => (
-                    <SelectItem key={s.id} value={s.id} className="text-sm cursor-pointer">
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </PropRow>
-
-            <PropRow label="Priority">
-              <Select value={priority} onValueChange={mark(setPriority)}>
-                <SelectTrigger className="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 cursor-pointer focus-visible:ring-1">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" className="text-sm cursor-pointer">None</SelectItem>
-                  <SelectItem value="low" className="text-sm cursor-pointer">Low</SelectItem>
-                  <SelectItem value="medium" className="text-sm cursor-pointer">Medium</SelectItem>
-                  <SelectItem value="high" className="text-sm cursor-pointer">High</SelectItem>
-                </SelectContent>
-              </Select>
-            </PropRow>
-
-            {projects.length > 0 && (
-              <PropRow label="Project">
-                <ProjectPicker
-                  projects={projects}
-                  value={projectId}
-                  onChange={mark(setProjectId)}
-                  triggerClassName="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 focus-visible:ring-1"
-                />
-              </PropRow>
-            )}
-
-            {(members.some((m) => m.userId !== currentUserId) ||
-              assigneeIds.length > 0) && (
-              <PropRow label="Assignees">
-                <AssigneePicker
-                  members={members}
-                  selected={assigneeIds}
-                  onChange={handleAssigneeChange}
-                  disabled={!canAssign}
-                  currentUserId={currentUserId}
-                  triggerClassName="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 focus-visible:ring-1"
-                />
-              </PropRow>
-            )}
-
-            <PropRow label="Due date">
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => { setDueDate(e.target.value); if (!e.target.value) { setDueTime(""); setRemindAt(""); } saveDelayRef.current = 300; setIsDirty(true); }}
-                className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-              />
-            </PropRow>
-
-            {dueDate && (
-              <PropRow label="Due time">
-                <input
-                  type="time"
-                  value={dueTime}
-                  onChange={(e) => { setDueTime(e.target.value); saveDelayRef.current = 300; setIsDirty(true); }}
-                  className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                />
-              </PropRow>
-            )}
-
-            <PropRow label="Repeat">
-              <Select
-                value={recurrenceRule}
-                onValueChange={(v) => {
-                  if (v !== "none" && !dueDate) {
-                    toast.warning("Add a due date first — recurring tasks need one to schedule the next occurrence.");
-                    return;
-                  }
-                  mark(setRecurrenceRule)(v);
-                }}
-              >
-                <SelectTrigger className="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 cursor-pointer focus-visible:ring-1">
-                  <SelectValue placeholder="No repeat" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" className="text-sm cursor-pointer">No repeat</SelectItem>
-                  <SelectItem value="DAILY" className="text-sm cursor-pointer">Daily</SelectItem>
-                  <SelectItem value="WEEKLY" className="text-sm cursor-pointer">Weekly</SelectItem>
-                  <SelectItem value="MONTHLY" className="text-sm cursor-pointer">Monthly</SelectItem>
-                </SelectContent>
-              </Select>
-            </PropRow>
-
-            {dueDate && (
-              <PropRow label="Remind on">
-                <input
-                  type="date"
-                  max={dueDate}
-                  value={remindAt.slice(0, 10)}
-                  onChange={(e) => { setRemindAt(e.target.value ? `${e.target.value}T${remindAt.slice(11) || "09:00"}` : ""); saveDelayRef.current = 300; setIsDirty(true); }}
-                  className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                />
-              </PropRow>
-            )}
-
-            {dueDate && remindAt && (
-              <PropRow label="Remind at">
-                <input
-                  type="time"
-                  value={remindAt.slice(11, 16)}
-                  onChange={(e) => { setRemindAt(`${remindAt.slice(0, 10)}T${e.target.value}`); saveDelayRef.current = 300; setIsDirty(true); }}
-                  className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                />
-              </PropRow>
-            )}
-
-            <PropRow label="Focus time">
-              <div className="flex items-center gap-2 min-w-0">
-                {focusMinutes > 0 && (
-                  <span className="flex items-center gap-1.5 text-sm font-medium text-primary shrink-0">
-                    <Timer className="size-3.5 shrink-0" />
-                    {formatFocus(focusMinutes)}
-                  </span>
-                )}
-                {showLogInput ? (
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <input
-                      autoFocus
-                      type="number"
-                      min={1}
-                      value={logMinutes}
-                      onChange={(e) => setLogMinutes(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") { e.preventDefault(); handleLogFocus(); }
-                        if (e.key === "Escape") { setShowLogInput(false); setLogMinutes(""); }
-                      }}
-                      placeholder="Minutes…"
-                      className="w-20 h-7 px-2 text-sm rounded-md bg-muted/60 border-0 outline-none focus:ring-1 focus:ring-ring/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleLogFocus}
-                      disabled={!logMinutes || parseInt(logMinutes, 10) <= 0}
-                      className="h-7 px-2.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors cursor-pointer shrink-0"
-                    >
-                      Log
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setShowLogInput(false); setLogMinutes(""); }}
-                      className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowLogInput(true)}
-                    className="text-sm text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
-                  >
-                    {focusMinutes > 0 ? "+ Log more" : "Log time"}
-                  </button>
-                )}
-              </div>
-            </PropRow>
           </div>
 
           {/* ── Subtasks ───────────────────────────────────────────── */}
@@ -712,19 +547,199 @@ export function TaskDrawer({
             />
           </div>
 
-          {/* ── Metadata ──────────────────────────────────────────── */}
-          <div className="px-6 py-4 border-t border-border/40 flex flex-wrap gap-x-4 gap-y-1">
-            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
-              <Clock className="size-3 shrink-0" />
-              Created {new Date(task.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-            </span>
-            {task.completedAt && (
+          </div>{/* ── end left column ─────────────────────────────────── */}
+
+          {/* ── Right column: properties + metadata (sm+) ────────────── */}
+          <div className="hidden sm:flex sm:flex-col sm:w-[260px] shrink-0 border-l border-border/40 overflow-y-auto">
+            <div className="px-4 py-4 space-y-3">
+
+              <PropRow compact label="Status">
+                <Select value={status || statusOptions[0]?.id} onValueChange={mark(setStatus)}>
+                  <SelectTrigger className="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 cursor-pointer focus-visible:ring-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((s) => (
+                      <SelectItem key={s.id} value={s.id} className="text-sm cursor-pointer">
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </PropRow>
+
+              <PropRow compact label="Priority">
+                <Select value={priority} onValueChange={mark(setPriority)}>
+                  <SelectTrigger className="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 cursor-pointer focus-visible:ring-1">
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-sm cursor-pointer">None</SelectItem>
+                    <SelectItem value="low" className="text-sm cursor-pointer">Low</SelectItem>
+                    <SelectItem value="medium" className="text-sm cursor-pointer">Medium</SelectItem>
+                    <SelectItem value="high" className="text-sm cursor-pointer">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </PropRow>
+
+              {projects.length > 0 && (
+                <PropRow compact label="Project">
+                  <ProjectPicker
+                    projects={projects}
+                    value={projectId}
+                    onChange={mark(setProjectId)}
+                    triggerClassName="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 focus-visible:ring-1"
+                  />
+                </PropRow>
+              )}
+
+              {(members.some((m) => m.userId !== currentUserId) || assigneeIds.length > 0) && (
+                <PropRow compact label="Assignees">
+                  <AssigneePicker
+                    members={members}
+                    selected={assigneeIds}
+                    onChange={handleAssigneeChange}
+                    disabled={!canAssign}
+                    currentUserId={currentUserId}
+                    triggerClassName="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 focus-visible:ring-1"
+                  />
+                </PropRow>
+              )}
+
+              <PropRow compact label="Due date">
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => { setDueDate(e.target.value); if (!e.target.value) { setDueTime(""); setRemindAt(""); } saveDelayRef.current = 300; setIsDirty(true); }}
+                  className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
+              </PropRow>
+
+              {dueDate && (
+                <PropRow compact label="Due time">
+                  <input
+                    type="time"
+                    value={dueTime}
+                    onChange={(e) => { setDueTime(e.target.value); saveDelayRef.current = 300; setIsDirty(true); }}
+                    className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  />
+                </PropRow>
+              )}
+
+              <PropRow compact label="Repeat">
+                <Select
+                  value={recurrenceRule}
+                  onValueChange={(v) => {
+                    if (v !== "none" && !dueDate) {
+                      toast.warning("Add a due date first — recurring tasks need one to schedule the next occurrence.");
+                      return;
+                    }
+                    mark(setRecurrenceRule)(v);
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-sm border-0 bg-muted/40 hover:bg-muted/70 shadow-none px-2.5 cursor-pointer focus-visible:ring-1">
+                    <SelectValue placeholder="No repeat" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-sm cursor-pointer">No repeat</SelectItem>
+                    <SelectItem value="DAILY" className="text-sm cursor-pointer">Daily</SelectItem>
+                    <SelectItem value="WEEKLY" className="text-sm cursor-pointer">Weekly</SelectItem>
+                    <SelectItem value="MONTHLY" className="text-sm cursor-pointer">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </PropRow>
+
+              {dueDate && (
+                <PropRow compact label="Remind on">
+                  <input
+                    type="date"
+                    max={dueDate}
+                    value={remindAt.slice(0, 10)}
+                    onChange={(e) => { setRemindAt(e.target.value ? `${e.target.value}T${remindAt.slice(11) || "09:00"}` : ""); saveDelayRef.current = 300; setIsDirty(true); }}
+                    className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  />
+                </PropRow>
+              )}
+
+              {dueDate && remindAt && (
+                <PropRow compact label="Remind at">
+                  <input
+                    type="time"
+                    value={remindAt.slice(11, 16)}
+                    onChange={(e) => { setRemindAt(`${remindAt.slice(0, 10)}T${e.target.value}`); saveDelayRef.current = 300; setIsDirty(true); }}
+                    className="h-8 w-full px-2.5 text-sm rounded-md bg-muted/40 hover:bg-muted/70 border-0 outline-none focus:ring-1 focus:ring-ring/50 transition-colors [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  />
+                </PropRow>
+              )}
+
+              <PropRow compact label="Focus time">
+                <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                  {focusMinutes > 0 && (
+                    <span className="flex items-center gap-1 text-sm font-medium text-primary">
+                      <Timer className="size-3.5 shrink-0" />
+                      {formatFocus(focusMinutes)}
+                    </span>
+                  )}
+                  {showLogInput ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <input
+                        autoFocus
+                        type="number"
+                        min={1}
+                        value={logMinutes}
+                        onChange={(e) => setLogMinutes(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { e.preventDefault(); handleLogFocus(); }
+                          if (e.key === "Escape") { setShowLogInput(false); setLogMinutes(""); }
+                        }}
+                        placeholder="Minutes…"
+                        className="w-16 h-7 px-2 text-sm rounded-md bg-muted/60 border-0 outline-none focus:ring-1 focus:ring-ring/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleLogFocus}
+                        disabled={!logMinutes || parseInt(logMinutes, 10) <= 0}
+                        className="h-7 px-2 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors cursor-pointer"
+                      >
+                        Log
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowLogInput(false); setLogMinutes(""); }}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowLogInput(true)}
+                      className="text-sm text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
+                    >
+                      {focusMinutes > 0 ? "+ Log more" : "Log time"}
+                    </button>
+                  )}
+                </div>
+              </PropRow>
+
+            </div>
+
+            {/* Metadata */}
+            <div className="mt-auto px-4 py-3 border-t border-border/40 flex flex-col gap-1">
               <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
-                <Check className="size-3 shrink-0 text-emerald-500" />
-                Completed {new Date(task.completedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                <Clock className="size-3 shrink-0" />
+                Created {new Date(task.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
               </span>
-            )}
+              {task.completedAt && (
+                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
+                  <Check className="size-3 shrink-0 text-emerald-500" />
+                  Completed {new Date(task.completedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                </span>
+              )}
+            </div>
           </div>
+
         </div>
 
         {/* ── Footer ────────────────────────────────────────────────── */}

@@ -412,15 +412,16 @@ function patchTaskCaches(
 
 export function useAssignTaskMutation(
   workspaceId: string | null | undefined,
-  options?: UseMutationOptions<Task, Error, { taskId: string; userIds: string[] }>,
+  options?: UseMutationOptions<Task, Error, { taskId: string; userIds: string[] }> & { skipPatch?: boolean },
 ) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ["assignees"],
     mutationFn: ({ taskId, userIds }) =>
       tasksApi.assign(workspaceId!, taskId, userIds),
     ...options,
     onSuccess: (data, variables, context, mutation) => {
-      patchTaskCaches(queryClient, workspaceId ?? "", data);
+      if (!options?.skipPatch) patchTaskCaches(queryClient, workspaceId ?? "", data);
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });
@@ -428,15 +429,16 @@ export function useAssignTaskMutation(
 
 export function useUnassignTaskMutation(
   workspaceId: string | null | undefined,
-  options?: UseMutationOptions<Task, Error, { taskId: string; userId: string }>,
+  options?: UseMutationOptions<Task, Error, { taskId: string; userId: string }> & { skipPatch?: boolean },
 ) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ["assignees"],
     mutationFn: ({ taskId, userId }) =>
       tasksApi.unassign(workspaceId!, taskId, userId),
     ...options,
     onSuccess: (data, variables, context, mutation) => {
-      patchTaskCaches(queryClient, workspaceId ?? "", data);
+      if (!options?.skipPatch) patchTaskCaches(queryClient, workspaceId ?? "", data);
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });
@@ -522,11 +524,23 @@ export function useDeleteCommentMutation(
     mutationFn: (commentId: string) =>
       tasksApi.deleteComment(workspaceId!, taskId!, commentId),
     ...options,
+    onMutate: async (commentId: string) => {
+      const key = THREAD_QUERY_KEY(workspaceId ?? "", taskId ?? "");
+      await queryClient.cancelQueries({ queryKey: key });
+      const snapshot = queryClient.getQueryData<ThreadItem[]>(key);
+      queryClient.setQueryData<ThreadItem[]>(key, (prev) => prev?.filter((i) => i.id !== commentId));
+      return { snapshot };
+    },
+    onError: (err, commentId, context: any, mutation) => {
+      if (context?.snapshot) {
+        queryClient.setQueryData(
+          THREAD_QUERY_KEY(workspaceId ?? "", taskId ?? ""),
+          context.snapshot,
+        );
+      }
+      options?.onError?.(err, commentId, context, mutation);
+    },
     onSuccess: (_, commentId, context, mutation) => {
-      queryClient.setQueryData<ThreadItem[]>(
-        THREAD_QUERY_KEY(workspaceId ?? "", taskId ?? ""),
-        (prev) => prev?.filter((i) => i.id !== commentId)
-      );
       options?.onSuccess?.(_, commentId, context, mutation);
     },
   });

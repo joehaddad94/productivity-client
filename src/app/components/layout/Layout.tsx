@@ -12,6 +12,8 @@ import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ScreenSkeleton } from "@/app/components/ScreenSkeleton";
 import { PomodoroProvider } from "@/app/components/pomodoro";
 import { useAdminBugReportsStatsQuery } from "@/app/hooks/useBugReportsApi";
+import { useWorkspace } from "@/app/context/WorkspaceContext";
+import { useWorkspaceSSE } from "@/hooks/useWorkspaceSSE";
 
 const PomodoroWidget = dynamic(
   () => import("@/app/components/pomodoro").then((m) => ({ default: m.PomodoroWidget })),
@@ -54,6 +56,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
     user,
     isLoggingOut,
   } = useLayout();
+
+  const { currentWorkspace } = useWorkspace();
+  useWorkspaceSSE(currentWorkspace?.id);
 
   const { data: bugStats, isPending: bugStatsPending } = useAdminBugReportsStatsQuery({
     enabled: Boolean(user?.isAdmin && showSidebar),
