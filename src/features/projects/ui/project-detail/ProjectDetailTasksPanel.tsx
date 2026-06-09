@@ -8,6 +8,7 @@ import { cn } from "@/app/components/ui/utils";
 import { activeTaskStatuses, taskStatusVisual } from "@/features/tasks/lib/taskStatusHelpers";
 import type { UseMutationResult } from "@tanstack/react-query";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
+import type { AssigneeOption } from "@/features/tasks/ui/AssigneePicker";
 
 type UpdateTaskMutate = UseMutationResult<
   Task,
@@ -36,6 +37,8 @@ export function ProjectDetailTasksPanel({
   onBulkDeleteRequest,
   bulkTaskPending,
   updateTaskMutate,
+  workspaceMembers,
+  onAssigneesChange,
   openTask,
   taskStatuses,
 }: {
@@ -59,6 +62,8 @@ export function ProjectDetailTasksPanel({
   onBulkDeleteRequest: () => void;
   bulkTaskPending: boolean;
   updateTaskMutate: UpdateTaskMutate;
+  workspaceMembers?: AssigneeOption[];
+  onAssigneesChange?: (taskId: string, nextIds: string[]) => void;
   openTask: (task: Task) => void;
 }) {
   return (
@@ -194,6 +199,8 @@ export function ProjectDetailTasksPanel({
                 selectionMode={isSelectMode}
                 selected={selectedIds.has(task.id)}
                 onToggleSelect={handleToggleSelect}
+                workspaceMembers={workspaceMembers}
+                onAssigneesChange={onAssigneesChange}
                 onSelect={openTask}
               />
             ))}

@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { cn } from "./ui/utils";
 import { activeTaskStatuses, isTaskStatusTerminal, taskStatusVisual } from "@/features/tasks/lib/taskStatusHelpers";
 import { getSubtaskProgress } from "@/features/tasks/lib/subtaskProgress";
+import { InlineAssigneePicker } from "@/features/tasks/ui/InlineAssigneePicker";
+import type { AssigneeOption } from "@/features/tasks/ui/AssigneePicker";
 
 function initialsFor(user: { name: string | null; email: string }): string {
   const src = user.name ?? user.email;
@@ -40,6 +42,8 @@ interface TaskCardProps {
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
+  workspaceMembers?: AssigneeOption[];
+  onAssigneesChange?: (taskId: string, nextIds: string[]) => void;
 }
 
 export function TaskCard({
@@ -51,6 +55,8 @@ export function TaskCard({
   selectionMode = false,
   selected = false,
   onToggleSelect,
+  workspaceMembers,
+  onAssigneesChange,
 }: TaskCardProps) {
   const isSaving = task.id.startsWith("temp_");
   const isCompleted = isTaskStatusTerminal(task.status, taskStatuses);
@@ -146,7 +152,16 @@ export function TaskCard({
             )}
           </div>
         )}
-        {task.assignees && task.assignees.length > 0 && (
+        {workspaceMembers && onAssigneesChange ? (
+          <div className="mt-1.5">
+            <InlineAssigneePicker
+              assignees={task.assignees ?? []}
+              members={workspaceMembers}
+              onAssigneesChange={(nextIds) => onAssigneesChange(task.id, nextIds)}
+              disabled={isSaving}
+            />
+          </div>
+        ) : task.assignees && task.assignees.length > 0 ? (
           <div className="flex items-center mt-1.5">
             <div className="flex -space-x-1.5">
               {task.assignees.slice(0, 3).map((a) => (
@@ -171,7 +186,7 @@ export function TaskCard({
               </span>
             )}
           </div>
-        )}
+        ) : null}
       </div>
 
       {isSaving && <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />}
