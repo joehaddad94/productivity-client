@@ -139,6 +139,8 @@ interface TaskThreadProps {
   canComment: boolean;
 }
 
+type ThreadFilter = "all" | "comments" | "activity";
+
 export function TaskThread({
   workspaceId,
   taskId,
@@ -146,12 +148,20 @@ export function TaskThread({
   canComment,
 }: TaskThreadProps) {
   const [draft, setDraft] = useState("");
+  const [filter, setFilter] = useState<ThreadFilter>("all");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const { data: thread = [], isLoading } = useThreadQuery(workspaceId, taskId, {
     staleTime: 30_000,
   });
+
+  const visible =
+    filter === "all"
+      ? thread
+      : thread.filter((i) =>
+          filter === "comments" ? i.kind === "comment" : i.kind === "activity",
+        );
 
   const postMutation = usePostCommentMutation(workspaceId, taskId, {
     onSuccess: () => {
@@ -171,20 +181,49 @@ export function TaskThread({
     postMutation.mutate(content);
   }
 
+  const FILTERS: { value: ThreadFilter; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "comments", label: "Comments" },
+    { value: "activity", label: "Activity" },
+  ];
+
   return (
     <div className="flex flex-col gap-3">
+      {/* Filter toggle */}
+      <div className="flex items-center gap-1">
+        {FILTERS.map(({ value, label }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setFilter(value)}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer",
+              filter === value
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {isLoading ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
           <Loader2 className="size-3.5 animate-spin" />
           Loading thread…
         </div>
-      ) : thread.length === 0 ? (
+      ) : visible.length === 0 ? (
         <p className="text-xs text-muted-foreground/60 py-1">
-          No comments or activity yet.
+          {thread.length === 0
+            ? "No comments or activity yet."
+            : filter === "comments"
+              ? "No comments yet."
+              : "No activity yet."}
         </p>
       ) : (
         <div className="space-y-2.5">
-          {thread.map((item) =>
+          {visible.map((item) =>
             item.kind === "comment" ? (
               <CommentItem
                 key={item.id}
