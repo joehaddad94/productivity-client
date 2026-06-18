@@ -361,11 +361,11 @@ export function TaskDrawer({
           />
         </SheetHeader>
 
-        {/* ── Body — two-column on sm+ ─────────────────────────────── */}
-        <div className="flex-1 overflow-hidden flex flex-col sm:flex-row">
+        {/* ── Body — two-column on sm+, stacked + page-scroll on mobile ─ */}
+        <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-y-auto sm:overflow-hidden">
 
           {/* Left column: description · subtasks · notes · thread */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
+          <div className="min-w-0 sm:flex-1 sm:overflow-y-auto sm:overflow-x-hidden">
 
           {/* Overdue banner */}
           {isOverdue && (
@@ -455,7 +455,7 @@ export function TaskDrawer({
                     <button
                       type="button"
                       onClick={() => handleDeleteSubtask(sub.id)}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-destructive transition-all shrink-0 cursor-pointer"
+                      className="opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-destructive transition-all shrink-0 cursor-pointer"
                       aria-label="Delete subtask"
                     >
                       <Trash2 className="size-3" />
@@ -549,8 +549,8 @@ export function TaskDrawer({
 
           </div>{/* ── end left column ─────────────────────────────────── */}
 
-          {/* ── Right column: properties + metadata (sm+) ────────────── */}
-          <div className="hidden sm:flex sm:flex-col sm:w-[260px] shrink-0 border-l border-border/40 overflow-y-auto">
+          {/* ── Properties + metadata: right column (sm+), stacked on top (mobile) ── */}
+          <div className="order-first flex flex-col w-full border-b border-border/40 sm:order-none sm:w-[260px] sm:shrink-0 sm:border-b-0 sm:border-l sm:overflow-y-auto">
             <div className="px-4 py-4 space-y-3">
 
               <PropRow compact label="Status">
