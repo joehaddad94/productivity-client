@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   Loader2, Pencil, Trash2, Sparkles,
-  UserPlus, X, Crown, Users, Eye, EyeOff, ChevronDown,
+  UserPlus, X, Crown, Users, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/app/components/ui/button";
@@ -13,14 +13,12 @@ import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/app/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/components/ui/tooltip";
 import type { Workspace } from "@/lib/types";
 import { WorkspacesEditForm } from "./WorkspacesEditForm";
 import {
   useMembersQuery,
   useInviteMemberMutation,
   useUpdateMemberRoleMutation,
-  useUpdateMemberVisibilityMutation,
   useRemoveMemberMutation,
 } from "@/app/hooks/useMembersApi";
 import { useAuth } from "@/app/context/AuthContext";
@@ -104,12 +102,6 @@ export function WorkspaceCard({
 
   const updateRoleMutation = useUpdateMemberRoleMutation(workspace.id, {
     onSuccess: () => toast.success("Role updated"),
-    onError: (err) => toast.error(err.message),
-  });
-
-  const updateVisibilityMutation = useUpdateMemberVisibilityMutation(workspace.id, {
-    onSuccess: (data) =>
-      toast.success(data.canSeeAllTasks ? "Can now see all tasks" : "Restricted to assigned tasks"),
     onError: (err) => toast.error(err.message),
   });
 
@@ -300,51 +292,6 @@ export function WorkspaceCard({
                                 </p>
                               )}
                             </div>
-
-                            {/* Visibility toggle — all non-owner members */}
-                            {member.role !== "owner" && (
-                              canEdit ? (
-                                <TooltipProvider delayDuration={200}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        type="button"
-                                        onClick={() => updateVisibilityMutation.mutate({
-                                          userId: member.userId,
-                                          canSeeAllTasks: !member.canSeeAllTasks,
-                                        })}
-                                        disabled={updateVisibilityMutation.isPending}
-                                        aria-pressed={member.canSeeAllTasks}
-                                        aria-label={member.canSeeAllTasks
-                                          ? "Sees all tasks — click to restrict"
-                                          : "Sees only assigned tasks — click to grant full visibility"}
-                                        className="shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50 cursor-pointer transition-colors"
-                                      >
-                                        {member.canSeeAllTasks
-                                          ? <Eye className="size-3.5" />
-                                          : <EyeOff className="size-3.5" />
-                                        }
-                                      </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="text-[11px]">
-                                      {member.canSeeAllTasks
-                                        ? "Sees all tasks"
-                                        : "Sees only assigned tasks"}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              ) : (
-                                <span
-                                  className="shrink-0 text-muted-foreground/50"
-                                  title={member.canSeeAllTasks ? "Sees all tasks" : "Sees only assigned tasks"}
-                                >
-                                  {member.canSeeAllTasks
-                                    ? <Eye className="size-3.5" />
-                                    : <EyeOff className="size-3.5" />
-                                  }
-                                </span>
-                              )
-                            )}
 
                             {/* Role — Radix Select for editable, badge otherwise */}
                             {canEdit ? (

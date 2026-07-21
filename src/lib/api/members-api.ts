@@ -73,7 +73,7 @@ export const membersApi = {
   updateMember: async (
     workspaceId: string,
     userId: string,
-    body: { role?: string; canSeeAllTasks?: boolean }
+    body: { role?: string }
   ): Promise<WorkspaceMember> => {
     const res = await api(`/workspaces/${workspaceId}/members/${userId}`, {
       method: "PATCH",
