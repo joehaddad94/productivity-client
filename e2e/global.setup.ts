@@ -56,7 +56,10 @@ setup("authenticate and prepare workspace", async ({ page }) => {
     },
   ]);
 
-  await page.goto(`${PLAYWRIGHT_BASE_URL}/`);
+  // Enter at an app route, not "/". The root path now serves the marketing
+  // landing page and does not redirect authenticated users into the app, so
+  // starting there left setup sitting on marketing until waitForURL timed out.
+  await page.goto(`${PLAYWRIGHT_BASE_URL}/dashboard`);
   await page.waitForLoadState("load");
 
   const url = page.url();
