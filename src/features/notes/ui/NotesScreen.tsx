@@ -181,8 +181,9 @@ export function NotesScreen() {
       <NotesRail {...railProps} className="hidden w-60 shrink-0 lg:flex xl:w-64" />
 
       {/* ── Rail (mobile slide-over) ────────────────────────────────────── */}
+      {/* z-50: the app's top bar outranks z-40 and would clip the rail header. */}
       {mobileRailOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
+        <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
             aria-label="Close filters"

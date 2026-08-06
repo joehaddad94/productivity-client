@@ -36,7 +36,10 @@ function NoteGridCardComponent({ note, isActive, onSelect }: NoteGridCardProps) 
       data-note-id={note.id}
       aria-current={isActive ? "true" : undefined}
       className={cn(
-        "group/card relative flex h-56 w-full flex-col overflow-hidden rounded-xl border p-4 text-left",
+        // Uniform height keeps grid rows aligned from sm up, where there are
+        // 2+ columns. In the single-column phone layout it only adds dead
+        // space, so let the card size to its content there.
+        "group/card relative flex h-auto w-full flex-col overflow-hidden rounded-xl border p-4 text-left sm:h-56",
         "transition-all duration-200 ease-out",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         isSaving

@@ -4,6 +4,7 @@ import type { Note } from "@/lib/types";
 import { cn } from "./ui/utils";
 import { TagChip } from "./tags/TagChip";
 import { relativeNoteDate as relativeDate } from "@/lib/date-utils";
+import { getNotePreview } from "@/features/notes/lib/notePreview";
 
 interface NoteCardProps {
   note: Note;
@@ -14,8 +15,10 @@ interface NoteCardProps {
 
 function NoteCardComponent({ note, isActive, onSelect }: NoteCardProps) {
   const isSaving = note.id.startsWith("temp:");
+  // Shares the gallery's extractor so block tags keep their word boundaries
+  // ("…branch</li><li>Run…" was rendering as "…branchRun…").
   const preview = useMemo(
-    () => note.content?.replace(/<[^>]+>/g, "").trim().slice(0, 80) ?? "",
+    () => getNotePreview(note.content, 160).text,
     [note.content]
   );
 
