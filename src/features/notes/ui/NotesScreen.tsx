@@ -41,7 +41,6 @@ export function NotesScreen() {
     searchQuery,
     setSearchQuery,
     setSelectedTags,
-    filterProjectId,
     setFilterProjectId,
     allTags,
     notes,
@@ -85,8 +84,11 @@ export function NotesScreen() {
 
   const existingTagLabels = useMemo(() => allTags.map((t) => t.tag), [allTags]);
 
+  // Read after mount, not in a lazy initializer: localStorage does not exist
+  // during SSR, and seeding state from it on the server would hydrate-mismatch.
   useEffect(() => {
     const stored = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored === "grid" || stored === "list") setViewMode(stored);
   }, []);
 
@@ -96,7 +98,10 @@ export function NotesScreen() {
   }, []);
 
   // Recent = last 7 days, filtered from the loaded page (unchanged behaviour).
+  // "Last 7 days" is inherently clock-dependent, so this cannot be pure; it
+  // recomputes when the notes list changes, which is when it matters.
   const recentNotes = useMemo(() => {
+    // eslint-disable-next-line react-hooks/purity
     const cutoff = Date.now() - SEVEN_DAYS_MS;
     return notes.filter((n) => new Date(n.updatedAt).getTime() >= cutoff);
   }, [notes]);
@@ -153,7 +158,11 @@ export function NotesScreen() {
   // while the id is already valid. Guarding on the note closed the editor in
   // that window and it never reopened. Deletion closes explicitly in
   // deleteNote(), so nothing depends on this for that case.
+  // Reconciles local open state with the selection owned by
+  // useNotesScreenSelection: without it the overlay stays "open" with nothing
+  // to show, and pops back up when selection next resolves to another note.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (editorOpen && !selectedNoteId) setEditorOpen(false);
   }, [editorOpen, selectedNoteId]);
 
