@@ -42,7 +42,7 @@ export function ToolbarLinkPopover({ editor }: { editor: Editor }) {
           title="Insert link"
           onClick={openLinkPicker}
           className={cn(
-            "p-1.5 rounded-md transition-colors",
+            "p-1.5 rounded-md transition-colors cursor-pointer",
             editor.isActive("link")
               ? "bg-muted text-foreground"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -76,7 +76,7 @@ export function ToolbarLinkPopover({ editor }: { editor: Editor }) {
           />
           <button
             type="submit"
-            className="text-xs px-2 h-7 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+            className="text-xs px-2 h-7 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
           >
             Apply
           </button>
@@ -89,7 +89,7 @@ export function ToolbarLinkPopover({ editor }: { editor: Editor }) {
                 editor.chain().focus().extendMarkRange("link").unsetLink().run();
                 setLinkOpen(false);
               }}
-              className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
             >
               <Unlink className="size-3.5" />
             </button>

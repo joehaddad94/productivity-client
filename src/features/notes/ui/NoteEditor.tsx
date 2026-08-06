@@ -303,7 +303,7 @@ export function NoteEditor({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor.chain().focus().toggleBold().run()}
               className={cn(
-                "p-1.5 rounded-md text-xs font-bold transition-colors",
+                "p-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer",
                 editor.isActive("bold")
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -317,7 +317,7 @@ export function NoteEditor({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor.chain().focus().toggleItalic().run()}
               className={cn(
-                "p-1.5 rounded-md transition-colors",
+                "p-1.5 rounded-md transition-colors cursor-pointer",
                 editor.isActive("italic")
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -331,7 +331,7 @@ export function NoteEditor({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor.chain().focus().toggleStrike().run()}
               className={cn(
-                "p-1.5 rounded-md transition-colors",
+                "p-1.5 rounded-md transition-colors cursor-pointer",
                 editor.isActive("strike")
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -361,7 +361,7 @@ export function NoteEditor({
                   .run();
               }}
               className={cn(
-                "p-1.5 rounded-md transition-colors",
+                "p-1.5 rounded-md transition-colors cursor-pointer",
                 editor.isActive("link")
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
