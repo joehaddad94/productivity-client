@@ -1,5 +1,16 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { goto, expectToast, selectAll } from "./helpers";
+
+/**
+ * The notes gallery opens a note in a focused editor panel layered over the
+ * grid. Anything behind it (cards, search, view toggle) is unreachable until
+ * the panel is dismissed.
+ */
+async function closeNoteEditor(page: Page) {
+  const close = page.getByRole("button", { name: /^close$/i });
+  await close.click({ timeout: 10_000 });
+  await expect(close).toBeHidden({ timeout: 5_000 });
+}
 
 test.describe("Notes", () => {
   test.beforeEach(async ({ page }) => {
@@ -61,6 +72,10 @@ test.describe("Notes", () => {
     await page.getByTitle("New note").click();
     await expectToast(page, /note created/i);
 
+    // Creating opens the note in the focused editor over the gallery; close it
+    // before reaching the card behind.
+    await closeNoteEditor(page);
+
     const row = page.locator(".relative.group").filter({ has: page.getByTestId("note-card") }).first();
     const card = row.getByTestId("note-card").first();
     await expect(card).toBeVisible({ timeout: 10_000 });
@@ -81,6 +96,9 @@ test.describe("Notes", () => {
     await titleInput.fill(token);
     await titleInput.blur();
     await expect(page.getByText(token).first()).toBeVisible({ timeout: 8_000 });
+
+    // Search lives in the gallery toolbar, behind the focused editor.
+    await closeNoteEditor(page);
 
     await page.getByLabel("Search notes").fill(token);
     await page.waitForTimeout(400);

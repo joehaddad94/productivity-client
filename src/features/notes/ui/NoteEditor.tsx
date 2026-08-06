@@ -226,7 +226,10 @@ export function NoteEditor({
     <div ref={paneRef} tabIndex={-1} className="flex flex-col h-full outline-none">
       <NoteEditorToolbar editor={editor} isSaving={isSaving} />
 
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-8">
+        {/* Constrained measure — prose ran the full pane width before, which is
+            unreadable on a wide display. */}
+        <div className="mx-auto w-full max-w-[68ch]">
         <input
           value={title}
           onChange={handleTitleChange}
@@ -374,6 +377,7 @@ export function NoteEditor({
           editor={editor}
           className="note-prose prose prose-sm dark:prose-invert max-w-none focus:outline-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[300px] [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground/40 [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0"
         />
+        </div>
       </div>
 
     </div>

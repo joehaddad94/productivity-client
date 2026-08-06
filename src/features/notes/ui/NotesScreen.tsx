@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import {
-  ChevronLeft,
-  Clock,
   FileText,
-  FolderOpen,
+  LayoutGrid,
+  List as ListIcon,
   Plus,
-  Tag,
+  SlidersHorizontal,
   Trash2,
   WifiOff,
+  X,
 } from "lucide-react";
 import { NoteCard } from "@/app/components/NoteCard";
 import { Button } from "@/app/components/ui/button";
@@ -19,24 +20,18 @@ import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { ManageTagsDialog } from "@/app/components/tags/ManageTagsDialog";
 import { useNotesScreen } from "../hooks/useNotesScreen";
 import { groupNotesByDate } from "../lib/groupNotesByDate";
-import dynamic from "next/dynamic";
+import type { ActiveSection, NotesViewMode } from "../model/types";
+import { NoteGridCard } from "./NoteGridCard";
+import { NoteEditorOverlay } from "./NoteEditorOverlay";
+import { NotesRail } from "./NotesRail";
+
 const NoteEditor = dynamic(
   () => import("./NoteEditor").then((m) => ({ default: m.NoteEditor })),
-  { ssr: false, loading: () => <ScreenLoader variant="app" /> }
+  { ssr: false, loading: () => <ScreenLoader variant="app" /> },
 );
-import { NotesSidebarNavItem, NotesSidebarSectionHeader } from "./NotesScreenNav";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type ActiveSection =
-  | { type: "all" }
-  | { type: "recent" }
-  | { type: "project"; id: string }
-  | { type: "tag"; tag: string };
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-const MAX_NAV_PROJECTS = 6;
-const MAX_NAV_TAGS = 6;
+const VIEW_MODE_STORAGE_KEY = "notes:viewMode";
 
 export function NotesScreen() {
   const {
@@ -45,7 +40,6 @@ export function NotesScreen() {
     setSelectedNoteId,
     searchQuery,
     setSearchQuery,
-    selectedTags,
     setSelectedTags,
     filterProjectId,
     setFilterProjectId,
@@ -55,6 +49,7 @@ export function NotesScreen() {
     allTasks,
     tasksLoading,
     selectedNote,
+    isLoading,
     error,
     createIsPending,
     updateIsPending,
@@ -80,11 +75,27 @@ export function NotesScreen() {
   const [activeSection, setActiveSection] = useState<ActiveSection>({ type: "all" });
   const [projectsExpanded, setProjectsExpanded] = useState(true);
   const [tagsExpanded, setTagsExpanded] = useState(true);
-  const [mobileShowEditor, setMobileShowEditor] = useState(false);
+  const [mobileRailOpen, setMobileRailOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<NotesViewMode>("grid");
+
+  // The overlay is opened explicitly (click / create) rather than derived from
+  // selection — the selection hook auto-selects the first note whenever the
+  // list loads, which would otherwise pop a note open on every visit.
+  const [editorOpen, setEditorOpen] = useState(false);
 
   const existingTagLabels = useMemo(() => allTags.map((t) => t.tag), [allTags]);
 
-  // Recent = last 7 days, filtered client-side from loaded notes
+  useEffect(() => {
+    const stored = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    if (stored === "grid" || stored === "list") setViewMode(stored);
+  }, []);
+
+  const changeViewMode = useCallback((mode: NotesViewMode) => {
+    setViewMode(mode);
+    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+  }, []);
+
+  // Recent = last 7 days, filtered from the loaded page (unchanged behaviour).
   const recentNotes = useMemo(() => {
     const cutoff = Date.now() - SEVEN_DAYS_MS;
     return notes.filter((n) => new Date(n.updatedAt).getTime() >= cutoff);
@@ -93,185 +104,212 @@ export function NotesScreen() {
   const visibleNotes = activeSection.type === "recent" ? recentNotes : notes;
   const noteGroups = useMemo(() => groupNotesByDate(visibleNotes), [visibleNotes]);
 
-  // Apply a section: update both local UI state and hook filter state
-  function selectSection(section: ActiveSection) {
-    setActiveSection(section);
-    if (section.type === "project") {
-      setFilterProjectId(section.id);
-      setSelectedTags([]);
-    } else if (section.type === "tag") {
-      setSelectedTags([section.tag]);
-      setFilterProjectId(null);
-    } else {
-      setFilterProjectId(null);
-      setSelectedTags([]);
-    }
-  }
+  const selectSection = useCallback(
+    (section: ActiveSection) => {
+      setActiveSection(section);
+      setMobileRailOpen(false);
+      if (section.type === "project") {
+        setFilterProjectId(section.id);
+        setSelectedTags([]);
+      } else if (section.type === "tag") {
+        setSelectedTags([section.tag]);
+        setFilterProjectId(null);
+      } else {
+        setFilterProjectId(null);
+        setSelectedTags([]);
+      }
+    },
+    [setFilterProjectId, setSelectedTags],
+  );
 
-  // On mobile: auto-switch to editor when a note is selected (handles create + manual select)
-  const prevNoteId = useRef<string | null>(null);
+  const openNote = useCallback(
+    (id: string) => {
+      setSelectedNoteId(id);
+      setEditorOpen(true);
+    },
+    [setSelectedNoteId],
+  );
+
+  const createNote = useCallback(() => {
+    handleCreateNote();
+    setEditorOpen(true);
+  }, [handleCreateNote]);
+
+  const closeEditor = useCallback(() => setEditorOpen(false), []);
+
+  const deleteNote = useCallback(
+    (id: string) => {
+      if (id === selectedNoteId) setEditorOpen(false);
+      handleDelete(id);
+    },
+    [handleDelete, selectedNoteId],
+  );
+
+  // If the open note disappears (deleted elsewhere, filtered out), close.
   useEffect(() => {
-    if (selectedNoteId && selectedNoteId !== prevNoteId.current) {
-      setMobileShowEditor(true);
-    }
-    prevNoteId.current = selectedNoteId;
-  }, [selectedNoteId]);
+    if (editorOpen && !selectedNote) setEditorOpen(false);
+  }, [editorOpen, selectedNote]);
 
-  const navProjects = allProjects.slice(0, MAX_NAV_PROJECTS);
-  const hiddenProjectCount = Math.max(0, allProjects.length - MAX_NAV_PROJECTS);
-  const navTags = allTags.slice(0, MAX_NAV_TAGS);
-  const hiddenTagCount = Math.max(0, allTags.length - MAX_NAV_TAGS);
+  const activeFilterLabel = useMemo(() => {
+    if (activeSection.type === "project") {
+      return allProjects.find((p) => p.id === activeSection.id)?.name ?? "Project";
+    }
+    if (activeSection.type === "tag") return `#${activeSection.tag}`;
+    if (activeSection.type === "recent") return "Recent";
+    return null;
+  }, [activeSection, allProjects]);
+
+  const railProps = {
+    activeSection,
+    onSelectSection: selectSection,
+    totalCount: total,
+    recentCount: recentNotes.length,
+    projects: allProjects,
+    tags: allTags,
+    projectsExpanded,
+    onToggleProjects: () => setProjectsExpanded((v) => !v),
+    tagsExpanded,
+    onToggleTags: () => setTagsExpanded((v) => !v),
+    onManageTags: () => setManageOpen(true),
+    onCreateNote: createNote,
+    createDisabled: createIsPending || !workspaceId,
+  };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-0 h-[calc(100vh-3rem)] lg:h-screen -m-5 lg:-m-6">
+    <div className="-m-5 flex h-[calc(100vh-3rem)] lg:-m-6 lg:h-screen">
+      {/* ── Rail (desktop) ──────────────────────────────────────────────── */}
+      <NotesRail {...railProps} className="hidden w-60 shrink-0 lg:flex xl:w-64" />
 
-      {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-      <div className={cn(
-        "lg:w-64 xl:w-72 flex-shrink-0 flex-col border-r border-border/60 bg-[var(--sidebar-bg)]",
-        mobileShowEditor ? "hidden lg:flex" : "flex",
-      )}>
+      {/* ── Rail (mobile slide-over) ────────────────────────────────────── */}
+      {mobileRailOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <button
+            type="button"
+            aria-label="Close filters"
+            onClick={() => setMobileRailOpen(false)}
+            className="absolute inset-0 cursor-default bg-background/60 backdrop-blur-sm"
+          />
+          <NotesRail
+            {...railProps}
+            className="relative h-full w-72 max-w-[85vw] shadow-xl animate-in slide-in-from-left duration-200"
+          />
+        </div>
+      )}
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
-          <h1 className="text-sm font-semibold">Notes</h1>
+      {/* ── Main ────────────────────────────────────────────────────────── */}
+      <div className="flex min-w-0 flex-1 flex-col bg-background">
+        {/* Toolbar */}
+        <div className="flex shrink-0 items-center gap-2 border-b border-border/40 px-3 py-2 sm:px-4">
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0"
-            onClick={handleCreateNote}
-            disabled={createIsPending || !workspaceId}
-            title="New note"
+            className="size-8 shrink-0 p-0 lg:hidden"
+            onClick={() => setMobileRailOpen(true)}
+            aria-label="Open filters"
           >
-            <Plus className="size-4" />
+            <SlidersHorizontal className="size-4" />
           </Button>
-        </div>
 
-        {/* Search */}
-        <div className="px-3 py-2 border-b border-border/40">
-          <SearchInput
-            placeholder="Search…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Search notes"
-            className="h-7 text-xs"
-          />
-        </div>
-
-        {/* Navigation */}
-        <div className="border-b border-border/40 overflow-y-auto shrink-0 max-h-72">
-
-          {/* All / Recent */}
-          <div className="px-2 pt-2 pb-1 space-y-0.5">
-            <NotesSidebarNavItem
-              icon={FileText}
-              label="All Notes"
-              count={total}
-              active={activeSection.type === "all"}
-              onClick={() => selectSection({ type: "all" })}
-            />
-            <NotesSidebarNavItem
-              icon={Clock}
-              label="Recent"
-              count={recentNotes.length}
-              active={activeSection.type === "recent"}
-              onClick={() => selectSection({ type: "recent" })}
+          <div className="min-w-0 max-w-md flex-1">
+            <SearchInput
+              placeholder="Search notes…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search notes"
+              className="h-8 text-xs"
             />
           </div>
 
-          {/* By Project */}
-          {allProjects.length > 0 && (
-            <div className="px-2 pb-1">
-              <NotesSidebarSectionHeader
-                label="Projects"
-                expanded={projectsExpanded}
-                onToggle={() => setProjectsExpanded((v) => !v)}
-              />
-              {projectsExpanded && (
-                <div className="space-y-0.5">
-                  {navProjects.map((p) => (
-                    <NotesSidebarNavItem
-                      key={p.id}
-                      icon={FolderOpen}
-                      label={p.name}
-                      count={p._count?.notes}
-                      active={activeSection.type === "project" && activeSection.id === p.id}
-                      onClick={() => selectSection({ type: "project", id: p.id })}
-                    />
-                  ))}
-                  {hiddenProjectCount > 0 && (
-                    <p className="text-[10px] text-muted-foreground/60 px-2 py-0.5">
-                      +{hiddenProjectCount} more
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
+          {activeFilterLabel && (
+            <button
+              type="button"
+              onClick={() => selectSection({ type: "all" })}
+              className="hidden shrink-0 cursor-pointer items-center gap-1 rounded-full border border-border/60 bg-muted/60 px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
+              title="Clear filter"
+            >
+              <span className="max-w-[10rem] truncate">{activeFilterLabel}</span>
+              <X className="size-3" />
+            </button>
           )}
 
-          {/* By Tag */}
-          {allTags.length > 0 && (
-            <div className="px-2 pb-2">
-              <NotesSidebarSectionHeader
-                label="Tags"
-                expanded={tagsExpanded}
-                onToggle={() => setTagsExpanded((v) => !v)}
-                action={{ label: "Manage", onClick: () => setManageOpen(true) }}
-              />
-              {tagsExpanded && (
-                <div className="space-y-0.5" data-testid="tag-filter-bar">
-                  {navTags.map(({ tag, count }) => {
-                    const isActive = activeSection.type === "tag" && activeSection.tag === tag;
-                    return (
-                      <NotesSidebarNavItem
-                        key={tag}
-                        icon={Tag}
-                        label={tag}
-                        count={count}
-                        active={isActive}
-                        onClick={() =>
-                          isActive
-                            ? selectSection({ type: "all" })
-                            : selectSection({ type: "tag", tag })
-                        }
-                      />
-                    );
-                  })}
-                  {hiddenTagCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setManageOpen(true)}
-                      className="text-[10px] text-muted-foreground/60 hover:text-foreground px-2 py-0.5 w-full text-left cursor-pointer transition-colors"
-                      data-testid="tag-filter-overflow"
-                    >
-                      +{hiddenTagCount} more tags
-                    </button>
-                  )}
-                </div>
+          <div className="flex-1" />
+
+          <span className="hidden shrink-0 text-[11px] tabular-nums text-muted-foreground/70 sm:inline">
+            {visibleNotes.length} of {total}
+          </span>
+
+          {/* View toggle */}
+          <div className="flex shrink-0 items-center rounded-md border border-border/60 p-0.5">
+            <button
+              type="button"
+              onClick={() => changeViewMode("grid")}
+              aria-label="Grid view"
+              aria-pressed={viewMode === "grid"}
+              className={cn(
+                "cursor-pointer rounded p-1 transition-colors",
+                viewMode === "grid"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
-            </div>
-          )}
+            >
+              <LayoutGrid className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => changeViewMode("list")}
+              aria-label="List view"
+              aria-pressed={viewMode === "list"}
+              className={cn(
+                "cursor-pointer rounded p-1 transition-colors",
+                viewMode === "list"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <ListIcon className="size-3.5" />
+            </button>
+          </div>
+
+          <Button
+            size="sm"
+            className="h-8 shrink-0 gap-1.5"
+            onClick={createNote}
+            disabled={createIsPending || !workspaceId}
+            title="New note"
+          >
+            <Plus className="size-3.5" />
+            <span className="hidden sm:inline">New</span>
+          </Button>
         </div>
 
-        {/* Note list */}
-        <div className="flex-1 overflow-y-auto py-1">
+        {/* Gallery */}
+        <div className="flex-1 overflow-y-auto px-3 pb-10 sm:px-4">
+          {isLoading && notes.length === 0 && (
+            <div className="py-16">
+              <ScreenLoader variant="app" />
+            </div>
+          )}
+
           {error && notes.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground px-4">
-              <WifiOff className="h-6 w-6 opacity-40" />
-              <p className="text-xs font-medium text-center">
-                {!navigator.onLine ? "You're offline" : "Failed to load notes"}
+            <div className="flex flex-col items-center justify-center gap-2 px-4 py-20 text-muted-foreground">
+              <WifiOff className="size-7 opacity-40" />
+              <p className="text-sm font-medium">
+                {typeof navigator !== "undefined" && !navigator.onLine
+                  ? "You're offline"
+                  : "Failed to load notes"}
               </p>
-              <p className="text-[11px] opacity-60 text-center">
-                {!navigator.onLine
+              <p className="text-xs opacity-60">
+                {typeof navigator !== "undefined" && !navigator.onLine
                   ? "Connect to the internet to load your notes"
                   : "Check your connection and try again"}
               </p>
             </div>
           )}
 
-          {!error && visibleNotes.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-              <FileText className="size-8 text-muted-foreground/30 mb-3" />
-              <p className="text-xs text-muted-foreground">
+          {!error && !isLoading && visibleNotes.length === 0 && (
+            <div className="flex flex-col items-center justify-center px-4 py-24 text-center">
+              <FileText className="mb-3 size-10 text-muted-foreground/25" />
+              <p className="text-sm text-muted-foreground">
                 {activeSection.type === "recent"
                   ? "No notes in the last 7 days"
                   : activeSection.type === "project"
@@ -283,35 +321,60 @@ export function NotesScreen() {
                         : "No notes yet"}
               </p>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="mt-2 text-xs"
-                onClick={handleCreateNote}
+                className="mt-4 gap-1.5"
+                onClick={createNote}
                 disabled={!workspaceId}
               >
-                <Plus className="size-3" /> Create one
+                <Plus className="size-3.5" />
+                Create one
               </Button>
             </div>
           )}
 
           {noteGroups.map(({ label, notes: groupNotes }) => (
-              <div key={label}>
-                <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wide px-4 pt-3 pb-1 select-none">
-                  {label}
-                </p>
+            <section key={label} className="mt-5 first:mt-4">
+              <h2 className="mb-2 select-none px-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+                {label}
+              </h2>
+
+              <div
+                className={cn(
+                  viewMode === "grid"
+                    ? "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                    : "mx-auto flex max-w-3xl flex-col gap-1",
+                )}
+              >
                 {groupNotes.map((note) => (
-                  <div key={note.id} className="relative group px-2">
-                    <NoteCard
-                      note={note}
-                      isActive={selectedNoteId === note.id}
-                      onSelect={setSelectedNoteId}
-                    />
+                  <div key={note.id} className="relative group">
+                    {viewMode === "grid" ? (
+                      <NoteGridCard
+                        note={note}
+                        isActive={selectedNoteId === note.id}
+                        onSelect={openNote}
+                      />
+                    ) : (
+                      <NoteCard
+                        note={note}
+                        isActive={selectedNoteId === note.id}
+                        onSelect={openNote}
+                      />
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDelete(note.id);
+                        deleteNote(note.id);
                       }}
-                      className="absolute bottom-2 right-4 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all cursor-pointer focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className={cn(
+                        "absolute rounded p-1 text-muted-foreground opacity-0 transition-all",
+                        "hover:bg-background/80 hover:text-destructive focus-visible:opacity-100",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "group-hover:opacity-100 [@media(hover:none)]:opacity-100",
+                        viewMode === "grid"
+                          ? "right-2 top-2 cursor-pointer bg-background/70 backdrop-blur-sm"
+                          : "bottom-2 right-3 cursor-pointer",
+                      )}
                       aria-label={`Delete note: ${note.title || "Untitled"}`}
                       title="Delete note"
                     >
@@ -320,43 +383,36 @@ export function NotesScreen() {
                   </div>
                 ))}
               </div>
-            ))}
+            </section>
+          ))}
 
           {notes.length < total && activeSection.type !== "recent" && (
-            <button
-              onClick={handleLoadMore}
-              className="w-full text-[11px] text-center py-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            >
-              Load more ({notes.length} / {total})
-            </button>
+            <div className="mt-6 flex justify-center">
+              <Button variant="outline" size="sm" onClick={handleLoadMore}>
+                Load more ({notes.length} / {total})
+              </Button>
+            </div>
           )}
         </div>
       </div>
 
-      {/* ── Editor ───────────────────────────────────────────────────────── */}
-      <div className={cn(
-        "flex-1 flex-col min-w-0 bg-background",
-        mobileShowEditor ? "flex" : "hidden lg:flex",
-      )}>
-        {/* Mobile back button */}
-        {mobileShowEditor && (
-          <button
-            type="button"
-            onClick={() => setMobileShowEditor(false)}
-            className="lg:hidden flex items-center gap-1.5 px-4 py-2.5 border-b border-border/40 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0 cursor-pointer"
-          >
-            <ChevronLeft className="size-4" />
-            Notes
-          </button>
-        )}
-        {selectedNote ? (
+      {/* ── Focused editor ──────────────────────────────────────────────── */}
+      <NoteEditorOverlay
+        note={editorOpen ? selectedNote : null}
+        onClose={closeEditor}
+        onDelete={deleteNote}
+      >
+        {editorOpen && selectedNote && (
           <NoteEditor
             note={selectedNote}
             existingTags={existingTagLabels}
             onUpdate={handleUpdate}
             onAddTags={handleAddTags}
             onRemoveTag={handleRemoveTag}
-            onTagClick={(tag) => selectSection({ type: "tag", tag })}
+            onTagClick={(tag) => {
+              closeEditor();
+              selectSection({ type: "tag", tag });
+            }}
             onLinkTask={handleLinkTask}
             onOpenTaskPicker={ensureTasksLoaded}
             isLinkingTask={linkingTaskNoteIds.has(selectedNote.id)}
@@ -371,29 +427,8 @@ export function NotesScreen() {
             tasksLoading={tasksLoading}
             tasks={allTasks}
           />
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
-            <FileText className="size-10 text-muted-foreground/20 mb-4" />
-            <p className="text-sm text-muted-foreground">
-              {workspaceId
-                ? "Select a note or create a new one"
-                : "Select a workspace to view notes"}
-            </p>
-            {workspaceId && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={handleCreateNote}
-                disabled={createIsPending}
-              >
-                <Plus className="size-3.5" />
-                New note
-              </Button>
-            )}
-          </div>
         )}
-      </div>
+      </NoteEditorOverlay>
 
       <ManageTagsDialog
         open={manageOpen}
