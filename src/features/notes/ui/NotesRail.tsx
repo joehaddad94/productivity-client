@@ -23,11 +23,13 @@ function SectionHeader({
   expanded,
   onToggle,
   action,
+  actionTestId,
 }: {
   label: string;
   expanded: boolean;
   onToggle: () => void;
   action?: { label: string; onClick: () => void };
+  actionTestId?: string;
 }) {
   return (
     <div className="flex items-center justify-between px-1 py-1.5">
@@ -49,7 +51,7 @@ function SectionHeader({
           type="button"
           onClick={action.onClick}
           className="cursor-pointer text-[10px] text-muted-foreground/60 transition-colors hover:text-foreground"
-          data-testid="tag-filter-manage"
+          data-testid={actionTestId}
         >
           {action.label}
         </button>
@@ -116,6 +118,12 @@ interface NotesRailProps {
   onCreateNote: () => void;
   createDisabled: boolean;
   className?: string;
+  /**
+   * The mobile drawer mounts a second copy of this rail while the desktop one
+   * is still in the DOM (display:none). Only the primary instance emits test
+   * ids and the labelled create button, so selectors stay unique.
+   */
+  primary?: boolean;
 }
 
 export function NotesRail({
@@ -133,6 +141,7 @@ export function NotesRail({
   onCreateNote,
   createDisabled,
   className,
+  primary = true,
 }: NotesRailProps) {
   return (
     <aside
@@ -152,7 +161,7 @@ export function NotesRail({
           className="size-7 p-0"
           onClick={onCreateNote}
           disabled={createDisabled}
-          aria-label="Create note"
+          aria-label={primary ? "Create note" : undefined}
         >
           <Plus className="size-4" />
         </Button>
@@ -213,9 +222,13 @@ export function NotesRail({
               expanded={tagsExpanded}
               onToggle={onToggleTags}
               action={{ label: "Manage", onClick: onManageTags }}
+              actionTestId={primary ? "tag-filter-manage" : undefined}
             />
             {tagsExpanded && (
-              <div className="space-y-0.5" data-testid="tag-filter-bar">
+              <div
+                className="space-y-0.5"
+                data-testid={primary ? "tag-filter-bar" : undefined}
+              >
                 {tags.map(({ tag, count }) => {
                   const isActive =
                     activeSection.type === "tag" && activeSection.tag === tag;

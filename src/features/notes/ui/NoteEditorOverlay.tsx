@@ -2,9 +2,18 @@
 
 import { useEffect, useRef } from "react";
 import { Trash2, X } from "lucide-react";
-import { ScreenLoader } from "@/app/components/ScreenLoader";
 import { cn } from "@/app/components/ui/utils";
 import type { Note } from "@/lib/types";
+
+const FOCUSABLE = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "textarea:not([disabled])",
+  "select:not([disabled])",
+  '[contenteditable="true"]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
 
 interface NoteEditorOverlayProps {
   note: Note | null;
@@ -25,20 +34,66 @@ export function NoteEditorOverlay({
   children,
 }: NoteEditorOverlayProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const open = note !== null;
 
-  // Escape closes. Registered on the document so it works regardless of where
-  // focus sits inside the editor (TipTap swallows some bubbling).
+  // Move focus into the dialog on open and hand it back on close. Without
+  // this, focus stayed on the card behind the panel.
   useEffect(() => {
     if (!open) return;
+    restoreFocusRef.current = document.activeElement as HTMLElement | null;
+    const id = window.setTimeout(() => panelRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(id);
+      restoreFocusRef.current?.focus?.();
+    };
+  }, [open]);
+
+  // Escape closes; Tab is trapped inside the panel. Registered on the document
+  // in capture phase so it works wherever focus sits (TipTap swallows some
+  // bubbling), and so an aria-modal dialog doesn't leak focus to the grid
+  // rendered behind it.
+  useEffect(() => {
+    if (!open) return;
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.stopPropagation();
         onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      const items = Array.from(
+        panel.querySelectorAll<HTMLElement>(FOCUSABLE),
+      ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+      const active = document.activeElement as HTMLElement | null;
+
+      if (items.length === 0) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+
+      if (!active || !panel.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [open, onClose]);
 
   // Lock background scroll while the panel is open.
@@ -60,10 +115,13 @@ export function NoteEditorOverlay({
       aria-modal="true"
       aria-label={note.title || "Untitled note"}
     >
-      {/* Backdrop */}
+      {/* Backdrop. Click-to-dismiss for mice; hidden from assistive tech since
+          Escape and the Close button already cover it, and a full-screen
+          "Close note" button is just noise in the a11y tree. */}
       <button
         type="button"
-        aria-label="Close note"
+        tabIndex={-1}
+        aria-hidden="true"
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-background/60 backdrop-blur-sm animate-in fade-in duration-150"
       />
@@ -71,7 +129,9 @@ export function NoteEditorOverlay({
       {/* Panel */}
       <div
         ref={panelRef}
+        tabIndex={-1}
         className={cn(
+          "outline-none",
           "relative flex h-full w-full flex-col overflow-hidden bg-background shadow-2xl",
           "sm:h-[88vh] sm:max-w-4xl sm:rounded-2xl sm:border sm:border-border/60",
           "animate-in fade-in zoom-in-95 duration-150",
@@ -104,9 +164,7 @@ export function NoteEditorOverlay({
         </div>
 
         {/* Editor */}
-        <div className="flex min-h-0 flex-1 flex-col">
-          {children ?? <ScreenLoader variant="app" />}
-        </div>
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       </div>
     </div>
   );

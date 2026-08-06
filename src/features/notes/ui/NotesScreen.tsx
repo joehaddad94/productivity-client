@@ -145,10 +145,17 @@ export function NotesScreen() {
     [handleDelete, selectedNoteId],
   );
 
-  // If the open note disappears (deleted elsewhere, filtered out), close.
+  // Close when nothing is selected at all.
+  //
+  // This deliberately keys off selectedNoteId rather than the resolved note:
+  // on create, the id is set to a temp id one render before React Query's
+  // onMutate inserts the optimistic note, so `selectedNote` is briefly null
+  // while the id is already valid. Guarding on the note closed the editor in
+  // that window and it never reopened. Deletion closes explicitly in
+  // deleteNote(), so nothing depends on this for that case.
   useEffect(() => {
-    if (editorOpen && !selectedNote) setEditorOpen(false);
-  }, [editorOpen, selectedNote]);
+    if (editorOpen && !selectedNoteId) setEditorOpen(false);
+  }, [editorOpen, selectedNoteId]);
 
   const activeFilterLabel = useMemo(() => {
     if (activeSection.type === "project") {
@@ -192,6 +199,7 @@ export function NotesScreen() {
           />
           <NotesRail
             {...railProps}
+            primary={false}
             className="relative h-full w-72 max-w-[85vw] shadow-xl animate-in slide-in-from-left duration-200"
           />
         </div>
