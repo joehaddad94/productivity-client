@@ -59,12 +59,19 @@ export function ToolbarLinkPopover({ editor }: { editor: Editor }) {
           }}
           className="flex items-center gap-1.5"
         >
+          {/* Deliberately type="text": with type="url" the browser's own
+              constraint validation rejects a schemeless host like
+              "example.com" and blocks submit, so insertLink's https://
+              fallback below could never run and Apply silently did nothing. */}
           <input
             autoFocus
-            type="url"
+            type="text"
+            inputMode="url"
+            autoComplete="off"
+            spellCheck={false}
             value={linkUrl}
             onChange={(e) => setLinkUrl(e.target.value)}
-            placeholder="https://example.com"
+            placeholder="example.com"
             className="flex-1 text-xs bg-transparent border border-border/60 rounded-md px-2 h-7 outline-none focus:border-primary/60"
           />
           <button

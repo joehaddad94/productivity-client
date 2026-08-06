@@ -119,6 +119,91 @@ test.describe("Notes gallery (mocked API)", () => {
     await expect(page.getByTitle("New note")).toHaveCount(1);
   });
 
+  test("formatting bar reflects the caret's current formatting", async ({ page }) => {
+    // TipTap v3's useEditor does not re-render on transactions, so without an
+    // explicit subscription every button's active state was frozen at mount.
+    await mockApi(page);
+    await page.goto(NOTES_URL);
+    await expect(page.getByTestId("note-card").first()).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("note-card").first().click();
+    await expect(page.locator('input[placeholder="Untitled"]')).toBeVisible({ timeout: 15_000 });
+
+    const editor = page.locator(".ProseMirror").first();
+    const h1 = page.getByRole("button", { name: /heading 1/i });
+    const ordered = page.getByRole("button", { name: /numbered list/i });
+
+    await editor.click();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type("plain text");
+    await expect(h1).not.toHaveAttribute("aria-pressed", "true");
+
+    await h1.click();
+    await expect(h1).toHaveAttribute("aria-pressed", "true");
+    await expect(editor.locator("h1")).toHaveText(/plain text/);
+
+    await h1.click();
+    await expect(h1).not.toHaveAttribute("aria-pressed", "true");
+
+    await ordered.click();
+    await expect(ordered).toHaveAttribute("aria-pressed", "true");
+    await expect(editor.locator("ol li")).toHaveCount(1);
+  });
+
+  test("Tab indents a list item instead of escaping the dialog", async ({ page }) => {
+    // The focus trap must not out-rank ProseMirror's own Tab handling.
+    await mockApi(page);
+    await page.goto(NOTES_URL);
+    await expect(page.getByTestId("note-card").first()).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("note-card").first().click();
+    await expect(page.locator('input[placeholder="Untitled"]')).toBeVisible({ timeout: 15_000 });
+
+    const editor = page.locator(".ProseMirror").first();
+    await editor.click();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type("one");
+    await page.getByRole("button", { name: /numbered list/i }).click();
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("two");
+    await page.keyboard.press("Tab");
+
+    await expect(editor.locator("ol")).toHaveCount(2);
+    const stillInEditor = await page.evaluate(() =>
+      document.activeElement?.classList.contains("ProseMirror") ?? false,
+    );
+    expect(stillInEditor).toBe(true);
+  });
+
+  test("link accepts a schemeless host and Escape only closes the popover", async ({ page }) => {
+    await mockApi(page);
+    await page.goto(NOTES_URL);
+    await expect(page.getByTestId("note-card").first()).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("note-card").first().click();
+    const title = page.locator('input[placeholder="Untitled"]');
+    await expect(title).toBeVisible({ timeout: 15_000 });
+
+    const editor = page.locator(".ProseMirror").first();
+    await editor.click();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type("click here");
+    await page.keyboard.press("ControlOrMeta+A");
+
+    await page.getByRole("button", { name: /insert link/i }).click();
+    const url = page.locator('input[inputmode="url"]');
+    await expect(url).toBeVisible();
+
+    // Escape dismisses the popover only — not the whole note editor.
+    await page.keyboard.press("Escape");
+    await expect(url).toBeHidden();
+    await expect(title).toBeVisible();
+
+    // A bare host must be accepted; type="url" used to block submit entirely.
+    await page.getByRole("button", { name: /insert link/i }).click();
+    await page.locator('input[inputmode="url"]').fill("example.com");
+    await page.getByRole("button", { name: /^apply$/i }).click();
+
+    await expect(editor.locator('a[href="https://example.com"]')).toHaveText("click here");
+  });
+
   test("image-only notes render a thumbnail rather than a blank card", async ({ page }) => {
     await mockApi(page);
     await page.goto(NOTES_URL);

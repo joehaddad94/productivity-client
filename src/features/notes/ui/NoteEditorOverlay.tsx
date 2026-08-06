@@ -49,15 +49,22 @@ export function NoteEditorOverlay({
     };
   }, [open]);
 
-  // Escape closes; Tab is trapped inside the panel. Registered on the document
-  // in capture phase so it works wherever focus sits (TipTap swallows some
-  // bubbling), and so an aria-modal dialog doesn't leak focus to the grid
-  // rendered behind it.
+  // Escape closes; Tab is trapped inside the panel.
+  //
+  // Registered in the BUBBLE phase, and skipped once something nearer the
+  // event has already handled the key. Capture phase broke two things: it beat
+  // ProseMirror's Tab keymap, so Tab could no longer indent a list item inside
+  // the editor, and it beat Radix's Escape handling, so dismissing the link
+  // popover tore down the whole note editor with it.
   useEffect(() => {
     if (!open) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+
       if (event.key === "Escape") {
+        // A popover/menu layered above the panel owns Escape first.
+        if (document.querySelector("[data-radix-popper-content-wrapper]")) return;
         event.stopPropagation();
         onClose();
         return;
@@ -92,8 +99,8 @@ export function NoteEditorOverlay({
       }
     };
 
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => document.removeEventListener("keydown", onKeyDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
   // Lock background scroll while the panel is open.
