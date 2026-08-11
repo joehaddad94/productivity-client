@@ -74,7 +74,7 @@ export function ToolbarMorePopover({ editor }: { editor: Editor }) {
             aria-label="More formatting"
             title="More formatting"
             className={cn(
-              "p-1.5 rounded-md transition-colors",
+              "p-1.5 rounded-md transition-colors cursor-pointer",
               moreActive
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -151,7 +151,7 @@ export function ToolbarMorePopover({ editor }: { editor: Editor }) {
               />
               <button
                 type="submit"
-                className="w-full text-xs h-7 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+                className="w-full text-xs h-7 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
               >
                 Insert
               </button>
@@ -159,7 +159,7 @@ export function ToolbarMorePopover({ editor }: { editor: Editor }) {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full text-xs h-7 rounded-md border border-dashed border-border/60 text-muted-foreground hover:text-foreground hover:border-border transition-colors"
+              className="w-full text-xs h-7 rounded-md border border-dashed border-border/60 text-muted-foreground hover:text-foreground hover:border-border transition-colors cursor-pointer"
             >
               Upload from device
             </button>

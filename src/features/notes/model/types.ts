@@ -4,6 +4,16 @@ import type { WorkspaceTag } from "@/lib/api/tags-api";
 export type NoteUpdateChanges = { title?: string; content?: string };
 export type TagMode = "any" | "all";
 
+/** Which slice of the workspace's notes the rail is currently showing. */
+export type ActiveSection =
+  | { type: "all" }
+  | { type: "recent" }
+  | { type: "project"; id: string }
+  | { type: "tag"; tag: string };
+
+/** Gallery (default) or single-column list. Persisted per browser. */
+export type NotesViewMode = "grid" | "list";
+
 export interface NoteEditorProps {
   note: Note;
   existingTags: string[];

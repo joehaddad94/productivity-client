@@ -33,8 +33,16 @@ export default defineConfig({
     {
       name: 'chromium',
       testMatch: /(auth|notes|projects|tasks|dashboard|calendar|analytics|settings|workspaces|navigation|pomodoro|thread)\.spec\.ts/,
+      testIgnore: /notes-mocked\.spec\.ts/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
+    },
+    // Mocked-API specs: no dev-session, no database, no auth state. Only the
+    // Next app needs to be running. Safe to run against any environment.
+    {
+      name: 'mocked',
+      testMatch: /notes-mocked\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], storageState: undefined },
     },
   ],
 });
