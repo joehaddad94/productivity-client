@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { ChevronLeft, ChevronRight, ExternalLink, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, Plus, X, WifiOff } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { cn } from "@/app/components/ui/utils";
@@ -38,6 +38,7 @@ export function CalendarScreen() {
     activeWorkspaceId,
     projectsForPicker,
     isLoading,
+    error,
     quickAddTitle, setQuickAddTitle,
     quickAddPriority, setQuickAddPriority,
     showQuickAdd, setShowQuickAdd,
@@ -72,6 +73,27 @@ export function CalendarScreen() {
   const navLabel = view === "week"
     ? weekLabel
     : `${MONTH_NAMES[viewMonth]} ${viewYear}`;
+
+  if (error && tasksByDate.size === 0) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Calendar</h1>
+        <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
+          <WifiOff className="h-7 w-7 opacity-40" />
+          <p className="text-sm font-medium">
+            {typeof navigator !== "undefined" && !navigator.onLine
+              ? "You're offline"
+              : "Failed to load your calendar"}
+          </p>
+          <p className="text-xs opacity-60">
+            {typeof navigator !== "undefined" && !navigator.onLine
+              ? "Connect to the internet to load your calendar"
+              : "Check your connection and try again"}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
