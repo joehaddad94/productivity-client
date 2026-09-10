@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Plus, Loader2, CalendarDays, ListChecks } from "lucide-react";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -10,6 +10,7 @@ import { localDateStr, relativeDate, greeting, todayLabel } from "@/lib/date-uti
 import type { MeTask, MeTasksLens } from "@/lib/api/me-api";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
+import { useHydrated } from "@/hooks/useHydrated";
 
 const QUICKADD_WS_KEY = "tasky_quickadd_ws";
 
@@ -82,12 +83,15 @@ export default function HomePage() {
     () => workspaces.find((w) => w.isPersonal) ?? workspaces[0] ?? null,
     [workspaces],
   );
+  // The remembered target is only consulted once hydrated, so the server and
+  // the hydration render agree and the stored value cannot cause a mismatch.
+  const hydrated = useHydrated();
   const [targetWs, setTargetWs] = useState<string>(() => {
-    if (typeof localStorage !== "undefined") {
-      const stored = localStorage.getItem(QUICKADD_WS_KEY);
-      if (stored) return stored;
+    try {
+      return localStorage.getItem(QUICKADD_WS_KEY) ?? "";
+    } catch {
+      return "";
     }
-    return "";
   });
   // Quick-add target precedence (docs/task-model-and-rollup.md §6.2):
   //   1. an explicit pick, remembered from the last quick-add
@@ -97,13 +101,33 @@ export default function HomePage() {
   const isMember = (id: string | undefined | null) =>
     !!id && workspaces.some((w) => w.id === id);
   const effectiveTarget =
-    (isMember(targetWs)
+    (hydrated && isMember(targetWs)
       ? targetWs
       : isMember(currentWorkspace?.id)
         ? currentWorkspace!.id
         : personalWs?.id) ?? "";
 
-  const today = localDateStr(new Date());
+  // `today` is read on every render but only recomputed on mount, so a tab
+  // left open past midnight kept grouping against yesterday. Tick it over
+  // when the day actually changes.
+  const [today, setToday] = useState(() => localDateStr(new Date()));
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = localDateStr(new Date());
+      setToday((prev) => (prev === now ? prev : now));
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // greeting() and todayLabel() read the clock, so the server resolves them in
+  // its timezone and the client in the user's — "Good evening" against
+  // "Good morning". Render them only once hydrated so both agree on first
+  // paint. Recomputed when `today` ticks over.
+  const clockLabels = useMemo(
+    () => (hydrated ? { greeting: greeting(), today: todayLabel() } : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hydrated, today],
+  );
   const params = useMemo(() => {
     if (lens === "calendar") {
       const end = new Date();
@@ -162,8 +186,10 @@ export default function HomePage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight">{greeting()}</h1>
-        <p className="text-sm text-muted-foreground">{todayLabel()} · your tasks across every workspace</p>
+        <h1 className="text-xl font-semibold tracking-tight">{clockLabels?.greeting ?? " "}</h1>
+        <p className="text-sm text-muted-foreground">
+          {clockLabels ? `${clockLabels.today} · ` : ""}your tasks across every workspace
+        </p>
       </header>
 
       {/* Quick add */}
