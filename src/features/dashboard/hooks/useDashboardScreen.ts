@@ -116,7 +116,22 @@ export function useDashboardScreen() {
   const upcomingTasks = filterUpcomingTasks(tasks, todayStr, taskStatuses);
   const noDateTasks   = filterNoDateTasks(tasks, taskStatuses);
 
-  const totals = analytics?.totals ?? { tasksCompleted: 0, focusMinutes: 0, streak: 0 };
+  // The query range is widened to whichever is earlier, the month start or six
+  // days ago, so the streak dots always have seven days of data. That means
+  // analytics.totals spans into the previous month during the first six days
+  // of a new one — while the panel above it is labelled "This month".
+  //
+  // Sum the month's own days here instead; the streak still comes from the
+  // server, which computes it over the full history regardless of range.
+  const totals = useMemo(() => {
+    const rows = analytics?.dailyStats ?? [];
+    const inMonth = rows.filter((s) => s.date.slice(0, 10) >= monthStart);
+    return {
+      tasksCompleted: inMonth.reduce((n, s) => n + s.tasksCompleted, 0),
+      focusMinutes: inMonth.reduce((n, s) => n + s.focusMinutes, 0),
+      streak: analytics?.totals.streak ?? 0,
+    };
+  }, [analytics?.dailyStats, analytics?.totals.streak, monthStart]);
 
   // Last 7 days as YYYY-MM-DD strings (oldest → newest)
   const last7Days = Array.from({ length: 7 }, (_, i) => {
