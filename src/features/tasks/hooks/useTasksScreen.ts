@@ -290,8 +290,12 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
         }
       );
       if (selectedTask?.id === id) setShowDetail(false);
-      deleteMutation.mutate(id);
-      toast.success("Task deleted");
+      // Report the outcome, not the intent. The shared onError already toasts
+      // the failure and refetches, so an unconditional success toast here meant
+      // a failed delete showed "Task deleted" AND an error, with the row back.
+      deleteMutation.mutate(id, {
+        onSuccess: () => toast.success("Task deleted"),
+      });
     },
     [queryClient, workspaceId, selectedTask, deleteMutation]
   );
