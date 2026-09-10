@@ -44,17 +44,18 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
   const draggedId = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragOverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(
-    new Map()
-  );
   const pendingToggles = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Clear any debounced toggle timers when the screen unmounts to prevent
   // state updates and stale mutation calls after the component is gone.
   useEffect(() => {
+    const toggles = pendingToggles.current;
     return () => {
-      pendingToggles.current.forEach(clearTimeout);
-      pendingToggles.current.clear();
+      toggles.forEach(clearTimeout);
+      toggles.clear();
+      // dragOverTimer was cleared on each new drag-over but never on unmount,
+      // leaving a pending setDragOverId to fire after the screen was gone.
+      if (dragOverTimer.current) clearTimeout(dragOverTimer.current);
     };
   }, []);
 
