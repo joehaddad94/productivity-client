@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
+import { useAuth } from "@/app/context/AuthContext";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import {
   useTasksQuery,
@@ -53,6 +54,7 @@ function getSundayOfWeek(date: Date): string {
 }
 
 export function useCalendarScreen() {
+  const { user } = useAuth();
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
 
@@ -100,10 +102,12 @@ export function useCalendarScreen() {
   const handleAddTaskOnDate = () => {
     const title = quickAddTitle.trim();
     if (!title || !workspaceId) return;
+    // Self-assign so the task lands in the creator's rollup (§6.2).
     createMutation.mutate({
       title,
       dueDate: selectedDate,
       ...(quickAddPriority !== "none" && { priority: quickAddPriority }),
+      ...(user ? { assigneeIds: [user.id] } : {}),
     });
   };
 

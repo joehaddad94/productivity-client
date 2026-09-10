@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useAuth } from "@/app/context/AuthContext";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { useTasksQuery, useCreateTaskMutation, useUpdateTaskMutation } from "@/app/hooks/useTasksApi";
 import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
@@ -25,6 +26,7 @@ import {
 export type TaskPriority = "low" | "medium" | "high" | null;
 
 export function useDashboardScreen() {
+  const { user } = useAuth();
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -89,7 +91,14 @@ export function useDashboardScreen() {
   const handleAddTask = (titleOverride?: string) => {
     const title = (titleOverride ?? newTaskTitle).trim();
     if (!title || !workspaceId) return;
-    createMutation.mutate({ title, ...(newTaskPriority ? { priority: newTaskPriority } : {}) });
+    // Quick-add self-assigns the creator: assignment is what pulls a task into
+    // the personal rollup (docs/task-model-and-rollup.md §6.2). Without it a task
+    // created on a team board never reaches its own creator's Home.
+    createMutation.mutate({
+      title,
+      ...(newTaskPriority ? { priority: newTaskPriority } : {}),
+      ...(user ? { assigneeIds: [user.id] } : {}),
+    });
     setNewTaskTitle("");
     setNewTaskPriority(null);
   };

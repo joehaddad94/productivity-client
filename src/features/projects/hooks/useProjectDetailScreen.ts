@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAuth } from "@/app/context/AuthContext";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import {
   PROJECT_QUERY_KEY,
@@ -40,6 +41,7 @@ export function useProjectDetailScreen(
   projectId: string,
   { initialTab = "tasks" }: { initialTab?: "tasks" | "notes" } = {},
 ) {
+  const { user } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { currentWorkspace } = useWorkspace();
@@ -263,8 +265,9 @@ export function useProjectDetailScreen(
     if (!newTaskTitle.trim() || !workspaceId) return;
     const title = newTaskTitle.trim();
     setNewTaskTitle("");
+    // Self-assign so the task lands in the creator's rollup (§6.2).
     createTaskMutation.mutate(
-      { title, projectId },
+      { title, projectId, ...(user ? { assigneeIds: [user.id] } : {}) },
       { onError: () => setNewTaskTitle(title) },
     );
   };

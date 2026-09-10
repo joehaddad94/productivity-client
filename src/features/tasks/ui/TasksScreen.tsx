@@ -1535,7 +1535,7 @@ export function TasksScreen() {
                   projects={projectsForPicker}
                   taskStatuses={taskStatuses}
                   onAdd={() => setCreateOpen(true)}
-                  onQuickAdd={(title) => handleCreate({ title, status: s.id })}
+                  onQuickAdd={(title) => handleCreate({ title, status: s.id, ...(user ? { assigneeIds: [user.id] } : {}) })}
                   onToggleExpand={handleToggleExpand}
                   onToggle={handleToggle}
                   onStatusChange={handleStatusChange}
