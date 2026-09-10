@@ -34,6 +34,8 @@ export function CalendarScreen() {
     upcomingLabel,
     agendaGroups,
     taskStatuses,
+    workspaceNameById,
+    activeWorkspaceId,
     projectsForPicker,
     isLoading,
     quickAddTitle, setQuickAddTitle,
@@ -442,6 +444,11 @@ export function CalendarScreen() {
                       taskStatuses={taskStatuses}
                       onOpen={handleSelectTask}
                       onToggle={handleToggle}
+                      foreignWorkspaceName={
+                        task.workspaceId !== activeWorkspaceId
+                          ? workspaceNameById.get(task.workspaceId)
+                          : null
+                      }
                     />
                   ))}
 
@@ -476,6 +483,11 @@ export function CalendarScreen() {
                           taskStatuses={taskStatuses}
                           onOpen={handleSelectTask}
                           onToggle={handleToggle}
+                          foreignWorkspaceName={
+                            task.workspaceId !== activeWorkspaceId
+                              ? workspaceNameById.get(task.workspaceId)
+                              : null
+                          }
                         />
                       ))}
                     </>
@@ -566,11 +578,14 @@ function TaskRow({
   taskStatuses,
   onOpen,
   onToggle,
+  foreignWorkspaceName,
 }: {
   task: Task;
   taskStatuses: TaskStatusDefinition[];
   onOpen: (task: Task) => void;
   onToggle: (id: string, completed: boolean) => void;
+  /** Set only when the task belongs to a workspace other than the active one. */
+  foreignWorkspaceName?: string | null;
 }) {
   const done = isTaskStatusTerminal(task.status, taskStatuses);
   return (
@@ -589,6 +604,14 @@ function TaskRow({
         <span className={cn("text-xs truncate flex-1", done && "line-through text-muted-foreground")}>
           {task.title}
         </span>
+        {foreignWorkspaceName && (
+          <span
+            className="text-[10px] text-muted-foreground shrink-0 max-w-[7rem] truncate rounded-full border border-border/60 px-1.5 py-0.5"
+            title={foreignWorkspaceName}
+          >
+            {foreignWorkspaceName}
+          </span>
+        )}
         <span className="text-[10px] text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           {task.dueTime ?? "All day"}
         </span>
