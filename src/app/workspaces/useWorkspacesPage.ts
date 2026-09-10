@@ -19,7 +19,6 @@ export function useWorkspacesPage() {
     workspaces,
     currentWorkspace,
     setCurrentWorkspaceId,
-    refetchWorkspaces,
   } = useWorkspace();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,16 +36,15 @@ export function useWorkspacesPage() {
     );
   }, [workspaces, searchQuery]);
 
-  const createMutation = useCreateWorkspaceMutation({
-    onSuccess: () => {
-      refetchWorkspaces();
-    },
-  });
+  // No refetch here. Both mutations already write the server's response into
+  // WORKSPACES_QUERY_KEY, so refetchWorkspaces() fired a second GET /workspaces
+  // for data the cache had just been given, making every create and rename two
+  // round trips and re-rendering the list twice.
+  const createMutation = useCreateWorkspaceMutation({});
 
   const updateMutation = useUpdateWorkspaceMutation({
     onSuccess: () => {
       setEditing(null);
-      refetchWorkspaces();
     },
   });
 
