@@ -378,8 +378,22 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
       const revert = () =>
         queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? '') });
 
-      if (toAdd.length > 0) assignMutation.mutate({ taskId, userIds: toAdd }, { onError: revert });
-      for (const userId of toRemove) unassignMutation.mutate({ taskId, userId }, { onError: revert });
+      // The API has no bulk unassign, so removals are still one call each —
+      // but fire them together and reconcile ONCE. Previously each removal
+      // carried its own onError, so a multi-assignee change could queue
+      // several independent refetches of the whole task list.
+      const calls: Promise<unknown>[] = [];
+      if (toAdd.length > 0) {
+        calls.push(assignMutation.mutateAsync({ taskId, userIds: toAdd }));
+      }
+      for (const userId of toRemove) {
+        calls.push(unassignMutation.mutateAsync({ taskId, userId }));
+      }
+      if (calls.length > 0) {
+        void Promise.allSettled(calls).then((results) => {
+          if (results.some((r) => r.status === "rejected")) revert();
+        });
+      }
     },
     [tasks, workspaceMembers, queryClient, workspaceId, assignMutation, unassignMutation],
   );
