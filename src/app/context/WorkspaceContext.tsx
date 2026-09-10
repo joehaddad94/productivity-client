@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "@/app/context/AuthContext";
+import { useHydrated } from "@/hooks/useHydrated";
 import {
   useWorkspacesQuery,
   WORKSPACES_QUERY_KEY,
@@ -51,6 +52,10 @@ function writeStoredId(id: string | null) {
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, isInitialized } = useAuth();
+  // readStoredId returns null on the server and the stored id on the client,
+  // so this differed between the server render and hydration. The value is
+  // only consulted once hydrated.
+  const hydrated = useHydrated();
   const [currentId, setCurrentId] = useState<string | null>(readStoredId);
 
   const {
@@ -64,8 +69,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const currentWorkspace = useMemo(() => {
     if (workspaces.length === 0) return null;
+    if (!hydrated) return workspaces[0] ?? null;
     return workspaces.find((w) => w.id === currentId) ?? workspaces[0] ?? null;
-  }, [workspaces, currentId]);
+  }, [workspaces, currentId, hydrated]);
 
   const setCurrentWorkspaceId = useCallback((id: string | null) => {
     setCurrentId(id);
