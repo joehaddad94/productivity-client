@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
-import { formatDisplayDate as formatDate } from "@/lib/date-utils";
+import { localDateStr, formatDisplayDate as formatDate } from "@/lib/date-utils";
 import { getHeatmapColor as getColor } from "@/lib/analytics-utils";
 
 interface ActivityDay {
@@ -29,7 +29,9 @@ function buildGrid(data: ActivityDay[]): ActivityDay[][] {
     for (let d = 0; d < 7; d++) {
       const date = new Date(endSunday);
       date.setDate(endSunday.getDate() - w * 7 + d);
-      const iso = date.toISOString().split("T")[0];
+      // Local date parts, not UTC — see useDashboardScreen. A UTC-converted
+      // key shifts whole columns for viewers off UTC.
+      const iso = localDateStr(date);
       week.push({ date: iso, count: byDate.get(iso) ?? 0 });
     }
     weeks.push(week);

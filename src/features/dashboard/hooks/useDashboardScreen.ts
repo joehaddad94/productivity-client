@@ -16,6 +16,7 @@ import {
   filterUpcomingTasks,
   filterNoDateTasks,
 } from "@/lib/task-filters";
+import { localDateStr } from "@/lib/date-utils";
 import {
   defaultNonTerminalStatusId,
   ensureTaskStatuses,
@@ -55,15 +56,20 @@ export function useDashboardScreen() {
     return map;
   }, [tasks, taskStatuses]);
 
-  // Analytics: cover the current month AND at least the last 7 days for streak dots
+  // Analytics: cover the current month AND at least the last 7 days for streak dots.
+  //
+  // These are calendar days in the USER's timezone, so they must be formatted
+  // from local date parts. toISOString() converts to UTC first, which shifts the
+  // day for anyone not on UTC — at UTC+3 every date here was yesterday's between
+  // midnight and 03:00, so tasks due today were bucketed as Upcoming and
+  // yesterday's overdue work showed up as Today.
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+  const monthStart = localDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  const analyticsFrom = sevenDaysAgo.toISOString().split("T")[0] < monthStart
-    ? sevenDaysAgo.toISOString().split("T")[0]
-    : monthStart;
-  const todayStr = now.toISOString().split("T")[0];
+  const sevenDaysAgoStr = localDateStr(sevenDaysAgo);
+  const analyticsFrom = sevenDaysAgoStr < monthStart ? sevenDaysAgoStr : monthStart;
+  const todayStr = localDateStr(now);
 
   const { data: analytics } = useAnalyticsQuery(workspaceId, {
     from: analyticsFrom,
@@ -116,7 +122,7 @@ export function useDashboardScreen() {
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now);
     d.setDate(d.getDate() - (6 - i));
-    return d.toISOString().split("T")[0];
+    return localDateStr(d);
   });
 
   const activeDates = useMemo(() => new Set(
