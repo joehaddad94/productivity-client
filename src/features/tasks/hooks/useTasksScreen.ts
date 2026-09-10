@@ -144,6 +144,22 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
       setDragOverId(null);
       if (!srcId || srcId === dropTargetId) return;
 
+      // Manual order is a property of the whole list, and the server renumbers
+      // the ids it is given to 0..n-1. Handing it a filtered or partially
+      // loaded subset therefore renumbers only that subset and collides with
+      // the sortOrder of every task not on screen, scrambling the real order
+      // as soon as the filter is cleared. Refuse rather than corrupt.
+      const isFilteredNow =
+        search.length > 0 || filterPriority !== "all" || filterProjectId !== "all";
+      if (isFilteredNow) {
+        toast.error("Clear filters to reorder tasks");
+        return;
+      }
+      if (total > tasks.length) {
+        toast.error("Load all tasks to reorder them");
+        return;
+      }
+
       const allTopLevel = tasks.filter((t) => !t.parentTaskId);
       const srcIdx = allTopLevel.findIndex((t) => t.id === srcId);
       const dstIdx = allTopLevel.findIndex((t) => t.id === dropTargetId);
@@ -153,14 +169,28 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
       const [moved] = reordered.splice(srcIdx, 1);
       reordered.splice(dstIdx, 0, moved);
 
+      // setQueriesData matches by key PREFIX, so this touches every cached
+      // filter/limit variant for the workspace, not just the one on screen.
+      // Apply the new relative order to each variant instead of overwriting
+      // its contents, which used to replace a filtered cache entry with the
+      // full unfiltered list.
+      const orderIndex = new Map(reordered.map((t, i) => [t.id, i]));
       queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
         { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
-        (old) => (old ? { ...old, tasks: reordered } : old)
+        (old) => {
+          if (!old?.tasks) return old;
+          const sorted = [...old.tasks].sort(
+            (a, b) =>
+              (orderIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+              (orderIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+          );
+          return { ...old, tasks: sorted };
+        }
       );
 
       reorderMutation.mutate(reordered.map((t) => t.id));
     },
-    [tasks, queryClient, workspaceId, reorderMutation]
+    [tasks, total, search, filterPriority, filterProjectId, queryClient, workspaceId, reorderMutation]
   );
 
   const handleBulkComplete = () => {
