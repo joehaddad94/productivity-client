@@ -20,6 +20,8 @@ export function useWorkspaceSSE(workspaceId: string | null | undefined) {
     es.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data ?? "{}");
+        // Keepalive from the server; carries no state change.
+        if (data.type === "ping") return;
         if (data.type === "thread_changed" && data.taskId) {
           void queryClient.invalidateQueries({
             queryKey: THREAD_QUERY_KEY(workspaceId, data.taskId),
