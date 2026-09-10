@@ -11,13 +11,39 @@ import type { MeTask, MeTasksLens } from "@/lib/api/me-api";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { useHydrated } from "@/hooks/useHydrated";
+import { Checkbox } from "@/app/components/ui/checkbox";
+import {
+  useAllWorkspaceTaskStatuses,
+  useCrossWorkspaceTaskMutations,
+} from "@/hooks/useCrossWorkspaceTasks";
+import {
+  defaultNonTerminalStatusId,
+  firstTerminalStatusId,
+} from "@/features/tasks/lib/taskStatusHelpers";
 
 const QUICKADD_WS_KEY = "tasky_quickadd_ws";
 
-function TaskRow({ task }: { task: MeTask }) {
+function TaskRow({
+  task,
+  onToggle,
+  pending,
+}: {
+  task: MeTask;
+  onToggle: (task: MeTask, done: boolean) => void;
+  pending: boolean;
+}) {
   const done = task.canonicalBucket === "done";
   return (
     <div className="flex items-center gap-3 px-3 py-2 rounded-md border border-border/50 bg-card hover:bg-[var(--nav-hover)] transition-colors">
+      {/* The rollup was read-only: it listed what you had to do with no way to
+          do any of it. Completing is the one action the daily driver needs. */}
+      <Checkbox
+        checked={done}
+        disabled={pending}
+        onCheckedChange={(checked) => onToggle(task, checked === true)}
+        aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`}
+        className="shrink-0"
+      />
       <span
         className="size-2.5 shrink-0 rounded-full"
         style={{ backgroundColor: task.statusColor ?? "var(--muted-foreground)" }}
@@ -57,7 +83,17 @@ function TaskRow({ task }: { task: MeTask }) {
   );
 }
 
-function Section({ title, tasks }: { title: string; tasks: MeTask[] }) {
+function Section({
+  title,
+  tasks,
+  onToggle,
+  pendingId,
+}: {
+  title: string;
+  tasks: MeTask[];
+  onToggle: (task: MeTask, done: boolean) => void;
+  pendingId: string | null;
+}) {
   if (tasks.length === 0) return null;
   return (
     <section className="space-y-1.5">
@@ -67,7 +103,12 @@ function Section({ title, tasks }: { title: string; tasks: MeTask[] }) {
       </h2>
       <div className="space-y-1">
         {tasks.map((t) => (
-          <TaskRow key={t.id} task={t} />
+          <TaskRow
+            key={t.id}
+            task={t}
+            onToggle={onToggle}
+            pending={pendingId === t.id}
+          />
         ))}
       </div>
     </section>
@@ -163,6 +204,27 @@ export default function HomePage() {
     }
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [actionable]);
+
+  // Toggling has to resolve done/open against the task's OWN workspace: status
+  // ids are per-workspace, so the active workspace's ids would be rejected.
+  const statusesByWorkspace = useAllWorkspaceTaskStatuses();
+  const { updateMutation } = useCrossWorkspaceTaskMutations();
+  const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
+
+  const handleToggle = (task: MeTask, done: boolean) => {
+    const own = statusesByWorkspace.get(task.workspace.id) ?? [];
+    const nextStatus = done
+      ? firstTerminalStatusId(own)
+      : defaultNonTerminalStatusId(own);
+    setPendingToggleId(task.id);
+    updateMutation.mutate(
+      { workspaceId: task.workspace.id, id: task.id, body: { status: nextStatus } },
+      {
+        onError: (err) => toast.error(err.message || "Could not update task"),
+        onSettled: () => setPendingToggleId(null),
+      },
+    );
+  };
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -261,10 +323,10 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="space-y-6">
-            <Section title="Overdue" tasks={groups.overdue} />
-            <Section title="Today" tasks={groups.today} />
-            <Section title="Upcoming" tasks={groups.upcoming} />
-            <Section title="No date" tasks={groups.noDate} />
+            <Section title="Overdue" tasks={groups.overdue} onToggle={handleToggle} pendingId={pendingToggleId} />
+            <Section title="Today" tasks={groups.today} onToggle={handleToggle} pendingId={pendingToggleId} />
+            <Section title="Upcoming" tasks={groups.upcoming} onToggle={handleToggle} pendingId={pendingToggleId} />
+            <Section title="No date" tasks={groups.noDate} onToggle={handleToggle} pendingId={pendingToggleId} />
           </div>
         )
       ) : byDay.length === 0 ? (
@@ -277,7 +339,7 @@ export default function HomePage() {
       ) : (
         <div className="space-y-6">
           {byDay.map(([day, dayTasks]) => (
-            <Section key={day} title={relativeDate(day)} tasks={dayTasks} />
+            <Section key={day} title={relativeDate(day)} tasks={dayTasks} onToggle={handleToggle} pendingId={pendingToggleId} />
           ))}
         </div>
       )}
