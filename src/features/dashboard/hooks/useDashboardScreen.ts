@@ -100,11 +100,24 @@ export function useDashboardScreen() {
     // Quick-add self-assigns the creator: assignment is what pulls a task into
     // the personal rollup (docs/task-model-and-rollup.md §6.2). Without it a task
     // created on a team board never reaches its own creator's Home.
-    createMutation.mutate({
-      title,
-      ...(newTaskPriority ? { priority: newTaskPriority } : {}),
-      ...(user ? { assigneeIds: [user.id] } : {}),
-    });
+    const priority = newTaskPriority;
+    // Clear on success, restore on failure. Clearing before the result was
+    // known meant a failed create rolled back its optimistic row and threw
+    // away what the user had typed with it — the same bug already fixed on
+    // the Projects screen.
+    createMutation.mutate(
+      {
+        title,
+        ...(priority ? { priority } : {}),
+        ...(user ? { assigneeIds: [user.id] } : {}),
+      },
+      {
+        onError: () => {
+          setNewTaskTitle(title);
+          setNewTaskPriority(priority);
+        },
+      },
+    );
     setNewTaskTitle("");
     setNewTaskPriority(null);
   };
