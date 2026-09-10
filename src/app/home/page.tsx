@@ -228,20 +228,25 @@ export default function HomePage() {
         </div>
       ) : isError ? (
         <p className="text-sm text-destructive">Couldn’t load your tasks. Please try again.</p>
-      ) : actionable.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-sm text-muted-foreground">Nothing on your plate. Add a task above to get started.</p>
-        </div>
       ) : lens === "list" ? (
-        <div className="space-y-6">
-          <Section title="Overdue" tasks={groups.overdue} />
-          <Section title="Today" tasks={groups.today} />
-          <Section title="Upcoming" tasks={groups.upcoming} />
-          <Section title="No date" tasks={groups.noDate} />
-        </div>
+        actionable.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-sm text-muted-foreground">Nothing on your plate. Add a task above to get started.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <Section title="Overdue" tasks={groups.overdue} />
+            <Section title="Today" tasks={groups.today} />
+            <Section title="Upcoming" tasks={groups.upcoming} />
+            <Section title="No date" tasks={groups.noDate} />
+          </div>
+        )
       ) : byDay.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-sm text-muted-foreground">No dated tasks in the next 30 days.</p>
+          <p className="text-sm text-muted-foreground">No tasks due in the next 30 days.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            This lens only covers dated work from today onwards. Overdue and undated tasks are on the List lens.
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
