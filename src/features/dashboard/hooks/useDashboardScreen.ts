@@ -131,8 +131,12 @@ export function useDashboardScreen() {
       .map((s) => s.date.slice(0, 10)),
   ), [analytics?.dailyStats]);
 
-  const isEmpty = !tasksLoading && todayTasks.length === 0 && overdueTasks.length === 0
-    && upcomingTasks.length === 0 && noDateTasks.length === 0;
+  // "No tasks yet" is the NEW-USER state, so it must key off whether any tasks
+  // exist — not off whether any are still open. The four lists below all
+  // exclude terminal statuses, so finishing everything emptied all of them and
+  // flipped a working dashboard back to the onboarding screen, hiding the
+  // "All done for today" branch, the projects list and the stats panel.
+  const isEmpty = !tasksLoading && tasks.length === 0;
 
   return {
     workspaceId,
