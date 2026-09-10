@@ -30,8 +30,27 @@ import { useWorkspace } from "@/app/context/WorkspaceContext";
  * single-workspace hook, so a workspace already loaded by a team screen is
  * reused rather than refetched.
  */
-export function useAllWorkspaceTaskStatuses(): Map<string, TaskStatusDefinition[]> {
-  const { workspaces } = useWorkspace();
+export function useAllWorkspaceTaskStatuses(
+  /**
+   * Restrict to these workspace ids. Pass the workspaces actually present in
+   * the rows on screen — usually a handful.
+   *
+   * Fetching for EVERY membership does not scale: an account with 86
+   * workspaces issued 86 parallel requests on mount, each taking seconds, and
+   * would trip the server's 100-requests-per-minute throttle before the page
+   * settled. Omit to fall back to every workspace.
+   */
+  workspaceIds?: string[],
+): Map<string, TaskStatusDefinition[]> {
+  const { workspaces: allWorkspaces } = useWorkspace();
+
+  // Keyed on a scalar: the caller's array is a fresh reference each render.
+  const wantedKey = workspaceIds ? workspaceIds.join(",") : null;
+  const workspaces = useMemo(() => {
+    if (wantedKey === null) return allWorkspaces;
+    const wanted = new Set(wantedKey ? wantedKey.split(",") : []);
+    return allWorkspaces.filter((w) => wanted.has(w.id));
+  }, [allWorkspaces, wantedKey]);
 
   const results = useQueries({
     queries: workspaces.map((w) => ({

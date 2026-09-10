@@ -77,7 +77,12 @@ export function useCalendarScreen() {
     [page?.tasks],
   );
 
-  const statusesByWorkspace = useAllWorkspaceTaskStatuses();
+  // Only the workspaces that actually have tasks on this calendar.
+  const presentWorkspaceIds = useMemo(
+    () => [...new Set(allTasks.map((t) => t.workspaceId))],
+    [allTasks],
+  );
+  const statusesByWorkspace = useAllWorkspaceTaskStatuses(presentWorkspaceIds);
 
   // Status ids are UUIDs and therefore unique across workspaces, so a single
   // flattened list resolves terminality for a task from any workspace. The

@@ -207,7 +207,11 @@ export default function HomePage() {
 
   // Toggling has to resolve done/open against the task's OWN workspace: status
   // ids are per-workspace, so the active workspace's ids would be rejected.
-  const statusesByWorkspace = useAllWorkspaceTaskStatuses();
+  const presentWorkspaceIds = useMemo(
+    () => [...new Set(tasks.map((t) => t.workspace.id))],
+    [tasks],
+  );
+  const statusesByWorkspace = useAllWorkspaceTaskStatuses(presentWorkspaceIds);
   const { updateMutation } = useCrossWorkspaceTaskMutations();
   const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
 
