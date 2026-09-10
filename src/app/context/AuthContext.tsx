@@ -55,6 +55,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // users into the create-your-first-workspace gate.
   useEffect(() => {
     setUnauthorizedHandler(() => {
+      // Only act on the transition from signed-in to signed-out.
+      //
+      // Clearing unconditionally is a feedback loop: the clear re-renders the
+      // tree, the dependent queries refetch, they 401 again, and the handler
+      // fires again — a steady stream of /auth/me and friends that never
+      // settles. Once the cached user is already null there is nothing left to
+      // do, so bail.
+      const current = queryClient.getQueryData(AUTH_QUERY_KEY);
+      if (current == null) return;
       queryClient.setQueryData(AUTH_QUERY_KEY, null);
     });
     return () => setUnauthorizedHandler(null);
