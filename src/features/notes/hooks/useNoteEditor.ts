@@ -75,29 +75,41 @@ export function useNoteEditor({ noteId, contentHtml, onHtmlDebounced }: UseNoteE
       handleDrop(view, event) {
         const files = event.dataTransfer?.files;
         if (!files || files.length === 0) return false;
-        const file = files[0];
-        if (!file.type.startsWith("image/")) return false;
-        if (file.size > NOTE_EDITOR_MAX_IMAGE_BYTES) {
-          toast.error("Image is too large (max 1.5 MB)");
-          return true;
+        const images = Array.from(files).filter((f) =>
+          f.type.startsWith("image/"),
+        );
+        if (images.length === 0) return false;
+        // Dropping several images used to insert only the first, silently.
+        if (images.length > 1) {
+          toast.info(`Inserting ${images.length} images`);
         }
         event.preventDefault();
-        readImageAsDataUrl(file).then((src) => {
-          if (!src) {
-            toast.error("Could not read the dropped image");
-            return;
+        const coords = { left: event.clientX, top: event.clientY };
+        const pos = view.posAtCoords(coords);
+        // Sequential so the images land in the order they were dropped.
+        void (async () => {
+          let insertAt = pos?.pos;
+          for (const image of images) {
+            if (image.size > NOTE_EDITOR_MAX_IMAGE_BYTES) {
+              toast.error(`"${image.name}" is too large (max 1.5 MB)`);
+              continue;
+            }
+            const src = await readImageAsDataUrl(image);
+            if (!src) {
+              toast.error(`Could not read "${image.name}"`);
+              continue;
+            }
+            const tr = view.state.tr;
+            const node = view.state.schema.nodes.image.create({ src });
+            if (insertAt !== undefined) {
+              tr.insert(insertAt, node);
+              insertAt += node.nodeSize;
+            } else {
+              tr.replaceSelectionWith(node);
+            }
+            view.dispatch(tr.scrollIntoView());
           }
-          const coords = { left: event.clientX, top: event.clientY };
-          const pos = view.posAtCoords(coords);
-          const tr = view.state.tr;
-          const node = view.state.schema.nodes.image.create({ src });
-          if (pos) {
-            tr.insert(pos.pos, node);
-          } else {
-            tr.replaceSelectionWith(node);
-          }
-          view.dispatch(tr.scrollIntoView());
-        });
+        })();
         return true;
       },
     },
