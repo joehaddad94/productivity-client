@@ -60,7 +60,7 @@ function Section({ title, tasks }: { title: string; tasks: MeTask[] }) {
 }
 
 export default function HomePage() {
-  const { workspaces } = useWorkspace();
+  const { workspaces, currentWorkspace } = useWorkspace();
   const [lens, setLens] = useState<MeTasksLens>("list");
   const [title, setTitle] = useState("");
 
@@ -75,8 +75,19 @@ export default function HomePage() {
     }
     return "";
   });
+  // Quick-add target precedence (docs/task-model-and-rollup.md §6.2):
+  //   1. an explicit pick, remembered from the last quick-add
+  //   2. the active workspace context — arriving at Home from a team board
+  //      should keep adding to that board, not silently divert to personal
+  //   3. the personal workspace, which is the default home for triage
+  const isMember = (id: string | undefined | null) =>
+    !!id && workspaces.some((w) => w.id === id);
   const effectiveTarget =
-    (targetWs && workspaces.some((w) => w.id === targetWs) ? targetWs : personalWs?.id) ?? "";
+    (isMember(targetWs)
+      ? targetWs
+      : isMember(currentWorkspace?.id)
+        ? currentWorkspace!.id
+        : personalWs?.id) ?? "";
 
   const today = localDateStr(new Date());
   const params = useMemo(() => {
