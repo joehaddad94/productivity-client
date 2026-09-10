@@ -188,6 +188,9 @@ export default function HomePage() {
   });
 
   const tasks = data?.tasks ?? [];
+  // The request caps at 500. The server returns the true total alongside, and
+  // nothing was reading it — so past the cap the list silently truncated.
+  const truncated = (data?.total ?? 0) > tasks.length;
   const actionable = useMemo(
     () => tasks.filter((t) => t.canonicalBucket !== "done"),
     [tasks],
@@ -331,6 +334,12 @@ export default function HomePage() {
             <Section title="Today" tasks={groups.today} onToggle={handleToggle} pendingId={pendingToggleId} />
             <Section title="Upcoming" tasks={groups.upcoming} onToggle={handleToggle} pendingId={pendingToggleId} />
             <Section title="No date" tasks={groups.noDate} onToggle={handleToggle} pendingId={pendingToggleId} />
+            {truncated && (
+              <p className="text-xs text-muted-foreground text-center pt-2">
+                Showing {tasks.length} of {data?.total} tasks. Narrow things down
+                in a workspace to see the rest.
+              </p>
+            )}
           </div>
         )
       ) : byDay.length === 0 ? (
