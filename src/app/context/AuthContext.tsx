@@ -45,18 +45,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutMutation = useLogoutMutation();
   const updateMeMutation = useUpdateMeMutation();
 
-  // Silently sync the browser's IANA timezone to the server on first load.
+  // Seed the user's IANA timezone from the browser the first time we see an
+  // account without one.
+  //
+  // This deliberately does NOT reconcile on every load. It used to, and that
+  // made Settings' timezone field impossible to use: any value differing from
+  // the device was overwritten on the next page load, so the control looked
+  // editable but could never hold a choice. The value is not cosmetic — it is
+  // what the server uses to decide quiet hours and when to send the daily
+  // agenda, so a deliberate choice (travelling, or pinning a work timezone)
+  // has to survive.
   useEffect(() => {
     if (!meFetched || !meUser) return;
+    if (meUser.timezone) return;
     let detectedTz: string;
     try {
       detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     } catch {
       return;
     }
-    if (meUser.timezone !== detectedTz) {
-      updateMeMutation.mutate({ timezone: detectedTz });
-    }
+    if (detectedTz) updateMeMutation.mutate({ timezone: detectedTz });
   // Only run when meFetched flips to true or the user identity changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meFetched, meUser?.id]);
