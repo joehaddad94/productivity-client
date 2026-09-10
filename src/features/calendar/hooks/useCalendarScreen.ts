@@ -311,7 +311,10 @@ export function useCalendarScreen() {
   // Agenda: all tasks with due dates, grouped by date, sorted chronologically
   const agendaGroups = useMemo(() => {
     const sorted = allTasks
-      .filter((t) => t.dueDate)
+      // Match the upcoming and overdue panes, which both drop terminal tasks.
+      // Without this the agenda was the one place on the screen still listing
+      // finished work, mixed in with what is still outstanding.
+      .filter((t) => t.dueDate && !isTaskStatusTerminal(t.status, taskStatuses))
       .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
     const groups = new Map<string, Task[]>();
     for (const t of sorted) {
@@ -320,7 +323,7 @@ export function useCalendarScreen() {
       groups.get(key)!.push(t);
     }
     return groups;
-  }, [allTasks]);
+  }, [allTasks, taskStatuses]);
 
   // Week view label e.g. "May 4–10, 2026"
   const weekLabel = (() => {
