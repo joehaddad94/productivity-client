@@ -323,7 +323,18 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
         };
       },
     );
-    updateMutation.mutate({ id, body: { title: trimmed } });
+    updateMutation.mutate(
+      { id, body: { title: trimmed } },
+      {
+        // The cache was patched optimistically above; without this a failed
+        // rename left the new title on screen indefinitely. handleToggle
+        // already reverts this way.
+        onError: () =>
+          queryClient.invalidateQueries({
+            queryKey: TASKS_QUERY_KEY(workspaceId ?? ""),
+          }),
+      },
+    );
   }, [queryClient, workspaceId, updateMutation]);
 
   const handleAssigneesChange = useCallback(
