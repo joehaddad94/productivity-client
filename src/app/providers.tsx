@@ -21,8 +21,11 @@ function ServiceWorkerRegistrar() {
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  // defaultTheme must be "system" for enableSystem to mean anything: with
+  // "light" a visitor whose OS is in dark mode got the light theme until they
+  // toggled manually.
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryProvider>
         <AuthProvider>
           <PostHogProvider>
