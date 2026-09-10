@@ -25,6 +25,20 @@ function TaskRow({ task }: { task: MeTask }) {
       <span className={cn("flex-1 min-w-0 truncate text-sm", done && "line-through text-muted-foreground")}>
         {task.title}
       </span>
+      {/* Rows group by canonical bucket but keep their workspace's own status
+          wording, so a team's "In Review" reads as itself (§6.1). */}
+      {task.statusName && (
+        <span
+          className="shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground max-w-[7rem] truncate"
+          style={{
+            borderColor: task.statusColor ?? "var(--border)",
+            color: task.statusColor ?? undefined,
+          }}
+          title={task.statusName}
+        >
+          {task.statusName}
+        </span>
+      )}
       {task.priority && (
         <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
           {task.priority}
