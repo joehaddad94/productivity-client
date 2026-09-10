@@ -189,7 +189,19 @@ export function useCalendarScreen() {
   const rangeStart = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-01`;
   const lastDay = new Date(viewYear, viewMonth + 1, 0).getDate();
   const rangeEnd = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-  const { data: externalEvents = [] } = useCalendarEventsQuery(rangeStart, rangeEnd);
+
+  // The month grid always renders 42 cells, so it shows several days either
+  // side of the month, and a week view can straddle a boundary entirely.
+  // Fetching external events for the month alone left those overhanging days
+  // blank. Pad by a week at each end.
+  const padDays = (ymd: string, days: number) => {
+    const d = new Date(`${ymd}T00:00:00`);
+    d.setDate(d.getDate() + days);
+    return toYMD(d);
+  };
+  const eventsFrom = padDays(rangeStart, -7);
+  const eventsTo = padDays(rangeEnd, 7);
+  const { data: externalEvents = [] } = useCalendarEventsQuery(eventsFrom, eventsTo);
 
   const externalByDate = useMemo(() => {
     const map = new Map<string, ExternalCalendarEvent[]>();
