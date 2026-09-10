@@ -49,7 +49,7 @@ function CheckEmailCardComponent({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="p-4 rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30">
-          <p className="text-sm text-gray-700 dark:text-gray-300">{message}</p>
+          <p className="text-sm text-foreground">{message}</p>
         </div>
 
         <div className="space-y-3">
@@ -80,7 +80,7 @@ function CheckEmailCardComponent({
           </Button>
         </div>
 
-        <div className="text-center text-sm text-gray-600 dark:text-gray-400 pt-4 border-t">
+        <div className="text-center text-sm text-muted-foreground pt-4 border-t">
           {alternateLink.prompt}{" "}
           <Link href={alternateLink.href} className="text-primary hover:underline font-medium">
             {alternateLink.label}

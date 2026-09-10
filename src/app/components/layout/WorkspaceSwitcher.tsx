@@ -33,7 +33,7 @@ function WorkspaceSwitcherComponent() {
   const containerClass = cn(
     "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md cursor-pointer",
     "text-left transition-colors hover:bg-[var(--nav-hover)]",
-    "border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
+    "border border-transparent hover:border-border"
   );
 
   const LOADER_COLORS = [
@@ -137,7 +137,7 @@ function WorkspaceSwitcherComponent() {
             </div>
             {/* Center: small building icon (workspace context) */}
             <div
-              className="absolute flex size-5 items-center justify-center rounded bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-600/80"
+              className="absolute flex size-5 items-center justify-center rounded bg-card border border-border/80"
               style={{ animation: "loader-pulse-ring 2.2s ease-in-out infinite" }}
             >
               <Building2 className="size-2.5 text-[var(--loader-1)] dark:text-[var(--loader-2)]" />
@@ -160,16 +160,16 @@ function WorkspaceSwitcherComponent() {
             <Building2 className="size-3.5 text-primary" />
           </div>
           <div className="flex-1 min-w-0 text-left">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            <p className="text-xs font-medium text-muted-foreground">
               {hasWorkspaces ? "Select workspace" : "No workspace"}
             </p>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">
+            <p className="text-[10px] text-muted-foreground">
               {hasWorkspaces
                 ? "Choose or create one"
                 : "Create your first workspace"}
             </p>
           </div>
-          <ChevronDown className="size-3.5 text-gray-400 flex-shrink-0" />
+          <ChevronDown className="size-3.5 text-muted-foreground flex-shrink-0" />
         </Link>
       </>
     );
@@ -188,24 +188,24 @@ function WorkspaceSwitcherComponent() {
               <Building2 className="size-3.5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate text-gray-900 dark:text-gray-100">
+              <p className="text-xs font-medium truncate text-foreground">
                 {currentWorkspace.name}
               </p>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+              <p className="text-[10px] text-muted-foreground truncate">
                 {workspaces.length} workspace{workspaces.length !== 1 ? "s" : ""}
               </p>
             </div>
-            <ChevronDown className="size-3.5 text-gray-400 flex-shrink-0" />
+            <ChevronDown className="size-3.5 text-muted-foreground flex-shrink-0" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
           side="bottom"
-          className="w-52 rounded-lg border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary/25 dark:border-l-primary/40 shadow-sm bg-card text-card-foreground p-1 text-sm"
+          className="w-52 rounded-lg border border-border border-l-4 border-l-primary/25 dark:border-l-primary/40 shadow-sm bg-card text-card-foreground p-1 text-sm"
         >
           <DropdownMenuLabel
             key="switch-label"
-            className="text-[10px] font-normal text-gray-500 dark:text-gray-400"
+            className="text-[10px] font-normal text-muted-foreground"
           >
             Switch workspace
           </DropdownMenuLabel>

@@ -138,7 +138,7 @@ export function ScreenLoader({
             </div>
             {/* Center pill with T */}
             <div
-              className="absolute flex size-14 items-center justify-center rounded-2xl bg-white shadow-xl dark:bg-gray-800 border-2 border-gray-200/80 dark:border-gray-600/80"
+              className="absolute flex size-14 items-center justify-center rounded-2xl bg-card shadow-xl border-2 border-border/80"
               style={{ animation: "loader-pulse-ring 2.2s ease-in-out infinite" }}
             >
               <span
@@ -154,10 +154,10 @@ export function ScreenLoader({
           </div>
           {message && (
             <div className="flex flex-col items-center gap-2 max-w-sm text-center">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500/80 dark:text-gray-400/80 font-semibold">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80 font-semibold">
                 Hang tight
               </p>
-              <p className="text-sm md:text-base text-gray-700 dark:text-gray-200 font-medium leading-relaxed">
+              <p className="text-sm md:text-base text-foreground font-medium leading-relaxed">
                 {message}
               </p>
               <LoadingDots
@@ -198,7 +198,7 @@ export function ScreenLoader({
           ))}
         </div>
         {message && (
-          <p className="text-sm text-gray-600 dark:text-gray-400">{message}</p>
+          <p className="text-sm text-muted-foreground">{message}</p>
         )}
       </div>
     </div>

@@ -91,7 +91,7 @@ export function ManageWorkspacesDialog({
       <DialogContent
         className={cn(
           "sm:max-w-md rounded-lg p-0 gap-0 overflow-hidden",
-          "border border-gray-200 dark:border-gray-800",
+          "border border-border",
           "shadow-lg shadow-primary/5 dark:shadow-none",
           "bg-card text-card-foreground"
         )}
@@ -102,7 +102,7 @@ export function ManageWorkspacesDialog({
             className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg bg-primary/30 dark:bg-primary/40 pointer-events-none"
             aria-hidden
           />
-          <DialogHeader className="px-4 pt-4 pb-3 pl-5 border-b border-gray-100 dark:border-gray-800/80">
+          <DialogHeader className="px-4 pt-4 pb-3 pl-5 border-b border-border/60/80">
           <div className="flex items-start gap-3">
             <div className="size-10 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center flex-shrink-0">
               <Building2 className="size-5 text-primary" />
@@ -111,7 +111,7 @@ export function ManageWorkspacesDialog({
               <DialogTitle className="text-base font-semibold tracking-tight">
                 Manage workspaces
               </DialogTitle>
-              <DialogDescription className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              <DialogDescription className="mt-0.5 text-xs text-muted-foreground">
                 Create new workspaces, switch between them, or update settings.
               </DialogDescription>
             </div>
@@ -134,7 +134,7 @@ export function ManageWorkspacesDialog({
             <TabsContent value="workspaces" className="space-y-4">
               {/* Create new */}
               <section>
-                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                   Add workspace
                 </h3>
                 {!showCreate ? (
@@ -142,8 +142,8 @@ export function ManageWorkspacesDialog({
                     type="button"
                     onClick={() => setShowCreate(true)}
                     className={cn(
-                      "w-full flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700",
-                      "py-3 text-xs font-medium text-gray-600 dark:text-gray-400",
+                      "w-full flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-border",
+                      "py-3 text-xs font-medium text-muted-foreground",
                       "hover:border-primary/30 hover:bg-primary/5 hover:text-primary dark:hover:bg-primary/10 transition-colors"
                     )}
                   >
@@ -164,7 +164,7 @@ export function ManageWorkspacesDialog({
 
               {/* List */}
               <section>
-                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                   Your workspaces
                 </h3>
                 <ul className="space-y-1.5">
@@ -173,8 +173,8 @@ export function ManageWorkspacesDialog({
                       key={ws.id}
                       className={cn(
                         "rounded-lg border transition-all duration-200",
-                        "border-gray-200 dark:border-gray-700",
-                        "hover:border-gray-300 dark:hover:border-gray-600",
+                        "border-border",
+                        "hover:border-border",
                         currentWorkspace?.id === ws.id &&
                           "border-l-4 border-l-primary/40 dark:border-l-primary/50 bg-primary/5 dark:bg-primary/10"
                       )}
@@ -200,10 +200,10 @@ export function ManageWorkspacesDialog({
                             <Building2 className="size-4 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            <p className="text-sm font-medium text-foreground truncate">
                               {ws.name}
                             </p>
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                            <p className="text-[10px] text-muted-foreground truncate mt-0.5">
                               {ws.slug}
                               {ws.isPersonal && " · Personal"}
                             </p>
@@ -229,7 +229,7 @@ export function ManageWorkspacesDialog({
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
                               onClick={() => setEditing(ws)}
                               aria-label="Edit workspace"
                             >
@@ -265,7 +265,7 @@ export function ManageWorkspacesDialog({
                   ))}
                 </ul>
                 {workspaces.length === 0 && !showCreate && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 py-4 text-center">
+                  <p className="text-xs text-muted-foreground py-4 text-center">
                     No workspaces yet. Create one above.
                   </p>
                 )}
@@ -323,12 +323,12 @@ function CreateForm({
     <form
       onSubmit={handleSubmit}
       className={cn(
-        "rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-3",
-        "bg-gray-50/50 dark:bg-gray-800/30"
+        "rounded-lg border border-border p-3 space-y-3",
+        "bg-muted/40"
       )}
     >
       <div className="grid gap-1.5">
-        <Label htmlFor="create-name" className="text-xs font-medium text-gray-700 dark:text-gray-300">
+        <Label htmlFor="create-name" className="text-xs font-medium text-foreground">
           Name
         </Label>
         <Input
@@ -343,12 +343,12 @@ function CreateForm({
           placeholder="My Workspace"
           maxLength={NAME_MAX}
           disabled={isPending}
-          className="rounded-md border-gray-200 dark:border-gray-700"
+          className="rounded-md border-border"
         />
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor="create-slug" className="text-xs font-medium text-gray-700 dark:text-gray-300">
-          Slug <span className="font-normal text-gray-400">(optional)</span>
+        <Label htmlFor="create-slug" className="text-xs font-medium text-foreground">
+          Slug <span className="font-normal text-muted-foreground">(optional)</span>
         </Label>
         <Input
           id="create-slug"
@@ -361,7 +361,7 @@ function CreateForm({
           placeholder="my-workspace"
           maxLength={SLUG_MAX}
           disabled={isPending}
-          className="rounded-md border-gray-200 dark:border-gray-700"
+          className="rounded-md border-border"
         />
       </div>
       <div className="flex items-center gap-1.5">
@@ -373,7 +373,7 @@ function CreateForm({
         />
         <Label
           htmlFor="create-personal"
-          className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer"
+          className="text-xs text-muted-foreground cursor-pointer"
         >
           Personal workspace
         </Label>
@@ -431,7 +431,7 @@ function EditForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="grid gap-1.5">
-        <Label htmlFor="edit-name" className="text-xs font-medium text-gray-700 dark:text-gray-300">
+        <Label htmlFor="edit-name" className="text-xs font-medium text-foreground">
           Name
         </Label>
         <Input
@@ -440,11 +440,11 @@ function EditForm({
           onChange={(e) => setName(e.target.value.slice(0, NAME_MAX))}
           maxLength={NAME_MAX}
           disabled={isPending}
-          className="rounded-md border-gray-200 dark:border-gray-700"
+          className="rounded-md border-border"
         />
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor="edit-slug" className="text-xs font-medium text-gray-700 dark:text-gray-300">
+        <Label htmlFor="edit-slug" className="text-xs font-medium text-foreground">
           Slug
         </Label>
         <Input
@@ -457,7 +457,7 @@ function EditForm({
           }
           maxLength={SLUG_MAX}
           disabled={isPending}
-          className="rounded-md border-gray-200 dark:border-gray-700"
+          className="rounded-md border-border"
         />
       </div>
       <div className="flex items-center gap-1.5">
@@ -467,7 +467,7 @@ function EditForm({
           onCheckedChange={(c) => setIsPersonal(c === true)}
           disabled={isPending}
         />
-        <Label htmlFor="edit-personal" className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+        <Label htmlFor="edit-personal" className="text-xs text-muted-foreground cursor-pointer">
           Personal
         </Label>
       </div>
@@ -525,12 +525,12 @@ function MembersSection({ workspaceId }: { workspaceId: string }) {
     <div className="space-y-4">
       {/* Invite form */}
       <section>
-        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
           Invite by email
         </h3>
         <form onSubmit={handleInvite} className="flex gap-2">
           <div className="flex-1 relative">
-            <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400" />
+            <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input
               type="email"
               placeholder="colleague@example.com"
@@ -552,19 +552,19 @@ function MembersSection({ workspaceId }: { workspaceId: string }) {
 
       {/* Members list */}
       <section>
-        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
           Members ({members.length})
         </h3>
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="size-4 animate-spin text-gray-400" />
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <ul className="space-y-1.5">
             {members.map((member) => (
               <li
                 key={member.id}
-                className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700"
+                className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border"
               >
                 <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-xs font-medium text-primary">
                   {(member.user.name ?? member.user.email).slice(0, 2).toUpperCase()}
@@ -573,7 +573,7 @@ function MembersSection({ workspaceId }: { workspaceId: string }) {
                   <p className="text-xs font-medium truncate">
                     {member.user.name ?? member.user.email}
                   </p>
-                  <p className="text-[10px] text-gray-400 truncate">{member.user.email}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{member.user.email}</p>
                 </div>
                 <Select
                   value={member.role}

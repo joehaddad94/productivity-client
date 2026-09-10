@@ -343,7 +343,7 @@ export function CalendarScreen() {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5 text-[11px] text-muted-foreground">
               <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-red-400/40 border border-red-400/60" />High</span>
               <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-orange-400/40 border border-orange-400/60" />Medium</span>
-              <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-gray-400/40 border border-gray-400/60" />Low</span>
+              <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-muted-foreground/40 border border-border/80" />Low</span>
               <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-blue-500/30 border border-blue-500/50" />External event</span>
               <span className="flex items-center gap-1.5"><span className="text-emerald-400/70 font-medium">✓</span>Completed</span>
               <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-red-500/20 border border-red-500/30" />Overdue</span>

@@ -55,7 +55,7 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
             {DAYS_OF_WEEK.map((day, i) => (
               <div
                 key={day}
-                className={`size-3 flex items-center text-[8px] text-gray-400 dark:text-gray-600 leading-none ${
+                className={`size-3 flex items-center text-[8px] text-muted-foreground leading-none ${
                   i % 2 === 0 ? "opacity-100" : "opacity-0"
                 }`}
               >
@@ -90,10 +90,10 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
           </TooltipProvider>
         </div>
 
-        <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
           <span>Less</span>
           <div className="flex gap-1">
-            <div className="size-3 rounded-sm bg-gray-100 dark:bg-gray-800" />
+            <div className="size-3 rounded-sm bg-muted" />
             <div className="size-3 rounded-sm bg-green-200 dark:bg-green-900" />
             <div className="size-3 rounded-sm bg-green-400 dark:bg-green-700" />
             <div className="size-3 rounded-sm bg-green-600 dark:bg-green-500" />

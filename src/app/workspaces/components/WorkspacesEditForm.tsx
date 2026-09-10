@@ -57,7 +57,7 @@ export function WorkspacesEditForm({
       <div className="grid gap-2">
         <Label
           htmlFor="edit-name"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+          className="text-sm font-medium text-foreground"
         >
           Name
         </Label>
@@ -67,13 +67,13 @@ export function WorkspacesEditForm({
           onChange={(e) => setName(e.target.value.slice(0, NAME_MAX))}
           maxLength={NAME_MAX}
           disabled={isPending}
-          className="rounded-md border-gray-200 dark:border-gray-700"
+          className="rounded-md border-border"
         />
       </div>
       <div className="grid gap-2">
         <Label
           htmlFor="edit-slug"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+          className="text-sm font-medium text-foreground"
         >
           Slug
         </Label>
@@ -90,7 +90,7 @@ export function WorkspacesEditForm({
           }
           maxLength={SLUG_MAX}
           disabled={isPending}
-          className="rounded-md border-gray-200 dark:border-gray-700"
+          className="rounded-md border-border"
         />
       </div>
       <div className="flex items-center gap-2">
@@ -102,7 +102,7 @@ export function WorkspacesEditForm({
         />
         <Label
           htmlFor="edit-personal"
-          className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer"
+          className="text-sm text-muted-foreground cursor-pointer"
         >
           Personal
         </Label>

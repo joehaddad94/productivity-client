@@ -52,7 +52,7 @@ function buildGrid(data: { date: string; count: number }[]) {
 }
 
 function getColor(count: number) {
-  if (count === 0) return "bg-gray-100 dark:bg-gray-800";
+  if (count === 0) return "bg-muted";
   if (count <= 2)  return "bg-green-200 dark:bg-green-900";
   if (count <= 5)  return "bg-green-400 dark:bg-green-700";
   if (count <= 8)  return "bg-green-600 dark:bg-green-500";
@@ -108,7 +108,7 @@ function ActivityHeatmap({
               <div
                 key={day}
                 className={cn(
-                  "size-3 flex items-center text-[8px] text-gray-400 dark:text-gray-600 leading-none",
+                  "size-3 flex items-center text-[8px] text-muted-foreground leading-none",
                   i % 2 !== 0 && "opacity-0",
                 )}
               >
@@ -144,11 +144,11 @@ function ActivityHeatmap({
           </TooltipProvider>
         </div>
 
-        <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
           <span>Less</span>
           <div className="flex gap-1">
             {[
-              "bg-gray-100 dark:bg-gray-800",
+              "bg-muted",
               "bg-green-200 dark:bg-green-900",
               "bg-green-400 dark:bg-green-700",
               "bg-green-600 dark:bg-green-500",

@@ -107,7 +107,7 @@ function TaskRow({ title, priority, due, done }: { title: string; priority: "low
   const pill =
     priority === "high"   ? "text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-950/50" :
     priority === "medium" ? "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/50" :
-                            "text-gray-500 bg-gray-100 dark:bg-gray-800";
+                            "text-muted-foreground bg-muted";
   return (
     <div className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/40 group">
       <div className={`size-3 rounded-sm border-[1.5px] ${done ? "bg-primary border-primary" : "border-muted-foreground/40"} shrink-0`} />

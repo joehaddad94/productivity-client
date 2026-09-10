@@ -59,7 +59,7 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
 
   return (
     <Card className="w-full">
-      <CardHeader className="pb-3 border-b border-gray-100 dark:border-gray-800/80">
+      <CardHeader className="pb-3 border-b border-border/60/80">
         <div className="flex items-start gap-3">
           <div className="size-10 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center flex-shrink-0">
             <Building2 className="size-5 text-primary" />
@@ -68,7 +68,7 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
             <h2 className="text-base font-semibold tracking-tight">
               Create your workspace
             </h2>
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Your workspace is where your tasks and notes live. You can add more later.
             </p>
           </div>
@@ -78,12 +78,12 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
         <form
           onSubmit={handleSubmit}
           className={cn(
-            "rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-3",
-            "bg-gray-50/50 dark:bg-gray-800/30"
+            "rounded-lg border border-border p-3 space-y-3",
+            "bg-muted/40"
           )}
         >
           <div className="grid gap-1.5">
-            <Label htmlFor="ws-name" className="text-xs font-medium text-gray-700 dark:text-gray-300">
+            <Label htmlFor="ws-name" className="text-xs font-medium text-foreground">
               Workspace name
             </Label>
             <Input
@@ -92,15 +92,15 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
               placeholder="My Workspace"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className="rounded-md border-gray-200 dark:border-gray-700"
+              className="rounded-md border-border"
               disabled={createMutation.isPending}
               maxLength={NAME_MAX}
               autoFocus
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="ws-slug" className="text-xs font-medium text-gray-700 dark:text-gray-300">
-              URL slug <span className="font-normal text-gray-400">(optional)</span>
+            <Label htmlFor="ws-slug" className="text-xs font-medium text-foreground">
+              URL slug <span className="font-normal text-muted-foreground">(optional)</span>
             </Label>
             <Input
               id="ws-slug"
@@ -111,11 +111,11 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
                 slugManuallyEdited.current = true;
                 setSlug(e.target.value.slice(0, SLUG_MAX).toLowerCase().replace(/[^a-z0-9-]/g, "-"));
               }}
-              className="rounded-md border-gray-200 dark:border-gray-700"
+              className="rounded-md border-border"
               disabled={createMutation.isPending}
               maxLength={SLUG_MAX}
             />
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">
+            <p className="text-[10px] text-muted-foreground">
               Lowercase letters, numbers, hyphens only
             </p>
           </div>
@@ -128,7 +128,7 @@ export function CreateFirstWorkspace({ onSuccess }: CreateFirstWorkspaceProps) {
             />
             <Label
               htmlFor="ws-personal"
-              className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer"
+              className="text-xs text-muted-foreground cursor-pointer"
             >
               Personal workspace
             </Label>
