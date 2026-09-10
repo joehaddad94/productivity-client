@@ -13,46 +13,12 @@
  */
 
 import type { Note } from "@/lib/types";
-
-const API_BASE =
-  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_URL) || "";
+import { api, getMessage, parseJson, throwApiError } from "./client";
 
 function logClientTiming(label: string, start: number, extra?: Record<string, unknown>) {
   if (typeof window === "undefined" || process.env.NODE_ENV === "production") return;
   const ms = Math.round((performance.now() - start) * 10) / 10;
   console.log(`[notes-timing] ${label}: ${ms}ms`, extra ?? "");
-}
-
-function api(path: string, options: RequestInit = {}) {
-  const url = API_BASE ? `${API_BASE}${path}` : path;
-  return fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-    credentials: "include",
-  });
-}
-
-function getMessage(data: unknown): string {
-  if (data && typeof data === "object") {
-    const o = data as Record<string, unknown>;
-    if (typeof o.message === "string") return o.message;
-    if (Array.isArray(o.message)) return (o.message[0] as string) ?? "Bad request";
-    if (typeof o.error === "string") return o.error;
-  }
-  return "Request failed";
-}
-
-async function parseJson(res: Response): Promise<unknown> {
-  const text = await res.text();
-  if (!text.trim()) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { message: res.statusText || "Request failed" };
-  }
 }
 
 export type ListNotesParams = {
@@ -96,9 +62,8 @@ export const notesApi = {
     if (params?.skip !== undefined) qs.set("skip", String(params.skip));
     const query = qs.toString() ? `?${qs.toString()}` : "";
     const res = await api(`/workspaces/${workspaceId}/notes${query}`);
-    if (res.status === 401) return { notes: [], total: 0 };
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     const d = data as { notes?: Note[]; total?: number };
     return { notes: d.notes ?? [], total: d.total ?? 0 };
   },
@@ -107,7 +72,7 @@ export const notesApi = {
     const res = await api(`/workspaces/${workspaceId}/notes/${id}`);
     if (res.status === 404) return null;
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     return (data as { note: Note }).note;
   },
 
@@ -118,7 +83,7 @@ export const notesApi = {
       body: JSON.stringify(body),
     });
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     logClientTiming("api:create-note", startedAt, {
       workspaceId,
       status: res.status,
@@ -132,7 +97,7 @@ export const notesApi = {
       body: JSON.stringify(body),
     });
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     return (data as { note: Note }).note;
   },
 
@@ -151,7 +116,7 @@ export const notesApi = {
       body: JSON.stringify({ tags }),
     });
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     return (data as { note: Note }).note;
   },
 
@@ -161,7 +126,7 @@ export const notesApi = {
       { method: "DELETE" },
     );
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     return (data as { note: Note }).note;
   },
 };

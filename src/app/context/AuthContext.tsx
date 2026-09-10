@@ -13,6 +13,7 @@ import {
   AUTH_QUERY_KEY,
 } from "@/app/hooks/useAuthApi";
 import { useQueryClient } from "@tanstack/react-query";
+import { setUnauthorizedHandler } from "@/lib/api/client";
 
 function mapUser(u: AuthUser): User {
   return {
@@ -44,6 +45,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verifyMutation = useVerifyMutation();
   const logoutMutation = useLogoutMutation();
   const updateMeMutation = useUpdateMeMutation();
+
+  // Any request coming back 401 means the session is gone. Clear the cached
+  // user so isAuthenticated flips and the app's existing redirect runs.
+  //
+  // Before this, thirteen endpoints swallowed 401 and returned an empty result,
+  // so an expired session rendered as a legitimately empty account: /home said
+  // "Nothing on your plate" and an empty workspace list pushed established
+  // users into the create-your-first-workspace gate.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      queryClient.setQueryData(AUTH_QUERY_KEY, null);
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [queryClient]);
 
   // Seed the user's IANA timezone from the browser the first time we see an
   // account without one.
