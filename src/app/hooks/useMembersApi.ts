@@ -61,6 +61,23 @@ export function useUpdateMemberRoleMutation(
     mutationFn: ({ userId, role }: { userId: string; role: string }) =>
       membersApi.updateRole(workspaceId!, userId, role),
     ...options,
+    // Reflect the new role at once; the select otherwise snapped back to the
+    // old value until the response landed.
+    onMutate: async ({ userId, role }) => {
+      const key = MEMBERS_QUERY_KEY(workspaceId ?? "");
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<WorkspaceMember[]>(key);
+      queryClient.setQueryData<WorkspaceMember[]>(key, (prev) =>
+        prev?.map((m) => (m.userId === userId ? { ...m, role } : m)),
+      );
+      return { previous };
+    },
+    onError: (err, variables, context, mutation) => {
+      const previous = (context as { previous?: WorkspaceMember[] } | undefined)?.previous;
+      if (previous)
+        queryClient.setQueryData(MEMBERS_QUERY_KEY(workspaceId ?? ""), previous);
+      options?.onError?.(err, variables, context, mutation);
+    },
     onSuccess: (data, variables, context, mutation) => {
       queryClient.setQueryData(
         MEMBERS_QUERY_KEY(workspaceId ?? ""),
@@ -84,6 +101,22 @@ export function useRemoveMemberMutation(
   return useMutation({
     mutationFn: (userId: string) => membersApi.remove(workspaceId!, userId),
     ...options,
+    // Drop the row on click and put it back if the server refuses.
+    onMutate: async (userId) => {
+      const key = MEMBERS_QUERY_KEY(workspaceId ?? "");
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<WorkspaceMember[]>(key);
+      queryClient.setQueryData<WorkspaceMember[]>(key, (prev) =>
+        prev ? prev.filter((m) => m.userId !== userId) : prev,
+      );
+      return { previous };
+    },
+    onError: (err, userId, context, mutation) => {
+      const previous = (context as { previous?: WorkspaceMember[] } | undefined)?.previous;
+      if (previous)
+        queryClient.setQueryData(MEMBERS_QUERY_KEY(workspaceId ?? ""), previous);
+      options?.onError?.(err, userId, context, mutation);
+    },
     onSuccess: (_, userId, context, mutation) => {
       queryClient.setQueryData(
         MEMBERS_QUERY_KEY(workspaceId ?? ""),
