@@ -17,8 +17,16 @@ export async function waitForReady(page: Page) {
   }).catch(() => {});
   // Wait for the tasks loading skeleton (4 animate-pulse rows) to disappear.
   // With 200+ tasks in the workspace the initial API response can take >400 ms.
+  //
+  // Exclude [data-live-indicator]: the Pomodoro widget pulses a dot while the
+  // timer RUNS, which is not a loading state and never goes away. Counting it
+  // meant that once any test started the timer, every later goto() in the run
+  // burned this full 15 s budget — which is what pushed the Pomodoro
+  // beforeEach past its 60 s limit and failed four tests that were fine.
   await page.waitForFunction(
-    () => document.querySelectorAll('.animate-pulse').length === 0,
+    () =>
+      document.querySelectorAll('.animate-pulse:not([data-live-indicator])')
+        .length === 0,
     { timeout: 15_000 },
   ).catch(() => {});
   // Small buffer for React to commit the new state

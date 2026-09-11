@@ -223,7 +223,7 @@ export function PomodoroWidget() {
               </span>
               {isRunning && (
                 <span className={cn("flex items-center gap-1 text-[10px] tracking-wide uppercase", FG_MUTED)}>
-                  <span className="size-1.5 rounded-full animate-pulse" style={{ background: cfg.color }} aria-hidden="true" />
+                  <span data-live-indicator className="size-1.5 rounded-full animate-pulse" style={{ background: cfg.color }} aria-hidden="true" />
                   Live
                 </span>
               )}
@@ -392,7 +392,7 @@ export function PomodoroWidget() {
             <MiniRing progress={progress} color={cfg.color} />
             <div className="absolute inset-0 flex items-center justify-center">
               {isRunning
-                ? <span className="size-[5px] rounded-full animate-pulse" style={{ background: cfg.color }} />
+                ? <span data-live-indicator className="size-[5px] rounded-full animate-pulse" style={{ background: cfg.color }} />
                 : <span className="size-[5px] rounded-full bg-white/20 dark:bg-black/20" />
               }
             </div>
