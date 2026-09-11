@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Plus, Loader2, CalendarDays, ListChecks } from "lucide-react";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
@@ -10,13 +10,40 @@ import { localDateStr, relativeDate, greeting, todayLabel } from "@/lib/date-uti
 import type { MeTask, MeTasksLens } from "@/lib/api/me-api";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
+import { useHydrated } from "@/hooks/useHydrated";
+import { Checkbox } from "@/app/components/ui/checkbox";
+import {
+  useAllWorkspaceTaskStatuses,
+  useCrossWorkspaceTaskMutations,
+} from "@/hooks/useCrossWorkspaceTasks";
+import {
+  defaultNonTerminalStatusId,
+  firstTerminalStatusId,
+} from "@/features/tasks/lib/taskStatusHelpers";
 
 const QUICKADD_WS_KEY = "tasky_quickadd_ws";
 
-function TaskRow({ task }: { task: MeTask }) {
+function TaskRow({
+  task,
+  onToggle,
+  pending,
+}: {
+  task: MeTask;
+  onToggle: (task: MeTask, done: boolean) => void;
+  pending: boolean;
+}) {
   const done = task.canonicalBucket === "done";
   return (
     <div className="flex items-center gap-3 px-3 py-2 rounded-md border border-border/50 bg-card hover:bg-[var(--nav-hover)] transition-colors">
+      {/* The rollup was read-only: it listed what you had to do with no way to
+          do any of it. Completing is the one action the daily driver needs. */}
+      <Checkbox
+        checked={done}
+        disabled={pending}
+        onCheckedChange={(checked) => onToggle(task, checked === true)}
+        aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`}
+        className="shrink-0"
+      />
       <span
         className="size-2.5 shrink-0 rounded-full"
         style={{ backgroundColor: task.statusColor ?? "var(--muted-foreground)" }}
@@ -25,6 +52,20 @@ function TaskRow({ task }: { task: MeTask }) {
       <span className={cn("flex-1 min-w-0 truncate text-sm", done && "line-through text-muted-foreground")}>
         {task.title}
       </span>
+      {/* Rows group by canonical bucket but keep their workspace's own status
+          wording, so a team's "In Review" reads as itself (§6.1). */}
+      {task.statusName && (
+        <span
+          className="shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground max-w-[7rem] truncate"
+          style={{
+            borderColor: task.statusColor ?? "var(--border)",
+            color: task.statusColor ?? undefined,
+          }}
+          title={task.statusName}
+        >
+          {task.statusName}
+        </span>
+      )}
       {task.priority && (
         <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
           {task.priority}
@@ -42,7 +83,17 @@ function TaskRow({ task }: { task: MeTask }) {
   );
 }
 
-function Section({ title, tasks }: { title: string; tasks: MeTask[] }) {
+function Section({
+  title,
+  tasks,
+  onToggle,
+  pendingId,
+}: {
+  title: string;
+  tasks: MeTask[];
+  onToggle: (task: MeTask, done: boolean) => void;
+  pendingId: string | null;
+}) {
   if (tasks.length === 0) return null;
   return (
     <section className="space-y-1.5">
@@ -52,7 +103,12 @@ function Section({ title, tasks }: { title: string; tasks: MeTask[] }) {
       </h2>
       <div className="space-y-1">
         {tasks.map((t) => (
-          <TaskRow key={t.id} task={t} />
+          <TaskRow
+            key={t.id}
+            task={t}
+            onToggle={onToggle}
+            pending={pendingId === t.id}
+          />
         ))}
       </div>
     </section>
@@ -60,7 +116,7 @@ function Section({ title, tasks }: { title: string; tasks: MeTask[] }) {
 }
 
 export default function HomePage() {
-  const { workspaces } = useWorkspace();
+  const { workspaces, currentWorkspace } = useWorkspace();
   const [lens, setLens] = useState<MeTasksLens>("list");
   const [title, setTitle] = useState("");
 
@@ -68,17 +124,51 @@ export default function HomePage() {
     () => workspaces.find((w) => w.isPersonal) ?? workspaces[0] ?? null,
     [workspaces],
   );
+  // The remembered target is only consulted once hydrated, so the server and
+  // the hydration render agree and the stored value cannot cause a mismatch.
+  const hydrated = useHydrated();
   const [targetWs, setTargetWs] = useState<string>(() => {
-    if (typeof localStorage !== "undefined") {
-      const stored = localStorage.getItem(QUICKADD_WS_KEY);
-      if (stored) return stored;
+    try {
+      return localStorage.getItem(QUICKADD_WS_KEY) ?? "";
+    } catch {
+      return "";
     }
-    return "";
   });
+  // Quick-add target precedence (docs/task-model-and-rollup.md §6.2):
+  //   1. an explicit pick, remembered from the last quick-add
+  //   2. the active workspace context — arriving at Home from a team board
+  //      should keep adding to that board, not silently divert to personal
+  //   3. the personal workspace, which is the default home for triage
+  const isMember = (id: string | undefined | null) =>
+    !!id && workspaces.some((w) => w.id === id);
   const effectiveTarget =
-    (targetWs && workspaces.some((w) => w.id === targetWs) ? targetWs : personalWs?.id) ?? "";
+    (hydrated && isMember(targetWs)
+      ? targetWs
+      : isMember(currentWorkspace?.id)
+        ? currentWorkspace!.id
+        : personalWs?.id) ?? "";
 
-  const today = localDateStr(new Date());
+  // `today` is read on every render but only recomputed on mount, so a tab
+  // left open past midnight kept grouping against yesterday. Tick it over
+  // when the day actually changes.
+  const [today, setToday] = useState(() => localDateStr(new Date()));
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = localDateStr(new Date());
+      setToday((prev) => (prev === now ? prev : now));
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // greeting() and todayLabel() read the clock, so the server resolves them in
+  // its timezone and the client in the user's — "Good evening" against
+  // "Good morning". Render them only once hydrated so both agree on first
+  // paint. Recomputed when `today` ticks over.
+  const clockLabels = useMemo(
+    () => (hydrated ? { greeting: greeting(), today: todayLabel() } : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hydrated, today],
+  );
   const params = useMemo(() => {
     if (lens === "calendar") {
       const end = new Date();
@@ -98,6 +188,9 @@ export default function HomePage() {
   });
 
   const tasks = data?.tasks ?? [];
+  // The request caps at 500. The server returns the true total alongside, and
+  // nothing was reading it — so past the cap the list silently truncated.
+  const truncated = (data?.total ?? 0) > tasks.length;
   const actionable = useMemo(
     () => tasks.filter((t) => t.canonicalBucket !== "done"),
     [tasks],
@@ -114,6 +207,31 @@ export default function HomePage() {
     }
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [actionable]);
+
+  // Toggling has to resolve done/open against the task's OWN workspace: status
+  // ids are per-workspace, so the active workspace's ids would be rejected.
+  const presentWorkspaceIds = useMemo(
+    () => [...new Set(tasks.map((t) => t.workspace.id))],
+    [tasks],
+  );
+  const statusesByWorkspace = useAllWorkspaceTaskStatuses(presentWorkspaceIds);
+  const { updateMutation } = useCrossWorkspaceTaskMutations();
+  const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
+
+  const handleToggle = (task: MeTask, done: boolean) => {
+    const own = statusesByWorkspace.get(task.workspace.id) ?? [];
+    const nextStatus = done
+      ? firstTerminalStatusId(own)
+      : defaultNonTerminalStatusId(own);
+    setPendingToggleId(task.id);
+    updateMutation.mutate(
+      { workspaceId: task.workspace.id, id: task.id, body: { status: nextStatus } },
+      {
+        onError: (err) => toast.error(err.message || "Could not update task"),
+        onSettled: () => setPendingToggleId(null),
+      },
+    );
+  };
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,8 +255,10 @@ export default function HomePage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight">{greeting()}</h1>
-        <p className="text-sm text-muted-foreground">{todayLabel()} · your tasks across every workspace</p>
+        <h1 className="text-xl font-semibold tracking-tight">{clockLabels?.greeting ?? " "}</h1>
+        <p className="text-sm text-muted-foreground">
+          {clockLabels ? `${clockLabels.today} · ` : ""}your tasks across every workspace
+        </p>
       </header>
 
       {/* Quick add */}
@@ -203,25 +323,36 @@ export default function HomePage() {
         </div>
       ) : isError ? (
         <p className="text-sm text-destructive">Couldn’t load your tasks. Please try again.</p>
-      ) : actionable.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-sm text-muted-foreground">Nothing on your plate. Add a task above to get started.</p>
-        </div>
       ) : lens === "list" ? (
-        <div className="space-y-6">
-          <Section title="Overdue" tasks={groups.overdue} />
-          <Section title="Today" tasks={groups.today} />
-          <Section title="Upcoming" tasks={groups.upcoming} />
-          <Section title="No date" tasks={groups.noDate} />
-        </div>
+        actionable.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-sm text-muted-foreground">Nothing on your plate. Add a task above to get started.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <Section title="Overdue" tasks={groups.overdue} onToggle={handleToggle} pendingId={pendingToggleId} />
+            <Section title="Today" tasks={groups.today} onToggle={handleToggle} pendingId={pendingToggleId} />
+            <Section title="Upcoming" tasks={groups.upcoming} onToggle={handleToggle} pendingId={pendingToggleId} />
+            <Section title="No date" tasks={groups.noDate} onToggle={handleToggle} pendingId={pendingToggleId} />
+            {truncated && (
+              <p className="text-xs text-muted-foreground text-center pt-2">
+                Showing {tasks.length} of {data?.total} tasks. Narrow things down
+                in a workspace to see the rest.
+              </p>
+            )}
+          </div>
+        )
       ) : byDay.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-sm text-muted-foreground">No dated tasks in the next 30 days.</p>
+          <p className="text-sm text-muted-foreground">No tasks due in the next 30 days.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            This lens only covers dated work from today onwards. Overdue and undated tasks are on the List lens.
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
           {byDay.map(([day, dayTasks]) => (
-            <Section key={day} title={relativeDate(day)} tasks={dayTasks} />
+            <Section key={day} title={relativeDate(day)} tasks={dayTasks} onToggle={handleToggle} pendingId={pendingToggleId} />
           ))}
         </div>
       )}

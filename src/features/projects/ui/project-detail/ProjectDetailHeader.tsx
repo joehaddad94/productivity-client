@@ -55,7 +55,7 @@ export function ProjectDetailHeader({
             </SelectItem>
             <SelectItem value="completed">
               <span className="flex items-center gap-2">
-                <span className="size-1.5 rounded-full bg-slate-400 shrink-0" />
+                <span className="size-1.5 rounded-full bg-muted-foreground shrink-0" />
                 Completed
               </span>
             </SelectItem>

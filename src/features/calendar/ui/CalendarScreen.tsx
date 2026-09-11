@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { ChevronLeft, ChevronRight, ExternalLink, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, Plus, X, WifiOff } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { cn } from "@/app/components/ui/utils";
@@ -34,8 +34,11 @@ export function CalendarScreen() {
     upcomingLabel,
     agendaGroups,
     taskStatuses,
+    workspaceNameById,
+    activeWorkspaceId,
     projectsForPicker,
     isLoading,
+    error,
     quickAddTitle, setQuickAddTitle,
     quickAddPriority, setQuickAddPriority,
     showQuickAdd, setShowQuickAdd,
@@ -70,6 +73,27 @@ export function CalendarScreen() {
   const navLabel = view === "week"
     ? weekLabel
     : `${MONTH_NAMES[viewMonth]} ${viewYear}`;
+
+  if (error && tasksByDate.size === 0) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Calendar</h1>
+        <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
+          <WifiOff className="h-7 w-7 opacity-40" />
+          <p className="text-sm font-medium">
+            {typeof navigator !== "undefined" && !navigator.onLine
+              ? "You're offline"
+              : "Failed to load your calendar"}
+          </p>
+          <p className="text-xs opacity-60">
+            {typeof navigator !== "undefined" && !navigator.onLine
+              ? "Connect to the internet to load your calendar"
+              : "Check your connection and try again"}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -319,7 +343,7 @@ export function CalendarScreen() {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5 text-[11px] text-muted-foreground">
               <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-red-400/40 border border-red-400/60" />High</span>
               <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-orange-400/40 border border-orange-400/60" />Medium</span>
-              <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-gray-400/40 border border-gray-400/60" />Low</span>
+              <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-muted-foreground/40 border border-border/80" />Low</span>
               <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-blue-500/30 border border-blue-500/50" />External event</span>
               <span className="flex items-center gap-1.5"><span className="text-emerald-400/70 font-medium">✓</span>Completed</span>
               <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-red-500/20 border border-red-500/30" />Overdue</span>
@@ -442,6 +466,11 @@ export function CalendarScreen() {
                       taskStatuses={taskStatuses}
                       onOpen={handleSelectTask}
                       onToggle={handleToggle}
+                      foreignWorkspaceName={
+                        task.workspaceId !== activeWorkspaceId
+                          ? workspaceNameById.get(task.workspaceId)
+                          : null
+                      }
                     />
                   ))}
 
@@ -476,6 +505,11 @@ export function CalendarScreen() {
                           taskStatuses={taskStatuses}
                           onOpen={handleSelectTask}
                           onToggle={handleToggle}
+                          foreignWorkspaceName={
+                            task.workspaceId !== activeWorkspaceId
+                              ? workspaceNameById.get(task.workspaceId)
+                              : null
+                          }
                         />
                       ))}
                     </>
@@ -566,11 +600,14 @@ function TaskRow({
   taskStatuses,
   onOpen,
   onToggle,
+  foreignWorkspaceName,
 }: {
   task: Task;
   taskStatuses: TaskStatusDefinition[];
   onOpen: (task: Task) => void;
   onToggle: (id: string, completed: boolean) => void;
+  /** Set only when the task belongs to a workspace other than the active one. */
+  foreignWorkspaceName?: string | null;
 }) {
   const done = isTaskStatusTerminal(task.status, taskStatuses);
   return (
@@ -589,6 +626,14 @@ function TaskRow({
         <span className={cn("text-xs truncate flex-1", done && "line-through text-muted-foreground")}>
           {task.title}
         </span>
+        {foreignWorkspaceName && (
+          <span
+            className="text-[10px] text-muted-foreground shrink-0 max-w-[7rem] truncate rounded-full border border-border/60 px-1.5 py-0.5"
+            title={foreignWorkspaceName}
+          >
+            {foreignWorkspaceName}
+          </span>
+        )}
         <span className="text-[10px] text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           {task.dueTime ?? "All day"}
         </span>

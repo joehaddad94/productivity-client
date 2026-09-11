@@ -9,7 +9,7 @@ const searchInputStyles = {
   wrapper: "relative",
   icon: "absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none",
   input:
-    "pl-9 h-10 rounded-lg border border-gray-200 dark:border-gray-700 bg-input-background transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none",
+    "pl-9 h-10 rounded-lg border border-border bg-input-background transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none",
 };
 
 export type SearchInputProps = Omit<

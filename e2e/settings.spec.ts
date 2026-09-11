@@ -78,8 +78,15 @@ test.describe("Settings — Calendars", () => {
 test.describe("Settings — Notifications", () => {
   test.beforeEach(async ({ page }) => {
     await goto(page, "/settings");
-    // Scope to settings tab nav to avoid matching the notification bell button
-    await page.locator('main, [role="main"]').getByText("Notifications", { exact: true }).click();
+    // Settings renders its nav twice — a horizontal bar for narrow viewports
+    // (lg:hidden) and a sidebar for wide ones (hidden lg:flex) — so scoping to
+    // <main> alone still matches two "Notifications" buttons and trips strict
+    // mode. Filter to the one actually shown at the current viewport.
+    await page
+      .locator('main, [role="main"]')
+      .getByRole("button", { name: "Notifications", exact: true })
+      .filter({ visible: true })
+      .click();
   });
 
   test("shows notification toggle switches", async ({ page }) => {

@@ -86,7 +86,7 @@ function formatFocus(minutes: number): string {
 const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
 const PRIORITY_PILL: Record<string, string> = {
-  low: "text-gray-500 bg-gray-100 dark:bg-gray-800",
+  low: "text-muted-foreground bg-muted",
   medium: "text-amber-700 bg-amber-50 dark:bg-amber-950/50 dark:text-amber-400",
   high: "text-red-700 bg-red-50 dark:bg-red-950/50 dark:text-red-400",
 };
@@ -1535,7 +1535,7 @@ export function TasksScreen() {
                   projects={projectsForPicker}
                   taskStatuses={taskStatuses}
                   onAdd={() => setCreateOpen(true)}
-                  onQuickAdd={(title) => handleCreate({ title, status: s.id })}
+                  onQuickAdd={(title) => handleCreate({ title, status: s.id, ...(user ? { assigneeIds: [user.id] } : {}) })}
                   onToggleExpand={handleToggleExpand}
                   onToggle={handleToggle}
                   onStatusChange={handleStatusChange}

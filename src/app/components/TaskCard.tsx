@@ -22,13 +22,13 @@ function initialsFor(user: { name: string | null; email: string }): string {
 }
 
 const PRIORITY_TEXT: Record<string, string> = {
-  low: "text-gray-500 dark:text-gray-400",
+  low: "text-muted-foreground",
   medium: "text-amber-700 dark:text-amber-400",
   high: "text-red-600 dark:text-red-400",
 };
 
 const PRIORITY_DOT: Record<string, string> = {
-  low: "bg-gray-400",
+  low: "bg-muted-foreground",
   medium: "bg-amber-500",
   high: "bg-red-500",
 };

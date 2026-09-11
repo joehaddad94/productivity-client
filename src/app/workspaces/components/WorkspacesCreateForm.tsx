@@ -68,14 +68,14 @@ export function WorkspacesCreateForm({
     <form
       onSubmit={handleSubmit}
       className={cn(
-        "rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4",
-        "bg-gray-50/50 dark:bg-gray-800/30"
+        "rounded-lg border border-border p-4 space-y-4",
+        "bg-muted/40"
       )}
     >
       <div className="grid gap-2">
         <Label
           htmlFor="create-name"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+          className="text-sm font-medium text-foreground"
         >
           Name
         </Label>
@@ -86,15 +86,15 @@ export function WorkspacesCreateForm({
           placeholder="My Workspace"
           maxLength={NAME_MAX}
           disabled={isPending}
-          className="rounded-md border-gray-200 dark:border-gray-700"
+          className="rounded-md border-border"
         />
       </div>
       <div className="grid gap-2">
         <Label
           htmlFor="create-slug"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+          className="text-sm font-medium text-foreground"
         >
-          Slug <span className="font-normal text-gray-400">(optional)</span>
+          Slug <span className="font-normal text-muted-foreground">(optional)</span>
         </Label>
         <Input
           id="create-slug"
@@ -111,7 +111,7 @@ export function WorkspacesCreateForm({
           placeholder="my-workspace"
           maxLength={SLUG_MAX}
           disabled={isPending}
-          className="rounded-md border-gray-200 dark:border-gray-700"
+          className="rounded-md border-border"
         />
       </div>
       <div className="flex items-center gap-2">
@@ -123,7 +123,7 @@ export function WorkspacesCreateForm({
         />
         <Label
           htmlFor="create-personal"
-          className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer"
+          className="text-sm text-muted-foreground cursor-pointer"
         >
           Personal workspace
         </Label>

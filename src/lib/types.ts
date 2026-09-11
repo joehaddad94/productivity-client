@@ -50,7 +50,6 @@ export interface WorkspaceMember {
   userId: string;
   workspaceId: string;
   role: string;
-  canSeeAllTasks: boolean;
   user: {
     id: string;
     email: string;

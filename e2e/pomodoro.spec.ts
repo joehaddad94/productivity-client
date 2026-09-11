@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { goto } from "./helpers";
+import { API } from "./env";
 
 /** The Pomodoro widget is a fixed pill in the bottom-right corner, always visible. */
 async function expandPomodoro(page: import("@playwright/test").Page) {
@@ -10,6 +11,30 @@ async function expandPomodoro(page: import("@playwright/test").Page) {
 
 test.describe("Pomodoro", () => {
   test.beforeEach(async ({ page }) => {
+    // Reset the timer before each test.
+    //
+    // Timer state is deliberately durable — it lives in localStorage AND on
+    // the server so a session survives a reload and syncs across devices.
+    // That makes these tests order-dependent: any test that leaves the timer
+    // running means the next one finds "Pause" where it expects "Start", and
+    // fails for a reason that has nothing to do with what it is checking.
+    await page.goto("/dashboard");
+    await page.evaluate(() => {
+      try {
+        localStorage.removeItem("pomodoro_timer_state");
+      } catch {
+        /* storage unavailable */
+      }
+    });
+    await page.request.patch(`${API}/timer-state`, {
+      data: {
+        sessionType: "work",
+        startedAt: null,
+        secondsLeft: 25 * 60,
+        sessionCount: 0,
+        totalFocusMinutes: 0,
+      },
+    });
     await goto(page, "/dashboard");
   });
 

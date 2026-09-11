@@ -5,13 +5,12 @@ import { toast } from "sonner";
 import type { Task, TaskStatusDefinition } from "@/lib/types";
 import type { UpdateTaskBody } from "@/lib/api/tasks-api";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
+import { useMeTasksQuery, useQuickAddTaskMutation } from "@/hooks/useMeTasks";
 import {
-  useTasksQuery,
-  useCreateTaskMutation,
-  useUpdateTaskMutation,
-  useDeleteTaskMutation,
-} from "@/app/hooks/useTasksApi";
-import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
+  useAllWorkspaceTaskStatuses,
+  useCrossWorkspaceTaskMutations,
+  meTaskToTask,
+} from "@/hooks/useCrossWorkspaceTasks";
 import { useProjectsQuery } from "@/app/hooks/useProjectsApi";
 import {
   ensureTaskStatuses,
@@ -53,7 +52,7 @@ function getSundayOfWeek(date: Date): string {
 }
 
 export function useCalendarScreen() {
-  const { currentWorkspace } = useWorkspace();
+  const { currentWorkspace, workspaces } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
 
   const now = new Date();
@@ -68,14 +67,50 @@ export function useCalendarScreen() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showDetail, setShowDetail] = useState(false);
 
-  const { data: page, isLoading } = useTasksQuery(workspaceId, { limit: 500 });
-  const allTasks = page?.tasks ?? [];
-
-  const { data: rawStatuses = [] } = useTaskStatusesQuery(workspaceId);
-  const taskStatuses: TaskStatusDefinition[] = useMemo(
-    () => ensureTaskStatuses(workspaceId, rawStatuses),
-    [workspaceId, rawStatuses],
+  // "My calendar", not "this team's calendar" (docs/task-model-and-rollup.md §4).
+  // The list lens returns every task that is mine across every workspace; the
+  // calendar buckets them by date locally, so undated and overdue work stays
+  // reachable in the agenda and overdue panes.
+  const { data: page, isLoading, error } = useMeTasksQuery({ lens: "list", limit: 500 });
+  const allTasks: Task[] = useMemo(
+    () => (page?.tasks ?? []).map(meTaskToTask),
+    [page?.tasks],
   );
+
+  // Only the workspaces that actually have tasks on this calendar.
+  const presentWorkspaceIds = useMemo(
+    () => [...new Set(allTasks.map((t) => t.workspaceId))],
+    [allTasks],
+  );
+  const statusesByWorkspace = useAllWorkspaceTaskStatuses(presentWorkspaceIds);
+
+  // Status ids are UUIDs and therefore unique across workspaces, so a single
+  // flattened list resolves terminality for a task from any workspace. The
+  // legacy bare keys collide by design and mean the same thing everywhere.
+  const taskStatuses: TaskStatusDefinition[] = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: TaskStatusDefinition[] = [];
+    for (const rows of statusesByWorkspace.values()) {
+      for (const row of rows) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        merged.push(row);
+      }
+    }
+    return merged.length > 0 ? merged : ensureTaskStatuses(workspaceId, []);
+  }, [statusesByWorkspace, workspaceId]);
+
+  const statusesFor = (wsId: string): TaskStatusDefinition[] =>
+    statusesByWorkspace.get(wsId) ?? taskStatuses;
+
+  // Rows now arrive from several workspaces, so each one needs to say where it
+  // came from. Only foreign rows are labelled; tagging every row with the
+  // workspace you are already in would be noise.
+  const workspaceNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const w of workspaces) map.set(w.id, w.name);
+    return map;
+  }, [workspaces]);
 
   const { data: projectsPage } = useProjectsQuery(workspaceId, { limit: 200 });
   const projectsForPicker = useMemo(
@@ -83,26 +118,28 @@ export function useCalendarScreen() {
     [projectsPage],
   );
 
-  const createMutation = useCreateTaskMutation(workspaceId, {
+  // Quick-add follows the same rule as Home (§6.2): the active workspace when
+  // there is one, otherwise personal, and always self-assigned so the new task
+  // comes straight back into this calendar.
+  const createMutation = useQuickAddTaskMutation({
     onSuccess: () => { toast.success("Task added"); setQuickAddTitle(""); setShowQuickAdd(false); },
     onError: (err) => toast.error(err.message),
   });
 
-  const updateMutation = useUpdateTaskMutation(workspaceId, {
-    onError: (err) => toast.error(err.message),
-  });
+  const { updateMutation, deleteMutation } = useCrossWorkspaceTaskMutations();
 
-  const deleteMutation = useDeleteTaskMutation(workspaceId, {
-    onSuccess: () => toast.success("Task deleted"),
-    onError: (err) => toast.error(err.message),
-  });
+  /** A rollup row can belong to any workspace, so carry its own id per call. */
+  const workspaceIdOf = (taskId: string): string | null =>
+    allTasks.find((t) => t.id === taskId)?.workspaceId ?? null;
 
   const handleAddTaskOnDate = () => {
     const title = quickAddTitle.trim();
     if (!title || !workspaceId) return;
+    // meApi.quickAdd self-assigns the creator server-side (§6.2).
     createMutation.mutate({
       title,
       dueDate: selectedDate,
+      ...(workspaceId ? { workspaceId } : {}),
       ...(quickAddPriority !== "none" && { priority: quickAddPriority }),
     });
   };
@@ -113,19 +150,37 @@ export function useCalendarScreen() {
   };
 
   const handleSave = (id: string, body: UpdateTaskBody) => {
-    updateMutation.mutate({ id, body });
+    const wsId = workspaceIdOf(id);
+    if (!wsId) return;
+    updateMutation.mutate({ workspaceId: wsId, id, body });
   };
 
   const handleDelete = (id: string) => {
+    const wsId = workspaceIdOf(id);
+    if (!wsId) return;
     setShowDetail(false);
-    deleteMutation.mutate(id);
+    deleteMutation.mutate(
+      { workspaceId: wsId, id },
+      {
+        onSuccess: () => toast.success("Task deleted"),
+        onError: (err) => toast.error(err.message),
+      },
+    );
   };
 
   const handleToggle = (id: string, completed: boolean) => {
+    const wsId = workspaceIdOf(id);
+    if (!wsId) return;
+    // Resolve done/open against the task's OWN workspace vocabulary — status
+    // ids are per-workspace, so the active workspace's ids would be rejected.
+    const own = statusesFor(wsId);
     const nextStatus = completed
-      ? firstTerminalStatusId(taskStatuses)
-      : defaultNonTerminalStatusId(taskStatuses);
-    updateMutation.mutate({ id, body: { status: nextStatus } });
+      ? firstTerminalStatusId(own)
+      : defaultNonTerminalStatusId(own);
+    updateMutation.mutate(
+      { workspaceId: wsId, id, body: { status: nextStatus } },
+      { onError: (err) => toast.error(err.message) },
+    );
   };
 
   const todayYMD = toYMD(now);
@@ -134,7 +189,19 @@ export function useCalendarScreen() {
   const rangeStart = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-01`;
   const lastDay = new Date(viewYear, viewMonth + 1, 0).getDate();
   const rangeEnd = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-  const { data: externalEvents = [] } = useCalendarEventsQuery(rangeStart, rangeEnd);
+
+  // The month grid always renders 42 cells, so it shows several days either
+  // side of the month, and a week view can straddle a boundary entirely.
+  // Fetching external events for the month alone left those overhanging days
+  // blank. Pad by a week at each end.
+  const padDays = (ymd: string, days: number) => {
+    const d = new Date(`${ymd}T00:00:00`);
+    d.setDate(d.getDate() + days);
+    return toYMD(d);
+  };
+  const eventsFrom = padDays(rangeStart, -7);
+  const eventsTo = padDays(rangeEnd, 7);
+  const { data: externalEvents = [] } = useCalendarEventsQuery(eventsFrom, eventsTo);
 
   const externalByDate = useMemo(() => {
     const map = new Map<string, ExternalCalendarEvent[]>();
@@ -261,7 +328,10 @@ export function useCalendarScreen() {
   // Agenda: all tasks with due dates, grouped by date, sorted chronologically
   const agendaGroups = useMemo(() => {
     const sorted = allTasks
-      .filter((t) => t.dueDate)
+      // Match the upcoming and overdue panes, which both drop terminal tasks.
+      // Without this the agenda was the one place on the screen still listing
+      // finished work, mixed in with what is still outstanding.
+      .filter((t) => t.dueDate && !isTaskStatusTerminal(t.status, taskStatuses))
       .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
     const groups = new Map<string, Task[]>();
     for (const t of sorted) {
@@ -270,7 +340,7 @@ export function useCalendarScreen() {
       groups.get(key)!.push(t);
     }
     return groups;
-  }, [allTasks]);
+  }, [allTasks, taskStatuses]);
 
   // Week view label e.g. "May 4–10, 2026"
   const weekLabel = (() => {
@@ -302,8 +372,11 @@ export function useCalendarScreen() {
     upcomingLabel,
     agendaGroups,
     taskStatuses,
+    workspaceNameById,
+    activeWorkspaceId: workspaceId,
     projectsForPicker,
     isLoading,
+    error,
     quickAddTitle, setQuickAddTitle,
     quickAddPriority, setQuickAddPriority,
     showQuickAdd, setShowQuickAdd,

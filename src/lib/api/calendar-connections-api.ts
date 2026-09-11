@@ -2,37 +2,7 @@
  * Calendar Connections API client.
  * Base: {NEXT_PUBLIC_API_URL}/calendar-connections
  */
-
-const API_BASE =
-  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_URL) || "";
-
-function api(path: string, options: RequestInit = {}) {
-  const url = API_BASE ? `${API_BASE}${path}` : path;
-  return fetch(url, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...options.headers },
-    credentials: "include",
-  });
-}
-
-async function parseJson(res: Response): Promise<unknown> {
-  const text = await res.text();
-  if (!text.trim()) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { message: res.statusText || "Request failed" };
-  }
-}
-
-function getMessage(data: unknown): string {
-  if (data && typeof data === "object") {
-    const o = data as Record<string, unknown>;
-    if (typeof o.message === "string") return o.message;
-    if (typeof o.error === "string") return o.error;
-  }
-  return "Request failed";
-}
+import { api, getMessage, parseJson, throwApiError } from "./client";
 
 export interface CalendarConnectionInfo {
   id: string;
@@ -54,23 +24,22 @@ export interface ExternalCalendarEvent {
 export const calendarConnectionsApi = {
   list: async (): Promise<CalendarConnectionInfo[]> => {
     const res = await api("/calendar-connections");
-    if (res.status === 401) return [];
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     return data as CalendarConnectionInfo[];
   },
 
   getGoogleAuthUrl: async (): Promise<string> => {
     const res = await api("/calendar-connections/google/auth");
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     return (data as { url: string }).url;
   },
 
   getMicrosoftAuthUrl: async (): Promise<string> => {
     const res = await api("/calendar-connections/microsoft/auth");
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     return (data as { url: string }).url;
   },
 
@@ -86,9 +55,8 @@ export const calendarConnectionsApi = {
   getEvents: async (start: string, end: string): Promise<ExternalCalendarEvent[]> => {
     const qs = new URLSearchParams({ start, end });
     const res = await api(`/calendar-connections/events?${qs}`);
-    if (res.status === 401) return [];
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     return data as ExternalCalendarEvent[];
   },
 };

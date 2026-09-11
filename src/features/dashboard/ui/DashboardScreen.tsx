@@ -170,6 +170,8 @@ export function DashboardScreen() {
                 <button
                   className="flex items-center justify-between w-full mb-3 group"
                   onClick={() => setOverdueExpanded((v) => !v)}
+                  aria-expanded={overdueExpanded}
+                  aria-controls="dashboard-overdue-list"
                 >
                   <h2 className="text-xs font-semibold uppercase tracking-wider text-red-500">
                     Overdue · {overdueTasks.length}
@@ -180,7 +182,7 @@ export function DashboardScreen() {
                   }
                 </button>
                 {overdueExpanded && (
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5" id="dashboard-overdue-list">
                     {overdueTasks.map((task) => (
                       <TaskCard key={task.id} task={task} taskStatuses={taskStatuses} onToggle={handleToggleTask} />
                     ))}

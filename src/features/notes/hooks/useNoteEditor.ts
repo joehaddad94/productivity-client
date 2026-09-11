@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useEditor } from "@tiptap/react";
 import { toast } from "sonner";
 import { buildNoteEditorExtensions } from "../lib/noteEditorExtensions";
@@ -22,6 +22,24 @@ export function useNoteEditor({ noteId, contentHtml, onHtmlDebounced }: UseNoteE
   noteIdRef.current = noteId;
   const onHtmlDebouncedRef = useRef(onHtmlDebounced);
   onHtmlDebouncedRef.current = onHtmlDebounced;
+
+  /**
+   * The edit waiting out the debounce window, kept alongside the timer so it
+   * can be delivered rather than discarded when the window is cut short.
+   * Carries its own noteId: a flush triggered by switching notes runs after
+   * `noteId` has already changed, and the edit still belongs to the old note.
+   */
+  const pendingRef = useRef<{ noteId: string; html: string } | null>(null);
+
+  const flushPending = useCallback(() => {
+    if (contentDebounceRef.current) {
+      clearTimeout(contentDebounceRef.current);
+      contentDebounceRef.current = null;
+    }
+    const pending = pendingRef.current;
+    pendingRef.current = null;
+    if (pending) onHtmlDebouncedRef.current(pending.noteId, pending.html);
+  }, []);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -57,48 +75,64 @@ export function useNoteEditor({ noteId, contentHtml, onHtmlDebounced }: UseNoteE
       handleDrop(view, event) {
         const files = event.dataTransfer?.files;
         if (!files || files.length === 0) return false;
-        const file = files[0];
-        if (!file.type.startsWith("image/")) return false;
-        if (file.size > NOTE_EDITOR_MAX_IMAGE_BYTES) {
-          toast.error("Image is too large (max 1.5 MB)");
-          return true;
+        const images = Array.from(files).filter((f) =>
+          f.type.startsWith("image/"),
+        );
+        if (images.length === 0) return false;
+        // Dropping several images used to insert only the first, silently.
+        if (images.length > 1) {
+          toast.info(`Inserting ${images.length} images`);
         }
         event.preventDefault();
-        readImageAsDataUrl(file).then((src) => {
-          if (!src) {
-            toast.error("Could not read the dropped image");
-            return;
+        const coords = { left: event.clientX, top: event.clientY };
+        const pos = view.posAtCoords(coords);
+        // Sequential so the images land in the order they were dropped.
+        void (async () => {
+          let insertAt = pos?.pos;
+          for (const image of images) {
+            if (image.size > NOTE_EDITOR_MAX_IMAGE_BYTES) {
+              toast.error(`"${image.name}" is too large (max 1.5 MB)`);
+              continue;
+            }
+            const src = await readImageAsDataUrl(image);
+            if (!src) {
+              toast.error(`Could not read "${image.name}"`);
+              continue;
+            }
+            const tr = view.state.tr;
+            const node = view.state.schema.nodes.image.create({ src });
+            if (insertAt !== undefined) {
+              tr.insert(insertAt, node);
+              insertAt += node.nodeSize;
+            } else {
+              tr.replaceSelectionWith(node);
+            }
+            view.dispatch(tr.scrollIntoView());
           }
-          const coords = { left: event.clientX, top: event.clientY };
-          const pos = view.posAtCoords(coords);
-          const tr = view.state.tr;
-          const node = view.state.schema.nodes.image.create({ src });
-          if (pos) {
-            tr.insert(pos.pos, node);
-          } else {
-            tr.replaceSelectionWith(node);
-          }
-          view.dispatch(tr.scrollIntoView());
-        });
+        })();
         return true;
       },
     },
     onUpdate: ({ editor: ed }) => {
       const html = ed.getHTML();
       const scheduledForNoteId = noteIdRef.current;
+      pendingRef.current = { noteId: scheduledForNoteId, html };
       if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
       contentDebounceRef.current = setTimeout(() => {
+        contentDebounceRef.current = null;
+        pendingRef.current = null;
         onHtmlDebouncedRef.current(scheduledForNoteId, html);
       }, CONTENT_DEBOUNCE_MS);
     },
   });
 
+  // Switching notes must not drop an edit that has not finished debouncing.
+  // Send it (against the note it was typed into) instead of cancelling it.
   useEffect(() => {
-    if (contentDebounceRef.current) {
-      clearTimeout(contentDebounceRef.current);
-      contentDebounceRef.current = null;
-    }
-  }, [noteId]);
+    return () => {
+      flushPending();
+    };
+  }, [noteId, flushPending]);
 
   useEffect(() => {
     if (!editor || contentHtml === undefined) return;
@@ -111,11 +145,21 @@ export function useNoteEditor({ noteId, contentHtml, onHtmlDebounced }: UseNoteE
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteId, editor]);
 
+  // Same on the way out: unmounting, hiding the tab, or closing it should
+  // deliver the pending edit rather than discard it. `visibilitychange` is the
+  // reliable one on mobile, where `beforeunload` often never fires.
   useEffect(() => {
-    return () => {
-      if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flushPending();
     };
-  }, []);
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("beforeunload", flushPending);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("beforeunload", flushPending);
+      flushPending();
+    };
+  }, [flushPending]);
 
   return { editor };
 }

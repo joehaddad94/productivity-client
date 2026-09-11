@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useAuth } from "@/app/context/AuthContext";
 import { useWorkspace } from "@/app/context/WorkspaceContext";
 import { useTasksQuery, useCreateTaskMutation, useUpdateTaskMutation } from "@/app/hooks/useTasksApi";
 import { useTaskStatusesQuery } from "@/app/hooks/useTaskStatusesApi";
@@ -15,6 +16,7 @@ import {
   filterUpcomingTasks,
   filterNoDateTasks,
 } from "@/lib/task-filters";
+import { localDateStr } from "@/lib/date-utils";
 import {
   defaultNonTerminalStatusId,
   ensureTaskStatuses,
@@ -25,6 +27,7 @@ import {
 export type TaskPriority = "low" | "medium" | "high" | null;
 
 export function useDashboardScreen() {
+  const { user } = useAuth();
   const { currentWorkspace } = useWorkspace();
   const workspaceId = currentWorkspace?.id ?? null;
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -53,15 +56,20 @@ export function useDashboardScreen() {
     return map;
   }, [tasks, taskStatuses]);
 
-  // Analytics: cover the current month AND at least the last 7 days for streak dots
+  // Analytics: cover the current month AND at least the last 7 days for streak dots.
+  //
+  // These are calendar days in the USER's timezone, so they must be formatted
+  // from local date parts. toISOString() converts to UTC first, which shifts the
+  // day for anyone not on UTC — at UTC+3 every date here was yesterday's between
+  // midnight and 03:00, so tasks due today were bucketed as Upcoming and
+  // yesterday's overdue work showed up as Today.
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+  const monthStart = localDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  const analyticsFrom = sevenDaysAgo.toISOString().split("T")[0] < monthStart
-    ? sevenDaysAgo.toISOString().split("T")[0]
-    : monthStart;
-  const todayStr = now.toISOString().split("T")[0];
+  const sevenDaysAgoStr = localDateStr(sevenDaysAgo);
+  const analyticsFrom = sevenDaysAgoStr < monthStart ? sevenDaysAgoStr : monthStart;
+  const todayStr = localDateStr(now);
 
   const { data: analytics } = useAnalyticsQuery(workspaceId, {
     from: analyticsFrom,
@@ -89,7 +97,27 @@ export function useDashboardScreen() {
   const handleAddTask = (titleOverride?: string) => {
     const title = (titleOverride ?? newTaskTitle).trim();
     if (!title || !workspaceId) return;
-    createMutation.mutate({ title, ...(newTaskPriority ? { priority: newTaskPriority } : {}) });
+    // Quick-add self-assigns the creator: assignment is what pulls a task into
+    // the personal rollup (docs/task-model-and-rollup.md §6.2). Without it a task
+    // created on a team board never reaches its own creator's Home.
+    const priority = newTaskPriority;
+    // Clear on success, restore on failure. Clearing before the result was
+    // known meant a failed create rolled back its optimistic row and threw
+    // away what the user had typed with it — the same bug already fixed on
+    // the Projects screen.
+    createMutation.mutate(
+      {
+        title,
+        ...(priority ? { priority } : {}),
+        ...(user ? { assigneeIds: [user.id] } : {}),
+      },
+      {
+        onError: () => {
+          setNewTaskTitle(title);
+          setNewTaskPriority(priority);
+        },
+      },
+    );
     setNewTaskTitle("");
     setNewTaskPriority(null);
   };
@@ -101,13 +129,28 @@ export function useDashboardScreen() {
   const upcomingTasks = filterUpcomingTasks(tasks, todayStr, taskStatuses);
   const noDateTasks   = filterNoDateTasks(tasks, taskStatuses);
 
-  const totals = analytics?.totals ?? { tasksCompleted: 0, focusMinutes: 0, streak: 0 };
+  // The query range is widened to whichever is earlier, the month start or six
+  // days ago, so the streak dots always have seven days of data. That means
+  // analytics.totals spans into the previous month during the first six days
+  // of a new one — while the panel above it is labelled "This month".
+  //
+  // Sum the month's own days here instead; the streak still comes from the
+  // server, which computes it over the full history regardless of range.
+  const totals = useMemo(() => {
+    const rows = analytics?.dailyStats ?? [];
+    const inMonth = rows.filter((s) => s.date.slice(0, 10) >= monthStart);
+    return {
+      tasksCompleted: inMonth.reduce((n, s) => n + s.tasksCompleted, 0),
+      focusMinutes: inMonth.reduce((n, s) => n + s.focusMinutes, 0),
+      streak: analytics?.totals.streak ?? 0,
+    };
+  }, [analytics?.dailyStats, analytics?.totals.streak, monthStart]);
 
   // Last 7 days as YYYY-MM-DD strings (oldest → newest)
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now);
     d.setDate(d.getDate() - (6 - i));
-    return d.toISOString().split("T")[0];
+    return localDateStr(d);
   });
 
   const activeDates = useMemo(() => new Set(
@@ -116,8 +159,12 @@ export function useDashboardScreen() {
       .map((s) => s.date.slice(0, 10)),
   ), [analytics?.dailyStats]);
 
-  const isEmpty = !tasksLoading && todayTasks.length === 0 && overdueTasks.length === 0
-    && upcomingTasks.length === 0 && noDateTasks.length === 0;
+  // "No tasks yet" is the NEW-USER state, so it must key off whether any tasks
+  // exist — not off whether any are still open. The four lists below all
+  // exclude terminal statuses, so finishing everything emptied all of them and
+  // flipped a working dashboard back to the onboarding screen, hiding the
+  // "All done for today" branch, the projects list and the stats panel.
+  const isEmpty = !tasksLoading && tasks.length === 0;
 
   return {
     workspaceId,

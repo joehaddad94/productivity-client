@@ -37,7 +37,10 @@ export function useUnreadCountQuery(workspaceId: string | null | undefined) {
     queryKey: UNREAD_KEY(workspaceId ?? ''),
     queryFn: () => notificationsApi.unreadCount(workspaceId!),
     enabled: !!workspaceId,
-    refetchInterval: 30_000,
+    // SSE pushes `notifications_changed`, so this no longer has to discover
+    // new notifications by asking every 30 seconds on an already-open
+    // connection. Kept as a slow safety net for a dropped stream.
+    refetchInterval: 5 * 60_000,
   });
 }
 

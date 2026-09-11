@@ -44,17 +44,18 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
   const draggedId = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragOverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(
-    new Map()
-  );
   const pendingToggles = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Clear any debounced toggle timers when the screen unmounts to prevent
   // state updates and stale mutation calls after the component is gone.
   useEffect(() => {
+    const toggles = pendingToggles.current;
     return () => {
-      pendingToggles.current.forEach(clearTimeout);
-      pendingToggles.current.clear();
+      toggles.forEach(clearTimeout);
+      toggles.clear();
+      // dragOverTimer was cleared on each new drag-over but never on unmount,
+      // leaving a pending setDragOverId to fire after the screen was gone.
+      if (dragOverTimer.current) clearTimeout(dragOverTimer.current);
     };
   }, []);
 
@@ -144,6 +145,22 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
       setDragOverId(null);
       if (!srcId || srcId === dropTargetId) return;
 
+      // Manual order is a property of the whole list, and the server renumbers
+      // the ids it is given to 0..n-1. Handing it a filtered or partially
+      // loaded subset therefore renumbers only that subset and collides with
+      // the sortOrder of every task not on screen, scrambling the real order
+      // as soon as the filter is cleared. Refuse rather than corrupt.
+      const isFilteredNow =
+        search.length > 0 || filterPriority !== "all" || filterProjectId !== "all";
+      if (isFilteredNow) {
+        toast.error("Clear filters to reorder tasks");
+        return;
+      }
+      if (total > tasks.length) {
+        toast.error("Load all tasks to reorder them");
+        return;
+      }
+
       const allTopLevel = tasks.filter((t) => !t.parentTaskId);
       const srcIdx = allTopLevel.findIndex((t) => t.id === srcId);
       const dstIdx = allTopLevel.findIndex((t) => t.id === dropTargetId);
@@ -153,14 +170,28 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
       const [moved] = reordered.splice(srcIdx, 1);
       reordered.splice(dstIdx, 0, moved);
 
+      // setQueriesData matches by key PREFIX, so this touches every cached
+      // filter/limit variant for the workspace, not just the one on screen.
+      // Apply the new relative order to each variant instead of overwriting
+      // its contents, which used to replace a filtered cache entry with the
+      // full unfiltered list.
+      const orderIndex = new Map(reordered.map((t, i) => [t.id, i]));
       queryClient.setQueriesData<{ tasks: Task[]; total: number }>(
         { queryKey: TASKS_QUERY_KEY(workspaceId ?? "") },
-        (old) => (old ? { ...old, tasks: reordered } : old)
+        (old) => {
+          if (!old?.tasks) return old;
+          const sorted = [...old.tasks].sort(
+            (a, b) =>
+              (orderIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+              (orderIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+          );
+          return { ...old, tasks: sorted };
+        }
       );
 
       reorderMutation.mutate(reordered.map((t) => t.id));
     },
-    [tasks, queryClient, workspaceId, reorderMutation]
+    [tasks, total, search, filterPriority, filterProjectId, queryClient, workspaceId, reorderMutation]
   );
 
   const handleBulkComplete = () => {
@@ -260,8 +291,12 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
         }
       );
       if (selectedTask?.id === id) setShowDetail(false);
-      deleteMutation.mutate(id);
-      toast.success("Task deleted");
+      // Report the outcome, not the intent. The shared onError already toasts
+      // the failure and refetches, so an unconditional success toast here meant
+      // a failed delete showed "Task deleted" AND an error, with the row back.
+      deleteMutation.mutate(id, {
+        onSuccess: () => toast.success("Task deleted"),
+      });
     },
     [queryClient, workspaceId, selectedTask, deleteMutation]
   );
@@ -289,7 +324,18 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
         };
       },
     );
-    updateMutation.mutate({ id, body: { title: trimmed } });
+    updateMutation.mutate(
+      { id, body: { title: trimmed } },
+      {
+        // The cache was patched optimistically above; without this a failed
+        // rename left the new title on screen indefinitely. handleToggle
+        // already reverts this way.
+        onError: () =>
+          queryClient.invalidateQueries({
+            queryKey: TASKS_QUERY_KEY(workspaceId ?? ""),
+          }),
+      },
+    );
   }, [queryClient, workspaceId, updateMutation]);
 
   const handleAssigneesChange = useCallback(
@@ -332,8 +378,22 @@ export function useTasksScreen({ search = "" }: { search?: string } = {}) {
       const revert = () =>
         queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY(workspaceId ?? '') });
 
-      if (toAdd.length > 0) assignMutation.mutate({ taskId, userIds: toAdd }, { onError: revert });
-      for (const userId of toRemove) unassignMutation.mutate({ taskId, userId }, { onError: revert });
+      // The API has no bulk unassign, so removals are still one call each —
+      // but fire them together and reconcile ONCE. Previously each removal
+      // carried its own onError, so a multi-assignee change could queue
+      // several independent refetches of the whole task list.
+      const calls: Promise<unknown>[] = [];
+      if (toAdd.length > 0) {
+        calls.push(assignMutation.mutateAsync({ taskId, userIds: toAdd }));
+      }
+      for (const userId of toRemove) {
+        calls.push(unassignMutation.mutateAsync({ taskId, userId }));
+      }
+      if (calls.length > 0) {
+        void Promise.allSettled(calls).then((results) => {
+          if (results.some((r) => r.status === "rejected")) revert();
+        });
+      }
     },
     [tasks, workspaceMembers, queryClient, workspaceId, assignMutation, unassignMutation],
   );

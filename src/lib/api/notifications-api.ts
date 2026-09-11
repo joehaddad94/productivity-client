@@ -1,37 +1,12 @@
 import type { AppNotification, NotificationSettings } from '@/lib/types';
 
-const API_BASE =
-  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) || '';
-
-function api(path: string, options: RequestInit = {}) {
-  const url = API_BASE ? `${API_BASE}${path}` : path;
-  return fetch(url, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    credentials: 'include',
-  });
-}
-
-async function parseJson(res: Response): Promise<unknown> {
-  const text = await res.text();
-  if (!text.trim()) return {};
-  try { return JSON.parse(text); } catch { return {}; }
-}
-
-function getMessage(data: unknown): string {
-  if (data && typeof data === 'object') {
-    const o = data as Record<string, unknown>;
-    if (typeof o.message === 'string') return o.message;
-  }
-  return 'Request failed';
-}
+import { api, parseJson, throwApiError } from './client';
 
 export const notificationsApi = {
   list: async (workspaceId: string, skip = 0, take = 50): Promise<{ items: AppNotification[]; total: number }> => {
     const res = await api(`/workspaces/${workspaceId}/notifications?skip=${skip}&take=${take}`);
-    if (res.status === 401) return { items: [], total: 0 };
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     return data as { items: AppNotification[]; total: number };
   },
 
@@ -61,7 +36,7 @@ export const notificationsApi = {
   getSettings: async (): Promise<NotificationSettings> => {
     const res = await api('/notifications/settings');
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     return data as NotificationSettings;
   },
 
@@ -71,7 +46,7 @@ export const notificationsApi = {
       body: JSON.stringify(dto),
     });
     const data = await parseJson(res);
-    if (!res.ok) throw new Error(getMessage(data));
+    if (!res.ok) throwApiError(res, data);
     return data as NotificationSettings;
   },
 

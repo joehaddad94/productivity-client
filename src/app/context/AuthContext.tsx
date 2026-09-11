@@ -13,6 +13,7 @@ import {
   AUTH_QUERY_KEY,
 } from "@/app/hooks/useAuthApi";
 import { useQueryClient } from "@tanstack/react-query";
+import { setUnauthorizedHandler } from "@/lib/api/client";
 
 function mapUser(u: AuthUser): User {
   return {
@@ -45,18 +46,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutMutation = useLogoutMutation();
   const updateMeMutation = useUpdateMeMutation();
 
-  // Silently sync the browser's IANA timezone to the server on first load.
+  // Any request coming back 401 means the session is gone. Clear the cached
+  // user so isAuthenticated flips and the app's existing redirect runs.
+  //
+  // Before this, thirteen endpoints swallowed 401 and returned an empty result,
+  // so an expired session rendered as a legitimately empty account: /home said
+  // "Nothing on your plate" and an empty workspace list pushed established
+  // users into the create-your-first-workspace gate.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      // Only act on the transition from signed-in to signed-out.
+      //
+      // Clearing unconditionally is a feedback loop: the clear re-renders the
+      // tree, the dependent queries refetch, they 401 again, and the handler
+      // fires again — a steady stream of /auth/me and friends that never
+      // settles. Once the cached user is already null there is nothing left to
+      // do, so bail.
+      const current = queryClient.getQueryData(AUTH_QUERY_KEY);
+      if (current == null) return;
+      queryClient.setQueryData(AUTH_QUERY_KEY, null);
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [queryClient]);
+
+  // Seed the user's IANA timezone from the browser the first time we see an
+  // account without one.
+  //
+  // This deliberately does NOT reconcile on every load. It used to, and that
+  // made Settings' timezone field impossible to use: any value differing from
+  // the device was overwritten on the next page load, so the control looked
+  // editable but could never hold a choice. The value is not cosmetic — it is
+  // what the server uses to decide quiet hours and when to send the daily
+  // agenda, so a deliberate choice (travelling, or pinning a work timezone)
+  // has to survive.
   useEffect(() => {
     if (!meFetched || !meUser) return;
+    if (meUser.timezone) return;
     let detectedTz: string;
     try {
       detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     } catch {
       return;
     }
-    if (meUser.timezone !== detectedTz) {
-      updateMeMutation.mutate({ timezone: detectedTz });
-    }
+    if (detectedTz) updateMeMutation.mutate({ timezone: detectedTz });
   // Only run when meFetched flips to true or the user identity changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meFetched, meUser?.id]);

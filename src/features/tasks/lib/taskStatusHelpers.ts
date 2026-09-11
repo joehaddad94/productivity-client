@@ -75,16 +75,16 @@ export function taskStatusVisual(
   }
   if (statusId === LEGACY_IN_PROGRESS) {
     return {
-      dot: "bg-blue-500",
+      dot: "bg-[var(--chart-2)]",
       label,
-      badge: "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/5",
+      badge: "border-[var(--chart-2)]/30 text-[var(--chart-2)] bg-[var(--chart-2)]/10",
     };
   }
   if (statusId === LEGACY_COMPLETED || s?.isTerminal) {
     return {
-      dot: "bg-green-500",
+      dot: "bg-primary",
       label,
-      badge: "border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/5",
+      badge: "border-primary/30 text-primary bg-primary/10",
     };
   }
   return {

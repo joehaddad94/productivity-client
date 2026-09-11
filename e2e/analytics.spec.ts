@@ -43,9 +43,19 @@ test.describe("Analytics", () => {
   });
 
   test("chart area renders (with data or empty state)", async ({ page }) => {
-    // Chart renders when data exists; empty state message renders otherwise
-    const hasChart = await page.locator(".recharts-surface").first().isVisible().catch(() => false);
-    const hasEmptyState = await page.getByText(/no tasks completed/i).first().isVisible().catch(() => false);
-    expect(hasChart || hasEmptyState).toBe(true);
+    // Chart renders when data exists; empty state message renders otherwise.
+    //
+    // These two are mutually exclusive in the component, so one always arrives
+    // — but not necessarily before this test starts. isVisible() is an
+    // immediate check that does not retry, so the original version raced the
+    // analytics request and reported false for both while the card was still
+    // loading. Every other test in this file uses an auto-retrying assertion;
+    // this one did not. `or()` waits for whichever appears first.
+    await expect(
+      page
+        .locator(".recharts-surface")
+        .first()
+        .or(page.getByText(/no tasks completed/i).first()),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });
